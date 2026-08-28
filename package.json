@@ -1,0 +1,38 @@
+{
+  "name": "gas-react-tailwind-template",
+  "version": "1.0.0",
+  "description": "Google Apps Script with React, Tailwind CSS, TypeScript, and V8 Runtime",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build:client": "vite build",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build": "npm run build:client && npm run build:server && node scripts/copy-manifest.js",
+    "push": "clasp push",
+    "deploy": "npm run build && clasp push",
+    "pull": "clasp pull",
+    "logs": "clasp logs",
+    "open": "clasp open",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "devcontainer": "^0.3.0",
+    "lucide-react": "^1.16.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2",
+    "@types/google-apps-script": "^1.0.89",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vite-plugin-singlefile": "^2.1.0"
+  }
+}

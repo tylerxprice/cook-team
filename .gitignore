@@ -1,0 +1,24 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output
+dist/
+
+# Clasp local config and credentials
+.clasp.json
+.clasprc.json
+
+# Environment / local state
+.env
+.env.local
+.DS_Store
+# Editor swap files
+*.swp
+*.swo
+*~
+
+# Antigravity / Gemini CLI session state
+.gemini/

@@ -1,0 +1,6 @@
+# Ignore all source, config, and dev dependencies
+**/*
+!dist/**
+!dist/appsscript.json
+!dist/Code.js
+!dist/index.html

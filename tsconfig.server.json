@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022"],
+    "types": ["google-apps-script"],
+    "outDir": "./dist",
+    "rootDir": "./src/server",
+    "strict": true,
+    "skipLibCheck": true,
+    "noImplicitAny": true,
+    "experimentalDecorators": true
+  },
+  "include": ["src/server/**/*"]
+}

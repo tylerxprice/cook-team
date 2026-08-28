@@ -1,0 +1,46 @@
+{
+  "name": "GAS Fullstack Dev (React + Tailwind + AGY)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "remoteUser": "developer",
+  "mounts": [
+    "source=${localEnv:HOME}/.devcontainer-home,target=/home/developer,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.gemini,target=/home/developer/.gemini,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.gitconfig,target=/home/developer/.gitconfig,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.clasprc.json,target=/home/developer/.clasprc.json,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.ssh,target=/home/developer/.ssh,type=bind,consistency=cached"
+  ],
+  "forwardPorts": [5173],
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite React App Preview",
+      "onAutoForward": "notify"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.tabSize": 2,
+        "files.trimTrailingWhitespace": true,
+        "tailwindCSS.experimental.classRegex": [
+          ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+          ["cx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"]
+        ]
+      },
+      "extensions": [
+        "bradlc.vscode-tailwindcss",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "formulahendry.auto-rename-tag",
+        "dsznajder.es7-react-js-snippets",
+        "pkief.material-icon-theme"
+      ]
+    }
+  },
+  "postCreateCommand": "npm install"
+}

@@ -1,0 +1,202 @@
+# Product & Technical Specification: Community Meal Team Scheduler (`CookTeamTool`)
+
+## 1. Overview & Objectives
+
+**CookTeamTool** is a zero-cost, web-based planning application designed for community meal coordinators (Brenda) to generate optimal, constraint-compliant monthly cook and clean teams from Google Form availability surveys.
+
+---
+
+## 2. System Architecture & Tech Stack
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ CLIENT / FRONTEND (Browser UI)                              │
+│ • Single-Page App served via Google Apps Script HtmlService │
+│ • React 18 + Tailwind CSS (bundled via Vite Singlefile)     │
+│ • Step wizard: Intake -> Audit -> Rules -> Solver -> Export │
+│ • Modal dialogs for exception management & member directory │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ google.script.run (RPC)
+┌──────────────────────────────▼──────────────────────────────┐
+│ SERVER / BACKEND (Google Apps Script V8 Runtime)            │
+│ • Code.gs: API handler, Google Sheets reader/writer         │
+│ • Matchmaker Engine: Constraint Solver (CSP/Backtracking)   │
+│ • Execution Mode: Runs as script owner                      │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ Direct DriveApp / SpreadsheetApp
+┌──────────────────────────────▼──────────────────────────────┐
+│ DATA STORAGE & INTEGRATION (Google Workspace)               │
+│ • Google Form: Community monthly availability survey        │
+│ • Survey Spreadsheet: Raw responses linked from Form        │
+│ • Master Cohousing Sheet: Member directory & Exceptions tab │
+└─────────────────────────────────────────────────────────────┘
+```
+
+* **Frontend:** React 18, Tailwind CSS, Lucide icons, bundled into a single self-contained HTML file via `vite-plugin-singlefile` and served via Google Apps Script `HtmlService`.
+* **Backend Runtime:** Google Apps Script (V8 Engine, Serverless JavaScript/TypeScript).
+* **Developer Tooling & Deployment:**
+  * **CLI & Deployment:** `@google/clasp` for local development, pushing code, and versioned deployments (`/dev` for dev, `/exec` for production).
+  * **Source Control:** Git repository.
+  * **Dev Environment:** Devcontainer (Ubuntu 24.04 LTS, Node.js 22 LTS, `clasp`, `git`, `agy`) with local Vite mock mode (`npm run dev`).
+
+---
+
+## 3. Data Schema & Structures
+
+### 3.1. Master Spreadsheet Tabs
+
+#### `Members` Tab (Community Member Registry)
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `name` | String | Full name (e.g., `"Tyler"`, `"Brenda"`, `"Cyrena"`) |
+| `google_email` | String | Associated Google account email |
+| `active` | Boolean | `true` if active participant, `false` if dormant / long-term inactive |
+| `last_active_survey` | String (Nullable) | Month/year of last submitted survey (e.g., `"2026-08"`) |
+
+#### `Exceptions` Tab (Persistent & Ad-Hoc Rule Registry)
+
+| Field | Type | Options / Example |
+| :--- | :--- | :--- |
+| `person_a` | String | `"Tyler"` |
+| `person_b` | String (Nullable) | `"Rose"` |
+| `rule_type` | Enum | `NOT_SAME_TEAM`, `NOT_SAME_DAY`, `SAME_DAY_DIFF_TEAM`, `PAIR_WITH_ROLE`, `PREF_SAME_DAY` |
+| `target_role_a` | Enum (Nullable) | `COOK`, `CLEAN`, `ANY` |
+| `target_role_b` | Enum (Nullable) | `COOK`, `CLEAN`, `ANY` |
+| `is_hard_rule` | Boolean | `true` (strict constraint) vs `false` (soft preference) |
+| `notes` | String (Nullable) | Freeform rationale or duration (e.g. `"Roommates"`, `"Childcare"`) |
+
+---
+
+## 4. Core Shift Rules & Constraints
+
+### 4.1. Team Size Definitions & Policy Options
+
+* **Cook Team Size Policy:**
+  * Option A (Default): **Dinner = 3 cooks, Brunch = 2 cooks**
+  * Option B: **2 cooks regardless of meal type** (Dinner = 2, Brunch = 2)
+  * *Coordinator can toggle this policy or follow survey consensus.*
+* **Clean Team Size:**
+  * **Dinner Clean Team:** 3 cleaners
+  * **Brunch Clean Team:** 2 cleaners
+
+### 4.2. Default Global Constraints & Quotas
+
+* **Clean Shift Quota:** Default maximum **1 clean shift per month** per member (balanced across community members).
+* **Cook Shift Quota:** Member-specified quota from survey response (*"How many meals can you cook this month?"*).
+* **Different Shift Rule (Default):** A person cannot be scheduled to `COOK` and `CLEAN` on the same day unless:
+  * The member answered `"Yes"` to *"Can you cook and clean on the same day?"* in their survey, OR
+  * An explicit `PREF_SAME_DAY` exception rule is configured.
+* **Capacity Constraint:** No member is scheduled beyond their total monthly shift capacity without coordinator override.
+
+### 4.3. Exception Rule Types & Supported Logic
+
+| Rule Pattern | Constraint Formulation |
+| :--- | :--- |
+| **A and B NOT on same TEAM** (`NOT_SAME_TEAM`) | For all days $d$, roles $r$: $\text{Assign}(A, d, r) + \text{Assign}(B, d, r) \le 1$ |
+| **A and B NOT on same DAY** (`NOT_SAME_DAY`) | For all days $d$: $\text{Assigned}(A, d) + \text{Assigned}(B, d) \le 1$ |
+| **A and B SAME DAY, DIFF TEAM** (`SAME_DAY_DIFF_TEAM`) | For all days $d$: $\text{Assigned}(A, d) = \text{Assigned}(B, d)$ AND $\text{Assign}(A, d, r) + \text{Assign}(B, d, r) \le 1$ |
+| **A on CLEAN when B on COOK** (`PAIR_WITH_ROLE`) | For all days $d$: $\text{Assign}(A, d, \text{CLEAN}) = \text{Assign}(B, d, \text{COOK})$ |
+| **A prefers COOK & CLEAN same day** (`PREF_SAME_DAY`) | Override default non-overlap constraint for Person A |
+
+---
+
+## 5. End-to-End User Workflows
+
+```
+  [ Monthly Google Form Survey Sent ] 
+                 │
+                 ▼
+  ┌─────────────────────────────────┐
+  │ 1. Survey Intake & Validation   │ ──── Format Invalid? ──► [ Show Diagnostic Banner / Alert Lead ]
+  └──────────────┬──────────────────┘
+                 │ Valid
+                 ▼
+  ┌─────────────────────────────────┐
+  │ 2. Completeness Audit           │ ◄─── Auto-Reactivate Inactive Survey Respondents
+  │    (Missing Active Members)     │ ──── [Mark Inactive] ──► Set active=false (Clear from list)
+  └──────────────┬──────────────────┘ ──── [Add Manual Rows]
+                 │ Audit Passed / Confirmed
+                 ▼
+  ┌─────────────────────────────────┐
+  │ 3. Review Notes & Rules         │ ◄─── Special Instructions from Survey
+  │    (Configure Exceptions)       │ ──── Add / Edit / Toggle Hard vs Soft Rules
+  └──────────────┬──────────────────┘
+                 │ Confirm Rules
+                 ▼
+  ┌─────────────────────────────────┐
+  │ 4. Run Matchmaker Solver        │ ──── Backtracking / CSP Solver Engine
+  └──────────────┬──────────────────┘
+                 │
+                 ▼
+  ┌─────────────────────────────────┐
+  │ 5. Review, Inspect & Adjust     │ ──── Need adjustments? ──► [ Add Exception -> Re-Solve ]
+  └──────────────┬──────────────────┘
+                 │ Satisfied
+                 ▼
+  ┌─────────────────────────────────┐
+  │ 6. Export & Publish             │ ──── Write to Google Sheet ('Schedule_Output')
+  └─────────────────────────────────┘ ──── [Copy Email Summary to Clipboard]
+```
+
+### 5.1. Survey Generation & Intake
+
+1. Coordinator builds new Google Form survey based on previous month.
+2. Results automatically populate linked Google Sheet.
+
+### 5.2. Matchmaking Workflow (Brenda's Experience)
+
+1. **Open Tool:** Brenda accesses the Web App URL (`/exec`).
+2. **Sheet Intake & Validation:** Brenda inputs next month's survey sheet URL/ID.
+   * *Validation Gate:* Validates headers and data structure. If invalid, displays diagnostic banner with specific format errors.
+   * *Auto-Reactivation Trigger:* If any respondent is present in the `Members` registry with `active == false`, the system automatically reactivates them (`active: true`), updates `last_active_survey`, and surfaces a badge: *"✨ Reactivated returning member: [Name]"*.
+   * *Unrecognized Respondent Check:* If an incoming respondent is not found in the `Members` registry, prompts Brenda to add them as a new active member.
+
+3. **Completeness Audit (Missing Active Members):**
+   * Computes missing active members:
+     $$\text{Missing Active Members} = \{ m \in \text{Members} \mid m.\text{active} = \text{true} \} \setminus \text{Survey Respondents}$$
+   * *Interactive Audit List:* For each missing active member, Brenda has two clear options:
+     1. `[Manually Add Responses]`: Enter their shift preferences and quota on their behalf.
+     2. `[Mark Inactive]`: Flips `active: false` in the Master Sheet, instantly clearing them from the missing list for this month and skipping them in future months.
+
+4. **Special Instructions & Exception Editor:**
+   * App displays all raw text submitted in the survey's "Special Instructions" column.
+   * UI displays current active exception rules with options to `[+ Add New Rule]` or edit existing ones.
+
+5. **Solve Engine:** Brenda clicks `[Run Matchmaker]`. The constraint satisfaction engine computes assignments across all calendar days.
+6. **Result Inspection & Iteration:**
+   * Visual calendar & team breakdown displayed.
+   * If a team conflict or soft preference violation is spotted, Brenda adds/adjusts an exception and clicks `[Re-Run]`.
+
+7. **Export & Output:**
+   * App writes final schedule tab into the Google Sheet (`Schedule_Output`).
+   * App generates a pre-formatted plain text / Markdown summary with a `[Copy Email to Clipboard]` button for the community listserv.
+
+### 5.3. Member Directory & Maintenance Workflows
+
+* **Member Directory Tab / Modal:**
+  * Search and filter members by `Active` and `Inactive` status.
+  * One-click toggle between `Active` and `Inactive`.
+  * Add new members with `Name` and `Google Account Email`.
+  * View historical engagement (`last_active_survey`).
+
+---
+
+## 6. Implementation Roadmap
+
+1. **Phase 1: Data Model & Local Fixtures**
+   * Define comprehensive TypeScript interfaces for Survey Responses, Members, Exceptions, and Schedule Outputs in `src/server/types.ts`.
+   * Create realistic mock data in `src/client/utils/gas.ts` representing historical community survey responses and edge cases.
+
+2. **Phase 2: Matchmaker Engine**
+   * Implement the backtracking constraint solver in `src/server/matchmaker.ts` supporting team sizes, non-overlap rules, shift quotas, and the 5 exception rule types.
+   * Unit test constraints against historical edge cases.
+
+3. **Phase 3: Web App UI & Gas Integration**
+   * Build the multi-step React wizard in `src/client/` (Step 1: Intake & Audit $\rightarrow$ Step 2: Exceptions & Notes $\rightarrow$ Step 3: Solve & Review $\rightarrow$ Step 4: Export).
+   * Implement member management modal with active/inactive toggles.
+   * Wire `google.script.run` RPC endpoints in `src/server/Code.ts` to read/write Sheet data.
+
+4. **Phase 4: Deployment & Handoff**
+   * Build singlefile bundle and deploy via `clasp push` to Google Apps Script.
+   * Conduct user acceptance testing with Brenda.
