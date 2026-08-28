@@ -121,8 +121,20 @@ export function solveCookAndCleanSchedule(
   }
 
   // Step 1: Assign Cooks
-  // Sort meal dates by least available candidates first (MRV heuristic)
-  for (const md of adjustedMealDates) {
+  // Sort meal dates by least available candidates first (MRV heuristic with randomized tie-breaking)
+  const getAvailableCooksCount = (md: MealDate) => {
+    return Array.from(candidates.values()).filter(
+      (c) => c.availability[md.dateLabel] === "AVAILABLE" || c.availability[md.dateLabel] === "COOK_ONLY"
+    ).length;
+  };
+
+  const cookMealDates = [...adjustedMealDates].sort((a, b) => {
+    const countA = getAvailableCooksCount(a);
+    const countB = getAvailableCooksCount(b);
+    return (countA - countB) || (Math.random() - 0.5);
+  });
+
+  for (const md of cookMealDates) {
     const entry = scheduleMap.get(md.dateKey)!;
     const target = md.targetCookCount;
 
@@ -143,11 +155,12 @@ export function solveCookAndCleanSchedule(
       return true;
     });
 
-    // Sort candidates by remaining cook quota desc, then total quota
+    // Sort candidates by remaining cook quota desc, then randomized tie-breaker
     eligible.sort((a, b) => {
       const remA = a.cookQuota - a.assignedCookDates.size;
       const remB = b.cookQuota - b.assignedCookDates.size;
-      return remB - remA;
+      if (remB !== remA) return remB - remA;
+      return Math.random() - 0.5;
     });
 
     for (const cand of eligible) {
@@ -159,7 +172,20 @@ export function solveCookAndCleanSchedule(
   }
 
   // Step 2: Assign Cleaners
-  for (const md of adjustedMealDates) {
+  // Sort meal dates by least available cleaners first (MRV heuristic with randomized tie-breaking)
+  const getAvailableCleanersCount = (md: MealDate) => {
+    return Array.from(candidates.values()).filter(
+      (c) => c.availability[md.dateLabel] === "AVAILABLE" || c.availability[md.dateLabel] === "CLEAN_ONLY"
+    ).length;
+  };
+
+  const cleanMealDates = [...adjustedMealDates].sort((a, b) => {
+    const countA = getAvailableCleanersCount(a);
+    const countB = getAvailableCleanersCount(b);
+    return (countA - countB) || (Math.random() - 0.5);
+  });
+
+  for (const md of cleanMealDates) {
     const entry = scheduleMap.get(md.dateKey)!;
     const target = md.targetCleanCount;
 
@@ -179,11 +205,15 @@ export function solveCookAndCleanSchedule(
       return true;
     });
 
-    // Sort cleaners by fewest assigned cleans, then total assignments
+    // Sort cleaners by fewest assigned cleans, then fewest total assignments, then randomized tie-breaker
     eligible.sort((a, b) => {
+      if (a.assignedCleanDates.size !== b.assignedCleanDates.size) {
+        return a.assignedCleanDates.size - b.assignedCleanDates.size;
+      }
       const totalA = a.assignedCookDates.size + a.assignedCleanDates.size;
       const totalB = b.assignedCookDates.size + b.assignedCleanDates.size;
-      return totalA - totalB;
+      if (totalA !== totalB) return totalA - totalB;
+      return Math.random() - 0.5;
     });
 
     for (const cand of eligible) {
