@@ -1056,86 +1056,120 @@ export default function App() {
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-slate-900">Generated Monthly Shift Roster (13 Meals)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {solverResult.schedule.map((day) => (
-                    <div
-                      key={day.dateKey}
-                      className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 hover:shadow-md transition-shadow flex flex-col justify-between"
-                    >
-                      <div>
-                        {/* Card Header */}
-                        <div className="flex items-start justify-between pb-3 border-b border-slate-100">
-                          <div>
-                            <span className="text-xs font-bold text-slate-900">{day.dateLabel}</span>
-                            {day.specialNote && (
-                              <p className="text-xs text-amber-600 font-medium">{day.specialNote}</p>
-                            )}
-                          </div>
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-md font-bold uppercase ${
-                              day.mealType === "BRUNCH"
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-indigo-50 text-indigo-700"
-                            }`}
-                          >
-                            {day.mealType}
-                          </span>
-                        </div>
+                  {solverResult.schedule.map((day) => {
+                    const hasCookShortage = day.unfilledCooks > 0;
+                    const hasCleanShortage = day.unfilledCleaners > 0;
 
-                        {/* Cook Team */}
-                        <div className="mt-3">
-                          <div className="flex items-center justify-between text-xs mb-1">
-                            <span className="font-bold text-orange-700 flex items-center gap-1">
-                              🍳 Cooks ({day.cooks.length})
+                    return (
+                      <div
+                        key={day.dateKey}
+                        className={`rounded-2xl border transition-all flex flex-col justify-between p-4 ${
+                          hasCookShortage
+                            ? "bg-rose-50/90 border-rose-300 ring-2 ring-rose-400/30 shadow-md shadow-rose-100"
+                            : hasCleanShortage
+                            ? "bg-amber-50/80 border-amber-300 shadow-sm"
+                            : "bg-white border-slate-200/90 shadow-sm hover:shadow-md"
+                        }`}
+                      >
+                        <div>
+                          {/* Card Header */}
+                          <div className="flex items-start justify-between pb-3 border-b border-slate-200/60">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-900">{day.dateLabel}</span>
+                                {hasCookShortage && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-rose-600 text-white rounded-full font-bold shadow-sm">
+                                    <AlertTriangle className="w-3 h-3" /> Short {day.unfilledCooks} Cook{day.unfilledCooks > 1 ? "s" : ""}
+                                  </span>
+                                )}
+                              </div>
+                              {day.specialNote && (
+                                <p className="text-xs text-amber-700 font-semibold mt-0.5">{day.specialNote}</p>
+                              )}
+                            </div>
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded-md font-bold uppercase ${
+                                day.mealType === "BRUNCH"
+                                  ? "bg-amber-100 text-amber-800"
+                                  : "bg-indigo-50 text-indigo-700"
+                              }`}
+                            >
+                              {day.mealType}
                             </span>
-                            {day.isTwoPersonDinnerWilling && (
-                              <span className="text-[11px] px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full font-bold">
-                                👥 2-Cook Team (Willing)
-                              </span>
-                            )}
-                            {day.unfilledCooks > 0 && (
-                              <span className="text-xs text-rose-600 font-semibold">
-                                {day.unfilledCooks} needed
-                              </span>
-                            )}
                           </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {day.cooks.map((name) => (
-                              <span
-                                key={name}
-                                className="px-2 py-1 bg-orange-50 text-orange-800 border border-orange-200 rounded-lg text-xs font-medium"
-                              >
-                                {name}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
 
-                        {/* Clean Team */}
-                        <div className="mt-3">
-                          <div className="flex items-center justify-between text-xs mb-1">
-                            <span className="font-bold text-sky-700 flex items-center gap-1">
-                              🧼 Cleaners ({day.cleaners.length})
-                            </span>
-                            {day.unfilledCleaners > 0 && (
-                              <span className="text-xs text-rose-600 font-semibold">
-                                {day.unfilledCleaners} needed
+                          {/* Cook Team */}
+                          <div className={`mt-3 ${hasCookShortage ? "bg-rose-100/60 border border-rose-200 p-2.5 rounded-xl" : ""}`}>
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="font-bold text-orange-800 flex items-center gap-1">
+                                🍳 Cooks ({day.cooks.length})
                               </span>
-                            )}
+                              {day.isTwoPersonDinnerWilling && (
+                                <span className="text-[11px] px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full font-bold">
+                                  👥 2-Cook Team (Willing)
+                                </span>
+                              )}
+                              {hasCookShortage && (
+                                <span className="text-xs text-rose-700 font-bold">
+                                  ⚠️ {day.unfilledCooks} needed
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                              {day.cooks.map((name) => (
+                                <span
+                                  key={name}
+                                  className="px-2 py-1 bg-white text-orange-900 border border-orange-200 rounded-lg text-xs font-semibold shadow-xs"
+                                >
+                                  {name}
+                                </span>
+                              ))}
+                              {Array.from({ length: day.unfilledCooks }).map((_, i) => (
+                                <span
+                                  key={`empty-cook-${i}`}
+                                  className="px-2 py-1 bg-rose-50 border border-dashed border-rose-300 text-rose-600 rounded-lg text-xs font-bold flex items-center gap-1"
+                                >
+                                  ❓ Missing Cook Slot
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {day.cleaners.map((name) => (
-                              <span
-                                key={name}
-                                className="px-2 py-1 bg-sky-50 text-sky-800 border border-sky-200 rounded-lg text-xs font-medium"
-                              >
-                                {name}
+
+                          {/* Clean Team */}
+                          <div className="mt-3">
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="font-bold text-sky-700 flex items-center gap-1">
+                                🧼 Cleaners ({day.cleaners.length})
                               </span>
-                            ))}
+                              {day.unfilledCleaners > 0 && (
+                                <span className="text-xs text-rose-600 font-semibold">
+                                  {day.unfilledCleaners} needed
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {day.cleaners.map((name) => (
+                                <span
+                                  key={name}
+                                  className="px-2 py-1 bg-sky-50 text-sky-800 border border-sky-200 rounded-lg text-xs font-medium"
+                                >
+                                  {name}
+                                </span>
+                              ))}
+                              {Array.from({ length: day.unfilledCleaners }).map((_, i) => (
+                                <span
+                                  key={`empty-clean-${i}`}
+                                  className="px-2 py-1 bg-amber-50 border border-dashed border-amber-300 text-amber-600 rounded-lg text-xs font-bold flex items-center gap-1"
+                                >
+                                  ❓ Missing Cleaner
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
