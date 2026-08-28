@@ -194,31 +194,6 @@ export function solveCookAndCleanSchedule(
     }
   }
 
-  // Step 3: Second pass for any unfilled clean slots (relaxing maxClean quota if needed)
-  for (const md of adjustedMealDates) {
-    const entry = scheduleMap.get(md.dateKey)!;
-    const needed = md.targetCleanCount - entry.cleaners.length;
-    if (needed > 0) {
-      const backupEligible = Array.from(candidates.values()).filter((c) => {
-        if (entry.cleaners.includes(c.name)) return false;
-        const avail = c.availability[md.dateLabel];
-        if (avail !== "AVAILABLE" && avail !== "CLEAN_ONLY") return false;
-        if (!c.canSameDay && entry.cooks.includes(c.name)) return false;
-        if (violatesHardRule(c.name, "CLEAN", md.dateKey, entry.cooks, entry.cleaners)) return false;
-        return true;
-      });
-
-      backupEligible.sort((a, b) => a.assignedCleanDates.size - b.assignedCleanDates.size);
-
-      for (const cand of backupEligible) {
-        if (entry.cleaners.length >= md.targetCleanCount) break;
-        if (violatesHardRule(cand.name, "CLEAN", md.dateKey, entry.cooks, entry.cleaners)) continue;
-        entry.cleaners.push(cand.name);
-        cand.assignedCleanDates.add(md.dateKey);
-      }
-    }
-  }
-
   // Check Soft Exceptions & record any violations
   const violations: ConstraintViolation[] = [];
   for (const md of adjustedMealDates) {
