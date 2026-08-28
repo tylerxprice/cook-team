@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Utensils,
   Sparkles,
@@ -20,6 +20,7 @@ import {
   ChevronRight,
   ExternalLink,
   Info,
+  MessageSquare,
 } from "lucide-react";
 import { callGas, isGasEnvironment } from "./utils/gas";
 import {
@@ -55,6 +56,7 @@ export default function App() {
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberEmail, setNewMemberEmail] = useState("");
   const [showAddRuleModal, setShowAddRuleModal] = useState(false);
+  const [modalContextNote, setModalContextNote] = useState<string | null>(null);
   const [newRule, setNewRule] = useState<Partial<ExceptionRule>>({
     rule_type: "NOT_SAME_TEAM",
     is_hard_rule: true,
@@ -194,6 +196,104 @@ export default function App() {
       showToast(`Failed to save rule: ${err.message}`, "error");
     }
   };
+
+  const handleOpenAddRuleForMember = (memberName: string, note?: string) => {
+    setNewRule({
+      rule_type: "NOT_SAME_TEAM",
+      is_hard_rule: true,
+      person_a: memberName,
+      person_b: "",
+      notes: note || "",
+    });
+    setModalContextNote(note || null);
+    setShowAddRuleModal(true);
+  };
+
+  const handleOpenAddGenericRule = () => {
+    setNewRule({
+      rule_type: "NOT_SAME_TEAM",
+      is_hard_rule: true,
+      person_a: "",
+      person_b: "",
+      notes: "",
+    });
+    setModalContextNote(null);
+    setShowAddRuleModal(true);
+  };
+
+  const membersRequiringAttention = useMemo(() => {
+    if (!intakeData) return [];
+    const map = new Map<
+      string,
+      {
+        name: string;
+        specialInstructions?: string;
+        canCookCleanSameDay: boolean;
+        cookQuota: number;
+        rules: ExceptionRule[];
+      }
+    >();
+
+    // 1. Process survey responses with special notes or same day preference
+    for (const resp of intakeData.responses) {
+      const hasNote =
+        resp.specialInstructions &&
+        resp.specialInstructions.trim() !== "" &&
+        !["nope", "none", "n/a", "no", "nothing", "nope.", "none."].includes(
+          resp.specialInstructions.trim().toLowerCase()
+        );
+
+      if (hasNote || resp.canCookCleanSameDay) {
+        map.set(resp.name.toLowerCase(), {
+          name: resp.name,
+          specialInstructions: hasNote ? resp.specialInstructions : undefined,
+          canCookCleanSameDay: resp.canCookCleanSameDay,
+          cookQuota: resp.cookQuota,
+          rules: [],
+        });
+      }
+    }
+
+    // 2. Add members who have existing rules configured
+    for (const rule of exceptions) {
+      const keyA = rule.person_a.toLowerCase();
+      if (!map.has(keyA)) {
+        const resp = intakeData.responses.find((r) => r.name.toLowerCase() === keyA);
+        map.set(keyA, {
+          name: rule.person_a,
+          specialInstructions: resp?.specialInstructions,
+          canCookCleanSameDay: resp?.canCookCleanSameDay ?? false,
+          cookQuota: resp?.cookQuota ?? 1,
+          rules: [],
+        });
+      }
+      map.get(keyA)!.rules.push(rule);
+
+      if (rule.person_b) {
+        const keyB = rule.person_b.toLowerCase();
+        if (!map.has(keyB)) {
+          const resp = intakeData.responses.find((r) => r.name.toLowerCase() === keyB);
+          map.set(keyB, {
+            name: rule.person_b,
+            specialInstructions: resp?.specialInstructions,
+            canCookCleanSameDay: resp?.canCookCleanSameDay ?? false,
+            cookQuota: resp?.cookQuota ?? 1,
+            rules: [],
+          });
+        }
+        const bRules = map.get(keyB)!.rules;
+        if (!bRules.some((r) => r.id === rule.id)) {
+          bRules.push(rule);
+        }
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.specialInstructions && !b.specialInstructions) return -1;
+      if (!a.specialInstructions && b.specialInstructions) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [intakeData, exceptions]);
 
   const handleDeleteRule = async (id: string) => {
     try {
@@ -560,94 +660,134 @@ export default function App() {
           </div>
         )}
 
-        {/* STEP 2: SPECIAL INSTRUCTIONS & EXCEPTION RULES */}
+        {/* STEP 2: MEMBER NOTES & EXCEPTION RULES (UNIFIED PER-MEMBER VIEW) */}
         {currentStep === 2 && intakeData && (
           <div className="space-y-6">
-            {/* Special Instructions Review */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-slate-100">
-                <h3 className="text-sm font-bold text-slate-900">Survey Special Instructions & Requests</h3>
+            {/* Header & Quick Action */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">
+                  Member Notes & Exception Rules ({membersRequiringAttention.length} Members with Notes or Rules)
+                </h2>
                 <p className="text-xs text-slate-500">
-                  Review respondent notes submitted in the survey before finalizing matchmaking rules.
+                  Review respondent special instructions and verify or configure exception rules for each member.
                 </p>
               </div>
-
-              <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
-                {intakeData.responses
-                  .filter((r) => r.specialInstructions && r.specialInstructions.toLowerCase() !== "nope" && r.specialInstructions.toLowerCase() !== "none")
-                  .map((r) => (
-                    <div key={r.name} className="p-3.5 hover:bg-slate-50 flex items-start gap-3">
-                      <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-xs mt-0.5">
-                        {r.name.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-800">{r.name}</span>
-                          <span className="text-xs text-slate-400">Cook Quota: {r.cookQuota}</span>
-                          {r.canCookCleanSameDay && (
-                            <span className="text-xs px-2 py-0.2 bg-emerald-50 text-emerald-700 rounded-full font-semibold border border-emerald-200">
-                              Can Cook & Clean Same Day
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-600 mt-1 italic bg-amber-50/60 p-2 rounded-lg border border-amber-100">
-                          "{r.specialInstructions}"
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-              </div>
+              <button
+                onClick={handleOpenAddGenericRule}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Add General Rule
+              </button>
             </div>
 
-            {/* Exception Rules Editor */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Active Exception Rules ({exceptions.length})</h3>
-                  <p className="text-xs text-slate-500">
-                    Configure hard constraints and soft preferences to guide the matchmaker solver.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowAddRuleModal(true)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors"
-                >
-                  <Plus className="w-4 h-4" /> Add Exception Rule
-                </button>
-              </div>
-
-              <div className="divide-y divide-slate-100">
-                {exceptions.map((rule) => (
-                  <div key={rule.id} className="p-4 flex items-center justify-between hover:bg-slate-50">
-                    <div className="flex items-start gap-3">
-                      <span
-                        className={`text-xs px-2.5 py-1 rounded-md font-bold uppercase tracking-wider mt-0.5 ${
-                          rule.is_hard_rule
-                            ? "bg-rose-50 text-rose-700 border border-rose-200"
-                            : "bg-blue-50 text-blue-700 border border-blue-200"
-                        }`}
-                      >
-                        {rule.is_hard_rule ? "Hard Rule" : "Soft Preference"}
-                      </span>
-                      <div>
-                        <p className="text-xs sm:text-sm font-bold text-slate-800">
-                          <span className="text-orange-600 font-mono">{rule.rule_type}</span>: {rule.person_a}
-                          {rule.person_b && ` ↔ ${rule.person_b}`}
-                        </p>
-                        {rule.notes && <p className="text-xs text-slate-500 mt-0.5">{rule.notes}</p>}
+            {/* Per-Member Cards */}
+            <div className="space-y-4">
+              {membersRequiringAttention.length > 0 ? (
+                membersRequiringAttention.map((item) => (
+                  <div
+                    key={item.name}
+                    className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3 hover:border-orange-200 transition-colors"
+                  >
+                    {/* Member Header Row */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-800 font-bold flex items-center justify-center text-sm shadow-sm">
+                          {item.name.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-slate-900">{item.name}</h3>
+                            <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md font-medium">
+                              Cook Quota: {item.cookQuota}
+                            </span>
+                            {item.canCookCleanSameDay && (
+                              <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-semibold border border-emerald-200">
+                                ✨ Can Cook & Clean Same Day
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
+
+                      <button
+                        onClick={() => handleOpenAddRuleForMember(item.name, item.specialInstructions)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-lg text-xs font-bold transition-colors self-start sm:self-auto"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Encode Rule for {item.name}
+                      </button>
                     </div>
 
-                    <button
-                      onClick={() => handleDeleteRule(rule.id)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                      title="Delete Rule"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {/* Member Survey Note (if present) */}
+                    {item.specialInstructions && (
+                      <div className="bg-amber-50/80 border border-amber-200/90 rounded-xl p-3 flex items-start gap-2.5">
+                        <MessageSquare className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
+                        <div>
+                          <span className="text-xs font-bold text-amber-900">Survey Note from {item.name}:</span>
+                          <p className="text-xs text-amber-800 mt-0.5 font-medium italic">
+                            "{item.specialInstructions}"
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Associated Active Exception Rules */}
+                    <div>
+                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">
+                        Configured Exception Rules ({item.rules.length})
+                      </span>
+
+                      {item.rules.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {item.rules.map((rule) => (
+                            <div
+                              key={rule.id}
+                              className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between"
+                            >
+                              <div className="flex items-start gap-2">
+                                <span
+                                  className={`text-xs px-1.5 py-0.5 rounded font-bold uppercase ${
+                                    rule.is_hard_rule
+                                      ? "bg-rose-100 text-rose-800"
+                                      : "bg-blue-100 text-blue-800"
+                                  }`}
+                                >
+                                  {rule.is_hard_rule ? "Hard" : "Soft"}
+                                </span>
+                                <div>
+                                  <p className="text-xs font-bold text-slate-800">
+                                    <span className="text-orange-700 font-mono">{rule.rule_type}</span>
+                                    {rule.person_b && ` ↔ ${rule.person_a === item.name ? rule.person_b : rule.person_a}`}
+                                  </p>
+                                  {rule.notes && (
+                                    <p className="text-xs text-slate-500 truncate max-w-[200px]">{rule.notes}</p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => handleDeleteRule(rule.id)}
+                                className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                                title="Delete Rule"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-400 italic">
+                          No exception rule created for this note yet. Click "Encode Rule for {item.name}" above to add one.
+                        </p>
+                      )}
+                    </div>
                   </div>
-                ))}
-              </div>
+                ))
+              ) : (
+                <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-400 text-xs">
+                  No special notes or active rules for this month. You can proceed directly to solving or click "Add General Rule".
+                </div>
+              )}
             </div>
 
             {/* Navigation Buttons */}
@@ -1063,6 +1203,21 @@ export default function App() {
                 ✕
               </button>
             </div>
+
+            {/* Display Special Note Context if available */}
+            {modalContextNote && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
+                <MessageSquare className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
+                <div>
+                  <span className="text-xs font-bold text-amber-900">
+                    Survey Request from {newRule.person_a}:
+                  </span>
+                  <p className="text-xs text-amber-800 mt-0.5 font-medium italic">
+                    "{modalContextNote}"
+                  </p>
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleSaveRule} className="space-y-4">
               <div>
