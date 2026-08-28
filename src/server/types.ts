@@ -88,6 +88,8 @@ export interface DaySchedule {
 export interface MemberQuotaStat {
   name: string;
   requestedCookQuota: number;
+  availableCookDays: number;
+  availableCleanDays: number;
   assignedCooks: number;
   assignedCleans: number;
   totalAssigned: number;

@@ -1190,8 +1190,10 @@ export default function App() {
                     <thead className="bg-slate-50 text-slate-500 uppercase font-semibold border-b border-slate-200">
                       <tr>
                         <th className="px-4 py-2.5">Member</th>
+                        <th className="px-4 py-2.5">Available Cook Days</th>
                         <th className="px-4 py-2.5">Requested Cooks</th>
                         <th className="px-4 py-2.5">Assigned Cooks</th>
+                        <th className="px-4 py-2.5">Available Clean Days</th>
                         <th className="px-4 py-2.5">Assigned Cleans</th>
                         <th className="px-4 py-2.5">Total Shifts</th>
                         <th className="px-4 py-2.5">Quota Status</th>
@@ -1201,11 +1203,24 @@ export default function App() {
                     <tbody className="divide-y divide-slate-100">
                       {Object.values(solverResult.memberStats).map((stat) => {
                         const isShort = stat.assignedCooks < stat.requestedCookQuota;
+                        const totalMealCount = intakeData?.mealDates.length || 13;
                         return (
                           <tr key={stat.name} className="hover:bg-slate-50">
                             <td className="px-4 py-2 font-bold text-slate-800">{stat.name}</td>
+                            <td className="px-4 py-2 font-medium text-slate-700">
+                              {stat.availableCookDays}{" "}
+                              <span className="text-slate-400 font-normal text-[11px]">
+                                / {totalMealCount}
+                              </span>
+                            </td>
                             <td className="px-4 py-2 text-slate-600">{stat.requestedCookQuota}</td>
                             <td className="px-4 py-2 font-semibold text-orange-600">{stat.assignedCooks}</td>
+                            <td className="px-4 py-2 font-medium text-slate-700">
+                              {stat.availableCleanDays}{" "}
+                              <span className="text-slate-400 font-normal text-[11px]">
+                                / {totalMealCount}
+                              </span>
+                            </td>
                             <td className="px-4 py-2 font-semibold text-sky-600">{stat.assignedCleans}</td>
                             <td className="px-4 py-2 font-bold text-slate-900">{stat.totalAssigned}</td>
                             <td className="px-4 py-2">

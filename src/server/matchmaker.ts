@@ -282,9 +282,18 @@ export function solveCookAndCleanSchedule(
 
   const memberStats: Record<string, MemberQuotaStat> = {};
   for (const [name, cand] of candidates.entries()) {
+    let availableCookDays = 0;
+    let availableCleanDays = 0;
+    for (const status of Object.values(cand.availability)) {
+      if (status === "AVAILABLE" || status === "COOK_ONLY") availableCookDays++;
+      if (status === "AVAILABLE" || status === "CLEAN_ONLY") availableCleanDays++;
+    }
+
     memberStats[name] = {
       name,
       requestedCookQuota: cand.cookQuota,
+      availableCookDays,
+      availableCleanDays,
       assignedCooks: cand.assignedCookDates.size,
       assignedCleans: cand.assignedCleanDates.size,
       totalAssigned: cand.assignedCookDates.size + cand.assignedCleanDates.size,
