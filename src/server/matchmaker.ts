@@ -15,6 +15,7 @@ interface Candidate {
   cookQuota: number;
   cleanQuota: number;
   canSameDay: boolean;
+  minCooksPref: "DINNER_3_BRUNCH_2" | "TWO_REGARDLESS";
   availability: Record<string, string>; // dateLabel -> status
   assignedCookDates: Set<string>;
   assignedCleanDates: Set<string>;
@@ -29,16 +30,19 @@ export function solveCookAndCleanSchedule(
   const startTime = Date.now();
 
   const maxClean = options.maxCleanPerMember ?? 1;
-  const cookPolicy = options.cookPolicy || "DINNER_3_BRUNCH_2";
+  const cookPolicy = options.cookPolicy || "ADAPTIVE_3_OR_2";
 
   // Build candidate map
   const candidates: Map<string, Candidate> = new Map();
   for (const resp of responses) {
+    const prefStr = (resp.cookTeamSizePref || "").toLowerCase();
+    const isWilling2 = prefStr.includes("2") || prefStr.includes("regardless");
     candidates.set(resp.name, {
       name: resp.name,
       cookQuota: resp.cookQuota,
       cleanQuota: resp.availability ? maxClean : 0,
       canSameDay: resp.canCookCleanSameDay,
+      minCooksPref: isWilling2 ? "TWO_REGARDLESS" : "DINNER_3_BRUNCH_2",
       availability: resp.availability || {},
       assignedCookDates: new Set(),
       assignedCleanDates: new Set(),
@@ -59,6 +63,7 @@ export function solveCookAndCleanSchedule(
     if (cookPolicy === "TWO_REGARDLESS") {
       targetCooks = 2;
     } else {
+      // ADAPTIVE_3_OR_2 and DINNER_3_BRUNCH_2 both target 3 for Dinner and 2 for Brunch
       targetCooks = md.mealType === "BRUNCH" ? 2 : 3;
     }
     return {
@@ -255,7 +260,33 @@ export function solveCookAndCleanSchedule(
   let totalUnfilled = 0;
   const schedule: DaySchedule[] = adjustedMealDates.map((md) => {
     const entry = scheduleMap.get(md.dateKey)!;
-    const unfilledCooks = Math.max(0, md.targetCookCount - entry.cooks.length);
+    
+    let unfilledCooks = 0;
+    let isTwoPersonDinnerWilling = false;
+
+    if (cookPolicy === "ADAPTIVE_3_OR_2" && md.mealType === "DINNER") {
+      if (entry.cooks.length >= 3) {
+        unfilledCooks = 0;
+      } else if (entry.cooks.length === 2) {
+        // Check if all assigned cooks on this team are willing to cook on a 2-person dinner team
+        const allWilling = entry.cooks.every((cookName) => {
+          const cand = candidates.get(cookName);
+          return cand?.minCooksPref === "TWO_REGARDLESS";
+        });
+        if (allWilling) {
+          unfilledCooks = 0;
+          isTwoPersonDinnerWilling = true;
+        } else {
+          unfilledCooks = 1; // Needs 3rd cook because one or more cooks requested a 3-person team
+        }
+      } else {
+        // Fewer than 2 cooks
+        unfilledCooks = Math.max(0, 2 - entry.cooks.length);
+      }
+    } else {
+      unfilledCooks = Math.max(0, md.targetCookCount - entry.cooks.length);
+    }
+
     const unfilledCleaners = Math.max(0, md.targetCleanCount - entry.cleaners.length);
     totalUnfilled += unfilledCooks + unfilledCleaners;
 
@@ -266,6 +297,9 @@ export function solveCookAndCleanSchedule(
       specialNote: md.specialNote,
       cooks: entry.cooks,
       cleaners: entry.cleaners,
+      targetCookCount: md.targetCookCount,
+      targetCleanCount: md.targetCleanCount,
+      isTwoPersonDinnerWilling,
       unfilledCooks,
       unfilledCleaners,
     };

@@ -48,7 +48,7 @@ export default function App() {
   const [intakeData, setIntakeData] = useState<IntakePayload | null>(null);
   const [exceptions, setExceptions] = useState<ExceptionRule[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [cookPolicy, setCookPolicy] = useState<CookTeamPolicy>("DINNER_3_BRUNCH_2");
+  const [cookPolicy, setCookPolicy] = useState<CookTeamPolicy>("ADAPTIVE_3_OR_2");
   const [solverResult, setSolverResult] = useState<ScheduleOutput | null>(null);
 
   // Modals
@@ -851,8 +851,9 @@ export default function App() {
                     onChange={(e) => setCookPolicy(e.target.value as CookTeamPolicy)}
                     className="px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium"
                   >
-                    <option value="DINNER_3_BRUNCH_2">Dinner = 3 Cooks, Brunch = 2 Cooks (Default)</option>
-                    <option value="TWO_REGARDLESS">2 Cooks Regardless of Meal Type</option>
+                    <option value="ADAPTIVE_3_OR_2">Adaptive Sizing (Target 3 for Dinner, allow 2 if cooks agreed)</option>
+                    <option value="DINNER_3_BRUNCH_2">Strict 3 Cooks (Dinner = 3, Brunch = 2)</option>
+                    <option value="TWO_REGARDLESS">Strict 2 Cooks (2 Cooks regardless of meal)</option>
                   </select>
                 </div>
 
@@ -936,6 +937,11 @@ export default function App() {
                             <span className="font-bold text-orange-700 flex items-center gap-1">
                               🍳 Cooks ({day.cooks.length})
                             </span>
+                            {day.isTwoPersonDinnerWilling && (
+                              <span className="text-[11px] px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full font-bold">
+                                👥 2-Cook Team (Willing)
+                              </span>
+                            )}
                             {day.unfilledCooks > 0 && (
                               <span className="text-xs text-rose-600 font-semibold">
                                 {day.unfilledCooks} needed

@@ -15,7 +15,7 @@ export type RuleType =
   | "PAIR_WITH_ROLE"
   | "PREF_SAME_DAY";
 
-export type CookTeamPolicy = "DINNER_3_BRUNCH_2" | "TWO_REGARDLESS";
+export type CookTeamPolicy = "ADAPTIVE_3_OR_2" | "DINNER_3_BRUNCH_2" | "TWO_REGARDLESS";
 
 export interface Member {
   name: string;
@@ -78,6 +78,9 @@ export interface DaySchedule {
   specialNote?: string;
   cooks: string[];
   cleaners: string[];
+  targetCookCount: number;
+  targetCleanCount: number;
+  isTwoPersonDinnerWilling?: boolean;
   unfilledCooks: number;
   unfilledCleaners: number;
 }

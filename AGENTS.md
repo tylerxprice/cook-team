@@ -39,8 +39,9 @@ Welcome to **CookTeamTool**! This document provides context, architectural guide
 
 ### Team Sizes & Sizing Policies
 * **Cook Team Size Policy:**
-  * `DINNER_3_BRUNCH_2` (Default): Dinner = 3 cooks, Brunch = 2 cooks.
-  * `TWO_REGARDLESS`: Dinner = 2 cooks, Brunch = 2 cooks.
+  * `ADAPTIVE_3_OR_2` (Default): Target 3 cooks on Dinners & 2 on Brunches. On tight dates, dynamically accepts 2 cooks on Dinner without flagging errors *if* all assigned cooks agreed to `"2 regardless of meal type"`.
+  * `DINNER_3_BRUNCH_2`: Strict 3 cooks on Dinners, 2 on Brunches.
+  * `TWO_REGARDLESS`: Strict 2 cooks on all meals.
 * **Clean Team Size:** Dinner = 3 cleaners, Brunch = 2 cleaners.
 
 ### Quotas & Shift Capacity
