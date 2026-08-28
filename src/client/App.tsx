@@ -1386,6 +1386,7 @@ function MainApp() {
                         const incompleteAssignedDays = assignedDays.filter(
                           (d) => d.unfilledCooks > 0 || d.unfilledCleaners > 0
                         );
+                        const hasPendingIncomplete = incompleteAssignedDays.length > 0;
                         const isOversubscribed =
                           stat.assignedCleans > 1 || stat.assignedCooks > stat.requestedCookQuota;
 
