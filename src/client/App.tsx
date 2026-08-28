@@ -39,6 +39,12 @@ import {
   Role,
 } from "../server/types";
 
+function getOrdinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
 export default function App() {
   const [inGas, setInGas] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -1668,7 +1674,7 @@ export default function App() {
                             onClick={() => handleAddExtraShift(day.dateKey, selectedQuotaMember, "COOK")}
                             className="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors"
                           >
-                            + Add as Cook ({day.cooks.length + 1}th)
+                            + Add as Cook ({getOrdinal(day.cooks.length + 1)})
                           </button>
                         ) : null}
 
@@ -1690,7 +1696,7 @@ export default function App() {
                             onClick={() => handleAddExtraShift(day.dateKey, selectedQuotaMember, "CLEAN")}
                             className="px-2.5 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors"
                           >
-                            + Add Cleaner
+                            + Add as Cleaner ({getOrdinal(day.cleaners.length + 1)})
                           </button>
                         ) : null}
                       </div>
