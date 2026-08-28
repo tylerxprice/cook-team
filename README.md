@@ -34,8 +34,27 @@ npx @devcontainers/cli up --workspace-folder .
 npx @devcontainers/cli exec --workspace-folder . /bin/bash
 ```
 
+### 4. Exposing Vite Port via `socat` (WSL2 / Headless CLI Environments)
+When running the devcontainer via CLI inside **WSL2** or a headless terminal (without VS Code's automatic port forwarding UI), you can expose the Vite development server (`port 5173`) to your host machine's browser using `socat`:
+
+```bash
+# 1. Install socat on the WSL2 host (if not already installed):
+sudo apt-get install -y socat
+
+# 2. Forward traffic from localhost:5173 into the running devcontainer IP:
+CONTAINER_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker ps -lq))
+socat TCP-LISTEN:5173,fork,reuseaddr TCP:$CONTAINER_IP:5173
+```
+
+Or run as a one-liner in the background:
+```bash
+socat TCP-LISTEN:5173,fork,reuseaddr TCP:$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker ps -lq)):5173 &
+```
+
+Now navigate to **`http://localhost:5173`** in your host browser (e.g. Windows Chrome/Edge/Firefox) to access the live app!
+
 > **Alternatively in VS Code / Cursor / Windsurf**:
-> Open this directory and click **"Reopen in Container"** when prompted, or run `Dev Containers: Reopen in Container` from the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`).
+> Open this directory and click **"Reopen in Container"** when prompted, or run `Dev Containers: Reopen in Container` from the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`). Port forwarding happens automatically.
 
 ---
 
