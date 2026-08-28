@@ -1368,6 +1368,7 @@ function MainApp() {
                         <th className="px-4 py-2.5">Requested Cooks</th>
                         <th className="px-4 py-2.5">Assigned Cooks</th>
                         <th className="px-4 py-2.5">Available Clean Days</th>
+                        <th className="px-4 py-2.5">Requested Cleans</th>
                         <th className="px-4 py-2.5">Assigned Cleans</th>
                         <th className="px-4 py-2.5">Total Shifts</th>
                         <th className="px-4 py-2.5">Fulfillment Status</th>
@@ -1376,7 +1377,10 @@ function MainApp() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {Object.values(solverResult.memberStats).map((stat) => {
-                        const isShort = stat.assignedCooks < stat.requestedCookQuota;
+                        const isCookShort = stat.assignedCooks < stat.requestedCookQuota;
+                        const reqCleans = stat.requestedCleanQuota ?? 1;
+                        const isCleanShort = stat.assignedCleans < reqCleans;
+                        const isShort = isCookShort || isCleanShort;
                         const totalMealCount = intakeData?.mealDates.length || 13;
 
                         // Check if any of their assigned shifts are on dates with missing cleaners/cooks
@@ -1388,7 +1392,8 @@ function MainApp() {
                         );
                         const hasPendingIncomplete = incompleteAssignedDays.length > 0;
                         const isOversubscribed =
-                          stat.assignedCleans > 1 || stat.assignedCooks > stat.requestedCookQuota;
+                          stat.assignedCleans > reqCleans ||
+                          stat.assignedCooks > stat.requestedCookQuota;
 
                         return (
                           <tr key={stat.name} className="hover:bg-slate-50">
@@ -1407,13 +1412,14 @@ function MainApp() {
                                 / {totalMealCount}
                               </span>
                             </td>
+                            <td className="px-4 py-2 text-slate-600">{reqCleans}</td>
                             <td className="px-4 py-2 font-semibold text-sky-600">{stat.assignedCleans}</td>
                             <td className="px-4 py-2 font-bold text-slate-900">{stat.totalAssigned}</td>
                             <td className="px-4 py-2">
                               {isOversubscribed ? (
                                 <div className="space-y-0.5">
                                   <span className="text-purple-800 bg-purple-50 border border-purple-300 px-2 py-0.5 rounded font-bold inline-block">
-                                    ⭐ Oversubscribed ({stat.assignedCooks > stat.requestedCookQuota ? `${stat.assignedCooks}/${stat.requestedCookQuota} Cooks` : ""}{stat.assignedCooks > stat.requestedCookQuota && stat.assignedCleans > 1 ? ", " : ""}{stat.assignedCleans > 1 ? `${stat.assignedCleans}/1 Cleans` : ""})
+                                    ⭐ Oversubscribed ({stat.assignedCooks > stat.requestedCookQuota ? `${stat.assignedCooks}/${stat.requestedCookQuota} Cooks` : ""}{stat.assignedCooks > stat.requestedCookQuota && stat.assignedCleans > reqCleans ? ", " : ""}{stat.assignedCleans > reqCleans ? `${stat.assignedCleans}/${reqCleans} Cleans` : ""})
                                   </span>
                                   {hasPendingIncomplete && (
                                     <p className="text-[10px] text-amber-700 font-medium">
@@ -1424,7 +1430,7 @@ function MainApp() {
                               ) : isShort ? (
                                 <div className="space-y-0.5">
                                   <span className="text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-bold inline-block">
-                                    Short ({stat.assignedCooks}/{stat.requestedCookQuota})
+                                    Short ({isCookShort ? `${stat.assignedCooks}/${stat.requestedCookQuota} Cooks` : ""}{isCookShort && isCleanShort ? ", " : ""}{isCleanShort ? `${stat.assignedCleans}/${reqCleans} Cleans` : ""})
                                   </span>
                                   {hasPendingIncomplete && (
                                     <p className="text-[10px] text-amber-700 font-medium">
@@ -1805,7 +1811,8 @@ function MainApp() {
                 {solverResult.memberStats[selectedQuotaMember] && (
                   <p className="text-xs text-slate-500 mt-0.5">
                     Requested Quota:{" "}
-                    <strong>{solverResult.memberStats[selectedQuotaMember].requestedCookQuota}</strong> cooks •
+                    <strong>{solverResult.memberStats[selectedQuotaMember].requestedCookQuota}</strong> cooks,{" "}
+                    <strong>{solverResult.memberStats[selectedQuotaMember].requestedCleanQuota ?? 1}</strong> cleans •
                     Currently Assigned:{" "}
                     <strong>{solverResult.memberStats[selectedQuotaMember].assignedCooks}</strong> cooks,{" "}
                     <strong>{solverResult.memberStats[selectedQuotaMember].assignedCleans}</strong> cleans (
@@ -2013,7 +2020,9 @@ function MainApp() {
               : avail === "AVAILABLE" || avail === "CLEAN_ONLY";
 
             const assignedCount = isCookRole ? stat?.assignedCooks || 0 : stat?.assignedCleans || 0;
-            const quota = isCookRole ? stat?.requestedCookQuota || 1 : 1;
+            const quota = isCookRole
+              ? stat?.requestedCookQuota || 1
+              : stat?.requestedCleanQuota ?? 1;
             const isOversubscribed = assignedCount >= quota;
 
             return {

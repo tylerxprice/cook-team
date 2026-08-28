@@ -37,10 +37,12 @@ export function solveCookAndCleanSchedule(
   for (const resp of responses) {
     const prefStr = (resp.cookTeamSizePref || "").toLowerCase();
     const isWilling2 = prefStr.includes("2") || prefStr.includes("regardless");
+    const cleanQuota =
+      typeof resp.cleanQuota === "number" ? resp.cleanQuota : resp.availability ? maxClean : 0;
     candidates.set(resp.name, {
       name: resp.name,
       cookQuota: resp.cookQuota,
-      cleanQuota: resp.availability ? maxClean : 0,
+      cleanQuota,
       canSameDay: resp.canCookCleanSameDay,
       minCooksPref: isWilling2 ? "TWO_REGARDLESS" : "DINNER_3_BRUNCH_2",
       availability: resp.availability || {},
@@ -322,6 +324,7 @@ export function solveCookAndCleanSchedule(
     memberStats[name] = {
       name,
       requestedCookQuota: cand.cookQuota,
+      requestedCleanQuota: cand.cleanQuota,
       availableCookDays,
       availableCleanDays,
       assignedCooks: cand.assignedCookDates.size,

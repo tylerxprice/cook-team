@@ -97,6 +97,7 @@ export function parseSurveySheetData(
   const cookPrefIdx = headers.findIndex((h) => /minimum number of cooks/i.test(h));
   const sameDayIdx = headers.findIndex((h) => /cook and clean on the same day/i.test(h));
   const cookQuotaIdx = headers.findIndex((h) => /how many meals can you cook/i.test(h));
+  const cleanQuotaIdx = headers.findIndex((h) => /how many.*clean|clean.*quota|clean.*shifts|meals.*clean/i.test(h));
   const notesIdx = headers.findIndex((h) => /special instructions/i.test(h));
 
   // Find date columns
@@ -128,6 +129,9 @@ export function parseSurveySheetData(
     const cookQuotaRaw = cookQuotaIdx >= 0 ? parseInt(String(row[cookQuotaIdx]), 10) : 1;
     const cookQuota = isNaN(cookQuotaRaw) || cookQuotaRaw < 0 ? 1 : cookQuotaRaw;
 
+    const cleanQuotaRaw = cleanQuotaIdx >= 0 ? parseInt(String(row[cleanQuotaIdx]), 10) : 1;
+    const cleanQuota = isNaN(cleanQuotaRaw) || cleanQuotaRaw < 0 ? 1 : cleanQuotaRaw;
+
     const specialInstructions = notesIdx >= 0 ? String(row[notesIdx] || "").trim() : "";
 
     const availability: Record<string, AvailabilityStatus> = {};
@@ -144,6 +148,7 @@ export function parseSurveySheetData(
       cookTeamSizePref: cookTeamPref,
       canCookCleanSameDay,
       cookQuota,
+      cleanQuota,
       specialInstructions,
     });
 

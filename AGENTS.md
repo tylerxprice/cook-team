@@ -44,12 +44,13 @@ Welcome to **CookTeamTool**! This document provides context, architectural guide
   * `TWO_REGARDLESS`: Strict 2 cooks on all meals.
 * **Clean Team Size:** Dinner = 3 cleaners, Brunch = 2 cleaners.
 
-### Quotas & Shift Capacity
+### Quotas, Shift Capacity & Coordinator Overrides
 * **Cook Quota:** Sourced from respondent's survey answer (*"How many meals can you cook this month?"*).
-* **Clean Quota:** Default max 1 clean shift per month per member (balanced across community).
+* **Clean Quota:** Sourced from respondent's survey answer (*"How many meals can you clean this month?"* — selectable options `0, 1, 2`, defaulting to 1 for legacy responses).
 * **Same-Day Shift Rule:** By default, members **cannot** cook and clean on the same day unless:
   1. Member answered `"Yes"` to *"Can you cook and clean on the same day?"*, OR
   2. A `PREF_SAME_DAY` exception rule is configured.
+* **Manual Overrides & Oversubscription:** Coordinators can click unfilled slots or member rows to manually assign extra cook/clean shifts directly without violating exception rules; oversubscribed members are badged in the Quota table.
 
 ### Member Lifecycle & Completeness Audit
 * **Audit Nag Screen:** Shows active members who have not yet submitted a survey:

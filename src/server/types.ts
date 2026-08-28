@@ -54,6 +54,7 @@ export interface SurveyResponse {
   cookTeamSizePref: string;
   canCookCleanSameDay: boolean;
   cookQuota: number;
+  cleanQuota: number;
   specialInstructions: string;
 }
 
@@ -88,6 +89,7 @@ export interface DaySchedule {
 export interface MemberQuotaStat {
   name: string;
   requestedCookQuota: number;
+  requestedCleanQuota: number;
   availableCookDays: number;
   availableCleanDays: number;
   assignedCooks: number;

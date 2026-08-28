@@ -38,14 +38,26 @@ RUN mkdir -p /etc/apt/keyrings && \
     apt-get update && apt-get install -y --no-install-recommends glow && \
     rm -rf /var/lib/apt/lists/*
 
+# Install GitHub CLI (gh)
+RUN mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/etc/apt/keyrings/githubcli-archive-keyring.gpg && \
+    chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list && \
+    apt-get update && apt-get install -y --no-install-recommends gh && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install Node.js LTS (v22.x) and npm
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y --no-install-recommends nodejs && \
     npm install -g npm@latest && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Global NPM Tools (Google Clasp, TypeScript, TSX)
-RUN npm install -g @google/clasp typescript tsx
+# Install Global NPM Tools (Google Clasp, TypeScript, TSX, Playwright)
+RUN npm install -g @google/clasp typescript tsx playwright
+
+# Install Playwright Chromium system dependencies
+RUN npx -y playwright install-deps chromium && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Google Antigravity CLI (agy)
 RUN curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- -d /usr/local/bin && \
@@ -73,7 +85,8 @@ RUN mkdir -p /home/$USERNAME/.local/bin \
              /home/$USERNAME/.npm-global \
              /home/$USERNAME/.gemini \
              /home/$USERNAME/.config/clasp && \
-    npm config set prefix "/home/$USERNAME/.npm-global"
+    npm config set prefix "/home/$USERNAME/.npm-global" && \
+    npx -y playwright install chromium
 
 # Configure .bashrc, .vimrc, and .tmux.conf for enhanced developer experience
 RUN echo 'export PS1="\[\033[01;32m\]\u@devcontainer\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ "' >> /home/$USERNAME/.bashrc && \

@@ -82,14 +82,20 @@
 
 ### 4.2. Default Global Constraints & Quotas
 
-* **Clean Shift Quota:** Default maximum **1 clean shift per month** per member (balanced across community members).
-* **Cook Shift Quota:** Member-specified quota from survey response (*"How many meals can you cook this month?"*).
+* **Clean Shift Quota:** Sourced from respondent's survey answer (*"How many meals can you clean this month?"* — options: **0, 1, 2**, defaulting to 1 for legacy responses).
+* **Cook Shift Quota:** Sourced from respondent's survey answer (*"How many meals can you cook this month?"*).
 * **Different Shift Rule (Default):** A person cannot be scheduled to `COOK` and `CLEAN` on the same day unless:
   * The member answered `"Yes"` to *"Can you cook and clean on the same day?"* in their survey, OR
   * An explicit `PREF_SAME_DAY` exception rule is configured.
-* **Capacity Constraint:** No member is scheduled beyond their total monthly shift capacity without coordinator override.
+* **Capacity Constraint & Coordinator Oversubscription:** The solver adheres to member quotas; however, coordinators can manually override rosters and oversubscribe members based on offline discussions.
 
-### 4.3. Exception Rule Types & Supported Logic
+### 4.3. Manual Coordinator Overrides & Volunteer Oversubscription
+
+* **Interactive Slot Filling (1-Click Assignment Modal):** Unfilled cook and cleaner slots on day cards are interactive buttons (`[+ Fill Missing Cook Slot]`, `[+ Fill Missing Cleaner Slot]`). Clicking opens a candidate picker showing available respondents on that date, their current shift counts, and real-time rule conflict validation.
+* **Volunteer Oversubscription:** Coordinators can assign members who have already fulfilled their requested quota. The system tracks this and highlights the volunteer with a **`⭐ Oversubscribed (e.g., 2/1 Cleans, 3/2 Cooks)`** badge in the Quota & Shift Distribution Summary table.
+* **Meal Completeness & Pending Status:** A meal date is incomplete if it lacks a complete cook team or cleaner team. Shifts assigned on incomplete dates are flagged as **`⚠️ Pending (N on Incomplete Meals)`** to notify the coordinator that human intervention / volunteer recruitment is needed before the meal is viable.
+
+### 4.4. Exception Rule Types & Supported Logic
 
 | Rule Pattern | Constraint Formulation |
 | :--- | :--- |
