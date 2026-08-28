@@ -533,17 +533,9 @@ export default function App() {
               <Utensils className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-                  Community Cook Team App
-                </h1>
-                <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-orange-100 text-orange-700">
-                  Community Meal Scheduler
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 font-medium">
-                Constraint Solver • Google Form Intake • Coordinator Workspace
-              </p>
+              <h1 className="text-base sm:text-lg font-bold text-slate-900">
+                Community Cook Team App
+              </h1>
             </div>
           </div>
 
