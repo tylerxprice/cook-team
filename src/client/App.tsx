@@ -22,6 +22,9 @@ import {
   ExternalLink,
   Info,
   MessageSquare,
+  UserPlus,
+  Search,
+  XCircle,
 } from "lucide-react";
 import { callGas, isGasEnvironment } from "./utils/gas";
 import {
@@ -33,6 +36,7 @@ import {
   ScheduleOutput,
   CookTeamPolicy,
   RuleType,
+  Role,
 } from "../server/types";
 
 export default function App() {
@@ -58,6 +62,7 @@ export default function App() {
   const [newMemberEmail, setNewMemberEmail] = useState("");
   const [showAddRuleModal, setShowAddRuleModal] = useState(false);
   const [modalContextNote, setModalContextNote] = useState<string | null>(null);
+  const [selectedQuotaMember, setSelectedQuotaMember] = useState<string | null>(null);
   const [newRule, setNewRule] = useState<Partial<ExceptionRule>>({
     rule_type: "NOT_SAME_TEAM",
     is_hard_rule: true,
@@ -323,6 +328,134 @@ export default function App() {
     } catch (err: any) {
       showToast(`Error: ${err.message}`, "error");
     }
+  };
+
+  const checkAssignmentConflict = (
+    memberName: string,
+    role: Role,
+    day: DaySchedule
+  ): string | null => {
+    const currentCooks = day.cooks;
+    const currentCleaners = day.cleaners;
+
+    for (const rule of exceptions) {
+      if (!rule.is_hard_rule) continue;
+      const pA = rule.person_a;
+      const pB = rule.person_b;
+      if (!pB) continue;
+
+      if (rule.rule_type === "NOT_SAME_DAY") {
+        if (memberName === pA && (currentCooks.includes(pB) || currentCleaners.includes(pB))) {
+          return `Hard rule: NOT_SAME_DAY with ${pB}`;
+        }
+        if (memberName === pB && (currentCooks.includes(pA) || currentCleaners.includes(pA))) {
+          return `Hard rule: NOT_SAME_DAY with ${pA}`;
+        }
+      }
+
+      if (rule.rule_type === "NOT_SAME_TEAM") {
+        const team = role === "COOK" ? currentCooks : currentCleaners;
+        if (memberName === pA && team.includes(pB)) {
+          return `Hard rule: NOT_SAME_TEAM with ${pB}`;
+        }
+        if (memberName === pB && team.includes(pA)) {
+          return `Hard rule: NOT_SAME_TEAM with ${pA}`;
+        }
+      }
+    }
+    return null;
+  };
+
+  const handleAddExtraShift = (dateKey: string, memberName: string, role: Role) => {
+    if (!solverResult) return;
+    const updatedSchedule = solverResult.schedule.map((day) => {
+      if (day.dateKey === dateKey) {
+        if (role === "COOK") {
+          if (day.cooks.includes(memberName)) return day;
+          return {
+            ...day,
+            cooks: [...day.cooks, memberName],
+            unfilledCooks: Math.max(0, day.unfilledCooks - 1),
+          };
+        } else {
+          if (day.cleaners.includes(memberName)) return day;
+          return {
+            ...day,
+            cleaners: [...day.cleaners, memberName],
+            unfilledCleaners: Math.max(0, day.unfilledCleaners - 1),
+          };
+        }
+      }
+      return day;
+    });
+
+    const updatedStats = { ...solverResult.memberStats };
+    if (updatedStats[memberName]) {
+      const stat = { ...updatedStats[memberName] };
+      if (role === "COOK") stat.assignedCooks++;
+      else stat.assignedCleans++;
+      stat.totalAssigned++;
+      updatedStats[memberName] = stat;
+    }
+
+    const newUnfilledCount = updatedSchedule.reduce(
+      (acc, d) => acc + d.unfilledCooks + d.unfilledCleaners,
+      0
+    );
+
+    setSolverResult({
+      ...solverResult,
+      schedule: updatedSchedule,
+      memberStats: updatedStats,
+      unfilledSlotsCount: newUnfilledCount,
+    });
+
+    showToast(`Added ${memberName} as extra ${role === "COOK" ? "cook" : "cleaner"} on ${dateKey}!`);
+  };
+
+  const handleRemoveShift = (dateKey: string, memberName: string, role: Role) => {
+    if (!solverResult) return;
+    const updatedSchedule = solverResult.schedule.map((day) => {
+      if (day.dateKey === dateKey) {
+        if (role === "COOK") {
+          return {
+            ...day,
+            cooks: day.cooks.filter((c) => c !== memberName),
+            unfilledCooks: Math.max(0, day.targetCookCount - (day.cooks.length - 1)),
+          };
+        } else {
+          return {
+            ...day,
+            cleaners: day.cleaners.filter((c) => c !== memberName),
+            unfilledCleaners: Math.max(0, day.targetCleanCount - (day.cleaners.length - 1)),
+          };
+        }
+      }
+      return day;
+    });
+
+    const updatedStats = { ...solverResult.memberStats };
+    if (updatedStats[memberName]) {
+      const stat = { ...updatedStats[memberName] };
+      if (role === "COOK") stat.assignedCooks = Math.max(0, stat.assignedCooks - 1);
+      else stat.assignedCleans = Math.max(0, stat.assignedCleans - 1);
+      stat.totalAssigned = stat.assignedCooks + stat.assignedCleans;
+      updatedStats[memberName] = stat;
+    }
+
+    const newUnfilledCount = updatedSchedule.reduce(
+      (acc, d) => acc + d.unfilledCooks + d.unfilledCleaners,
+      0
+    );
+
+    setSolverResult({
+      ...solverResult,
+      schedule: updatedSchedule,
+      memberStats: updatedStats,
+      unfilledSlotsCount: newUnfilledCount,
+    });
+
+    showToast(`Removed ${memberName} from ${dateKey}.`);
   };
 
   // Run Solver
@@ -993,11 +1126,13 @@ export default function App() {
             {/* Member Shift Quota Balance Table */}
             {solverResult && (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-5 border-b border-slate-100">
-                  <h3 className="text-sm font-bold text-slate-900">Member Quota & Shift Distribution Summary</h3>
-                  <p className="text-xs text-slate-500">
-                    Verify that every community member's requested cook quota and clean quota are fulfilled.
-                  </p>
+                <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Member Quota & Shift Distribution Summary</h3>
+                    <p className="text-xs text-slate-500">
+                      Verify that every community member's requested cook quota is fulfilled. Click "Find Dates & Add Extra" to assign extra shifts without violating exception rules.
+                    </p>
+                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
@@ -1009,29 +1144,45 @@ export default function App() {
                         <th className="px-4 py-2.5">Assigned Cleans</th>
                         <th className="px-4 py-2.5">Total Shifts</th>
                         <th className="px-4 py-2.5">Quota Status</th>
+                        <th className="px-4 py-2.5 text-right">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {Object.values(solverResult.memberStats).map((stat) => (
-                        <tr key={stat.name} className="hover:bg-slate-50">
-                          <td className="px-4 py-2 font-bold text-slate-800">{stat.name}</td>
-                          <td className="px-4 py-2 text-slate-600">{stat.requestedCookQuota}</td>
-                          <td className="px-4 py-2 font-semibold text-orange-600">{stat.assignedCooks}</td>
-                          <td className="px-4 py-2 font-semibold text-sky-600">{stat.assignedCleans}</td>
-                          <td className="px-4 py-2 font-bold text-slate-900">{stat.totalAssigned}</td>
-                          <td className="px-4 py-2">
-                            {stat.assignedCooks >= stat.requestedCookQuota ? (
-                              <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-semibold">
-                                Fulfilled
-                              </span>
-                            ) : (
-                              <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-semibold">
-                                Short ({stat.assignedCooks}/{stat.requestedCookQuota})
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {Object.values(solverResult.memberStats).map((stat) => {
+                        const isShort = stat.assignedCooks < stat.requestedCookQuota;
+                        return (
+                          <tr key={stat.name} className="hover:bg-slate-50">
+                            <td className="px-4 py-2 font-bold text-slate-800">{stat.name}</td>
+                            <td className="px-4 py-2 text-slate-600">{stat.requestedCookQuota}</td>
+                            <td className="px-4 py-2 font-semibold text-orange-600">{stat.assignedCooks}</td>
+                            <td className="px-4 py-2 font-semibold text-sky-600">{stat.assignedCleans}</td>
+                            <td className="px-4 py-2 font-bold text-slate-900">{stat.totalAssigned}</td>
+                            <td className="px-4 py-2">
+                              {!isShort ? (
+                                <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-semibold">
+                                  Fulfilled
+                                </span>
+                              ) : (
+                                <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-semibold">
+                                  Short ({stat.assignedCooks}/{stat.requestedCookQuota})
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              <button
+                                onClick={() => setSelectedQuotaMember(stat.name)}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+                                  isShort
+                                    ? "bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
+                                    : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                                }`}
+                              >
+                                <Search className="w-3 h-3" /> {isShort ? "Find Dates & Add Extra" : "View Dates"}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1357,6 +1508,207 @@ export default function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: VIEW DATES & ASSIGN EXTRA SHIFT */}
+      {selectedQuotaMember && solverResult && intakeData && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl p-6 space-y-4 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-orange-600" />
+                  Available Dates & Extra Shift Assignment: {selectedQuotaMember}
+                </h3>
+                {solverResult.memberStats[selectedQuotaMember] && (
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Requested Quota:{" "}
+                    <strong>{solverResult.memberStats[selectedQuotaMember].requestedCookQuota}</strong> cooks •
+                    Currently Assigned:{" "}
+                    <strong>{solverResult.memberStats[selectedQuotaMember].assignedCooks}</strong> cooks,{" "}
+                    <strong>{solverResult.memberStats[selectedQuotaMember].assignedCleans}</strong> cleans (
+                    {solverResult.memberStats[selectedQuotaMember].totalAssigned} total shifts)
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => setSelectedQuotaMember(null)}
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Special Instructions Context if any */}
+            {(() => {
+              const resp = intakeData.responses.find(
+                (r) => r.name.toLowerCase() === selectedQuotaMember.toLowerCase()
+              );
+              if (!resp?.specialInstructions) return null;
+              return (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
+                  <MessageSquare className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
+                  <div>
+                    <span className="text-xs font-bold text-amber-900">
+                      Survey Request from {selectedQuotaMember}:
+                    </span>
+                    <p className="text-xs text-amber-800 mt-0.5 font-medium italic">
+                      "{resp.specialInstructions}"
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Dates List */}
+            <div className="overflow-y-auto flex-1 divide-y divide-slate-100 pr-1 space-y-2">
+              {solverResult.schedule.map((day) => {
+                const resp = intakeData.responses.find(
+                  (r) => r.name.toLowerCase() === selectedQuotaMember.toLowerCase()
+                );
+                const avail = resp?.availability[day.dateLabel] || "UNAVAILABLE";
+                const isCook = day.cooks.includes(selectedQuotaMember);
+                const isClean = day.cleaners.includes(selectedQuotaMember);
+
+                const cookConflict = !isCook
+                  ? checkAssignmentConflict(selectedQuotaMember, "COOK", day)
+                  : null;
+                const cleanConflict = !isClean
+                  ? checkAssignmentConflict(selectedQuotaMember, "CLEAN", day)
+                  : null;
+
+                const canCook = avail === "AVAILABLE" || avail === "COOK_ONLY";
+                const canClean = avail === "AVAILABLE" || avail === "CLEAN_ONLY";
+
+                return (
+                  <div
+                    key={day.dateKey}
+                    className={`p-3 rounded-xl border transition-colors ${
+                      isCook || isClean
+                        ? "bg-orange-50/40 border-orange-200"
+                        : canCook || canClean
+                        ? "bg-white border-slate-200 hover:border-slate-300"
+                        : "bg-slate-50/50 border-slate-100 opacity-60"
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      {/* Left: Date info & Current roster */}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-900">{day.dateLabel}</span>
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                              day.mealType === "BRUNCH"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-indigo-50 text-indigo-700"
+                            }`}
+                          >
+                            {day.mealType}
+                          </span>
+                          <span
+                            className={`text-[10px] px-2 py-0.2 rounded-full font-bold ${
+                              avail === "AVAILABLE"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : avail === "COOK_ONLY"
+                                ? "bg-orange-100 text-orange-800"
+                                : avail === "CLEAN_ONLY"
+                                ? "bg-sky-100 text-sky-800"
+                                : "bg-slate-100 text-slate-500"
+                            }`}
+                          >
+                            Survey: {avail.replace("_", " ")}
+                          </span>
+                        </div>
+
+                        {/* Current Assigned Roster */}
+                        <div className="text-[11px] text-slate-600 mt-1 space-y-0.5">
+                          <p>
+                            <span className="font-semibold text-orange-800">🍳 Cooks ({day.cooks.length}):</span>{" "}
+                            {day.cooks.join(", ") || "None"}
+                          </p>
+                          <p>
+                            <span className="font-semibold text-sky-800">🧼 Cleaners ({day.cleaners.length}):</span>{" "}
+                            {day.cleaners.join(", ") || "None"}
+                          </p>
+                        </div>
+
+                        {/* Conflict Warnings */}
+                        {cookConflict && (
+                          <p className="text-[11px] text-rose-600 font-semibold mt-1">
+                            ⚠️ Cook Conflict: {cookConflict}
+                          </p>
+                        )}
+                        {cleanConflict && (
+                          <p className="text-[11px] text-rose-600 font-semibold mt-1">
+                            ⚠️ Clean Conflict: {cleanConflict}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Right: Actions */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isCook ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-1 rounded-lg">
+                              ✅ Assigned Cook
+                            </span>
+                            <button
+                              onClick={() => handleRemoveShift(day.dateKey, selectedQuotaMember, "COOK")}
+                              className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                              title="Remove cook shift"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : canCook && !cookConflict ? (
+                          <button
+                            onClick={() => handleAddExtraShift(day.dateKey, selectedQuotaMember, "COOK")}
+                            className="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors"
+                          >
+                            + Add as Cook ({day.cooks.length + 1}th)
+                          </button>
+                        ) : null}
+
+                        {isClean ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-sky-700 bg-sky-100 px-2 py-1 rounded-lg">
+                              ✅ Assigned Cleaner
+                            </span>
+                            <button
+                              onClick={() => handleRemoveShift(day.dateKey, selectedQuotaMember, "CLEAN")}
+                              className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                              title="Remove clean shift"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : canClean && !cleanConflict && !isCook ? (
+                          <button
+                            onClick={() => handleAddExtraShift(day.dateKey, selectedQuotaMember, "CLEAN")}
+                            className="px-2.5 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors"
+                          >
+                            + Add Cleaner
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end pt-3 border-t border-slate-100">
+              <button
+                onClick={() => setSelectedQuotaMember(null)}
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
