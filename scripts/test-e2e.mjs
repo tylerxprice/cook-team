@@ -66,13 +66,23 @@ async function runE2ETest() {
 
     // Verify Step 3: Solve & Review
     console.log("5. Verifying Step 3: Solve & Review ...");
-    await page.waitForSelector("text=Cook Team Sizing Policy");
+    await page.waitForSelector("text=Schedule Review & Matchmaker Roster");
     await page.waitForSelector("text=Generated Monthly Shift Roster");
     await page.waitForSelector("text=Member Quota & Shift Distribution Summary");
     console.log("✓ Step 3 loaded with full roster, completeness banner, and quota table!");
 
+    // Test Global Settings Modal (Modal 5)
+    console.log("6. Testing Global Settings Modal...");
+    const settingsBtn = page.locator("button:has-text('Settings')").first();
+    await settingsBtn.click();
+    await page.waitForSelector("text=Global Application & Solver Settings");
+    console.log("✓ Modal 5 (Global Settings) opened successfully.");
+    const closeSettingsBtn = page.locator("button:has-text('Cancel')");
+    await closeSettingsBtn.click();
+    console.log("✓ Modal 5 closed.");
+
     // Test Interactive Missing Cleaner Slot button (Modal 4)
-    console.log("6. Testing [+ Fill Missing Cleaner Slot] modal...");
+    console.log("7. Testing [+ Fill Missing Cleaner Slot] modal...");
     const missingSlotBtn = page.locator("button:has-text('Fill Missing Cleaner Slot')").first();
     if ((await missingSlotBtn.count()) > 0) {
       await missingSlotBtn.click();

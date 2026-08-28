@@ -112,6 +112,8 @@ function MainApp() {
 
   // Modals
   const [showMemberModal, setShowMemberModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [defaultCleanQuota, setDefaultCleanQuota] = useState<number>(1);
   const [memberFilter, setMemberFilter] = useState<"all" | "active" | "inactive">("all");
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberEmail, setNewMemberEmail] = useState("");
@@ -542,7 +544,7 @@ function MainApp() {
         intakeData.mealDates,
         intakeData.responses,
         exceptions,
-        { cookPolicy: activePolicy, maxCleanPerMember: 1 }
+        { cookPolicy: activePolicy, maxCleanPerMember: defaultCleanQuota }
       );
       setSolverResult(res);
       setCurrentStep(3);
@@ -607,13 +609,23 @@ function MainApp() {
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 sm:space-x-3">
             <button
               onClick={() => setShowMemberModal(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
             >
               <Users className="w-4 h-4 text-slate-500" />
-              Member Directory ({members.filter((m) => m.active).length} Active)
+              <span className="hidden md:inline">Member Directory</span>
+              <span className="md:hidden">Directory</span> ({members.filter((m) => m.active).length})
+            </button>
+
+            <button
+              onClick={() => setShowSettingsModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
+              title="Global Application & Solver Settings"
+            >
+              <Settings className="w-4 h-4 text-slate-500" />
+              <span>Settings</span>
             </button>
 
             <span
@@ -1059,51 +1071,58 @@ function MainApp() {
         {/* STEP 3: SOLVE & REVIEW SCHEDULE */}
         {currentStep === 3 && (
           <div className="space-y-6">
-            {/* Solver Policy & Action Toolbar */}
+            {/* Schedule Review & Action Toolbar */}
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Cook Team Sizing Policy</label>
-                  <select
-                    value={cookPolicy}
-                    onChange={(e) => {
-                      const newPol = e.target.value as CookTeamPolicy;
-                      setCookPolicy(newPol);
-                      handleRunSolver(newPol);
-                    }}
-                    className="px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium"
-                  >
-                    <option value="ADAPTIVE_3_OR_2">Adaptive Sizing (Target 3 for Dinner, allow 2 if cooks agreed)</option>
-                    <option value="DINNER_3_BRUNCH_2">Strict 3 Cooks (Dinner = 3, Brunch = 2)</option>
-                    <option value="TWO_REGARDLESS">Strict 2 Cooks (2 Cooks regardless of meal)</option>
-                  </select>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-bold text-slate-900">Schedule Review & Matchmaker Roster</h2>
+                  <span className="text-[11px] font-semibold text-orange-700 bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    {cookPolicy === "ADAPTIVE_3_OR_2"
+                      ? "⚡ Adaptive Cook Sizing (3/2)"
+                      : cookPolicy === "DINNER_3_BRUNCH_2"
+                      ? "Strict 3 Dinner / 2 Brunch"
+                      : "Strict 2 Cooks"}
+                  </span>
                 </div>
-
-                <div className="pt-4">
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Review assignments, resolve unfilled slots, and inspect individual member quotas. Sizing & quota defaults can be adjusted in{" "}
                   <button
-                    onClick={() => handleRunSolver()}
-                    disabled={loading}
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold transition-colors"
+                    onClick={() => setShowSettingsModal(true)}
+                    className="text-orange-600 hover:underline font-semibold"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Re-Solve Schedule
-                  </button>
-                </div>
+                    Global Settings
+                  </button>.
+                </p>
               </div>
 
-              {solverResult && (
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <span className="text-xs text-slate-400">Solver Latency</span>
-                    <p className="text-xs font-bold text-slate-700">{solverResult.solveTimeMs}ms</p>
+              <div className="flex items-center gap-3">
+                {solverResult && (
+                  <div className="flex items-center gap-3 pr-2 border-r border-slate-200">
+                    <div className="text-right">
+                      <span className="text-[11px] text-slate-400 block">Solver Latency</span>
+                      <p className="text-xs font-bold text-slate-700">{solverResult.solveTimeMs}ms</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[11px] text-slate-400 block">Unfilled Slots</span>
+                      <p
+                        className={`text-xs font-bold ${
+                          solverResult.unfilledSlotsCount === 0 ? "text-emerald-600" : "text-rose-600"
+                        }`}
+                      >
+                        {solverResult.unfilledSlotsCount}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs text-slate-400">Unfilled Slots</span>
-                    <p className={`text-xs font-bold ${solverResult.unfilledSlotsCount === 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                      {solverResult.unfilledSlotsCount}
-                    </p>
-                  </div>
-                </div>
-              )}
+                )}
+
+                <button
+                  onClick={() => handleRunSolver()}
+                  disabled={loading}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Re-Run Solver
+                </button>
+              </div>
             </div>
 
             {/* Empty State when solverResult has not run yet */}
@@ -2208,6 +2227,171 @@ function MainApp() {
           </div>
         );
       })()}
+
+      {/* MODAL 5: GLOBAL APPLICATION & SOLVER SETTINGS */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center">
+                  <Settings className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Global Application & Solver Settings</h3>
+                  <p className="text-xs text-slate-500">Configure sizing policies, default quotas, and solver behavior</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Settings Form Body */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
+              {/* 1. Cook Team Sizing Policy */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Utensils className="w-3.5 h-3.5 text-orange-600" />
+                  Cook Team Sizing Policy
+                </label>
+                <p className="text-slate-500 text-[11px]">
+                  Controls target cook team sizes and dynamic flexibility on tight dates.
+                </p>
+
+                <div className="space-y-2 pt-1">
+                  {[
+                    {
+                      id: "ADAPTIVE_3_OR_2",
+                      title: "Adaptive Sizing (Recommended / Default)",
+                      desc: "Target 3 cooks on Dinners & 2 on Brunches. Dynamically accepts 2 cooks on Dinner without errors if all assigned cooks agreed to 2 in the survey.",
+                      badge: "Default",
+                    },
+                    {
+                      id: "DINNER_3_BRUNCH_2",
+                      title: "Strict 3 Dinner / 2 Brunch",
+                      desc: "Strictly requires 3 cooks on every Dinner and 2 on every Brunch, flagging unfilled slots if 3 cooks cannot be scheduled.",
+                    },
+                    {
+                      id: "TWO_REGARDLESS",
+                      title: "Strict 2 Cooks Regardless",
+                      desc: "Always schedules exactly 2 cooks for all Dinners and Brunches.",
+                    },
+                  ].map((opt) => (
+                    <label
+                      key={opt.id}
+                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                        cookPolicy === opt.id
+                          ? "bg-orange-50/70 border-orange-300 ring-1 ring-orange-400/40"
+                          : "bg-white border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="cookPolicy"
+                        value={opt.id}
+                        checked={cookPolicy === opt.id}
+                        onChange={() => setCookPolicy(opt.id as CookTeamPolicy)}
+                        className="mt-0.5 text-orange-600 focus:ring-orange-500"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900">{opt.title}</span>
+                          {opt.badge && (
+                            <span className="text-[10px] bg-orange-100 text-orange-800 font-bold px-2 py-0.2 rounded-full">
+                              {opt.badge}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-slate-500 text-[11px] mt-0.5">{opt.desc}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. Default Clean Shift Quota */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-sky-600" />
+                  Default Cleaning Shifts per Member (Fallback)
+                </label>
+                <p className="text-slate-500 text-[11px]">
+                  Default monthly cleaning shifts assigned per person when not specified in survey or for legacy responses.
+                </p>
+
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  {[
+                    { val: 1, label: "1 Shift (Default)" },
+                    { val: 2, label: "2 Shifts" },
+                    { val: 0, label: "0 (Exempt)" },
+                  ].map((item) => (
+                    <button
+                      key={item.val}
+                      type="button"
+                      onClick={() => setDefaultCleanQuota(item.val)}
+                      className={`py-2 px-3 rounded-xl border text-center font-bold transition-all ${
+                        defaultCleanQuota === item.val
+                          ? "bg-sky-50 border-sky-300 text-sky-900 ring-1 ring-sky-400/40"
+                          : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. Team Sizing Targets Summary */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                  Standard Meal Staffing Targets
+                </label>
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <span className="font-bold text-indigo-900 block text-xs">Dinner Shifts</span>
+                    <p className="text-slate-600 text-[11px] mt-0.5">🍳 3 Cooks (or 2 adaptive) • 🧼 3 Cleaners</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <span className="font-bold text-amber-900 block text-xs">Brunch Shifts</span>
+                    <p className="text-slate-600 text-[11px] mt-0.5">🍳 2 Cooks • 🧼 2 Cleaners</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="px-4 py-2 text-slate-600 hover:text-slate-900 font-semibold text-xs rounded-xl"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={async () => {
+                  setShowSettingsModal(false);
+                  if (intakeData) {
+                    await handleRunSolver(cookPolicy);
+                    showToast("Settings applied & schedule recalculated!");
+                  } else {
+                    showToast("Settings saved!");
+                  }
+                }}
+                className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl shadow-sm transition-colors flex items-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5" /> Save & Re-Calculate Schedule
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-3.5 text-center text-xs text-slate-400">
