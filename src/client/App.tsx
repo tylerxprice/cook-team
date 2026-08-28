@@ -705,15 +705,14 @@ function MainApp() {
 
       {/* Step Wizard Navigation Bar */}
       <div className="bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
-          <nav className="flex items-center gap-1 sm:gap-2 overflow-x-auto py-1">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between gap-4">
+          <nav className="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto">
             {[
               { step: 1, title: "Intake & Audit", icon: Users },
               { step: 2, title: "Notes & Rules", icon: Settings },
               { step: 3, title: "Solve & Review", icon: Calendar },
               { step: 4, title: "Publish & Email", icon: Mail },
             ].map((item, idx, arr) => {
-              const Icon = item.icon;
               const isActive = currentStep === item.step;
               const isDone = currentStep > item.step;
 
@@ -721,18 +720,18 @@ function MainApp() {
                 <React.Fragment key={item.step}>
                   <button
                     onClick={() => goToStep(item.step as any)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
+                    className={`h-9 inline-flex items-center gap-2 px-3.5 rounded-xl text-xs sm:text-sm font-semibold border transition-all shrink-0 select-none ${
                       isActive
-                        ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
+                        ? "bg-orange-500 text-white border-orange-500 shadow-sm shadow-orange-500/25"
                         : isDone
-                        ? "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/60"
-                        : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                        ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100/80"
+                        : "bg-transparent text-slate-500 border-transparent hover:text-slate-900 hover:bg-slate-100"
                     }`}
                   >
                     <span
-                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-colors ${
                         isActive
-                          ? "bg-white text-orange-600 shadow-sm"
+                          ? "bg-white text-orange-600 shadow-xs"
                           : isDone
                           ? "bg-emerald-600 text-white"
                           : "bg-slate-200 text-slate-600"
@@ -758,7 +757,7 @@ function MainApp() {
           <button
             onClick={() => fetchIntake()}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg text-xs font-medium shrink-0 transition-colors"
+            className="h-9 inline-flex items-center gap-1.5 px-3 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg text-xs font-semibold shrink-0 transition-colors border border-transparent"
             title="Refresh Survey Data"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
