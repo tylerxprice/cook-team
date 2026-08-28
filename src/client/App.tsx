@@ -1034,6 +1034,55 @@ export default function App() {
               )}
             </div>
 
+            {/* Overall Schedule Completeness Banner */}
+            {solverResult && (() => {
+              const incompleteMeals = solverResult.schedule.filter(
+                (d) => d.unfilledCooks > 0 || d.unfilledCleaners > 0
+              );
+              const completeMealsCount = solverResult.schedule.length - incompleteMeals.length;
+
+              return (
+                <div
+                  className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                    incompleteMeals.length === 0
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                      : "bg-amber-50/90 border-amber-300 text-amber-900"
+                  }`}
+                >
+                  <div className="flex items-start sm:items-center gap-3">
+                    {incompleteMeals.length === 0 ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
+                    ) : (
+                      <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+                    )}
+                    <div>
+                      <h4 className="text-xs font-bold">
+                        {incompleteMeals.length === 0
+                          ? `All ${solverResult.schedule.length} Monthly Meals Fully Staffed!`
+                          : `${incompleteMeals.length} of ${solverResult.schedule.length} Meals Incomplete (Action Required)`}
+                      </h4>
+                      <p className="text-xs text-slate-600 mt-0.5">
+                        {incompleteMeals.length === 0
+                          ? "Every dinner and brunch has both a complete cook team and clean team."
+                          : "A meal day cannot happen without both cooks and cleaners. Shifts assigned to incomplete dates are marked as Pending."}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
+                        incompleteMeals.length === 0
+                          ? "bg-emerald-600 text-white shadow-sm"
+                          : "bg-amber-600 text-white shadow-sm"
+                      }`}
+                    >
+                      {completeMealsCount} / {solverResult.schedule.length} Confirmed Meals
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Constraint Violations (if any) */}
             {solverResult && solverResult.violations.length > 0 && (
               <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl space-y-2">
@@ -1059,6 +1108,7 @@ export default function App() {
                   {solverResult.schedule.map((day) => {
                     const hasCookShortage = day.unfilledCooks > 0;
                     const hasCleanShortage = day.unfilledCleaners > 0;
+                    const isFullyStaffed = !hasCookShortage && !hasCleanShortage;
 
                     return (
                       <div
@@ -1067,7 +1117,7 @@ export default function App() {
                           hasCookShortage
                             ? "bg-rose-50/90 border-rose-300 ring-2 ring-rose-400/30 shadow-md shadow-rose-100"
                             : hasCleanShortage
-                            ? "bg-amber-50/80 border-amber-300 shadow-sm"
+                            ? "bg-amber-50/80 border-amber-300 ring-2 ring-amber-400/30 shadow-sm"
                             : "bg-white border-slate-200/90 shadow-sm hover:shadow-md"
                         }`}
                       >
@@ -1077,9 +1127,21 @@ export default function App() {
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-slate-900">{day.dateLabel}</span>
-                                {hasCookShortage && (
+                                {hasCookShortage && hasCleanShortage ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-rose-600 text-white rounded-full font-bold shadow-sm">
+                                    <AlertTriangle className="w-3 h-3" /> Short {day.unfilledCooks}C & {day.unfilledCleaners}Cl
+                                  </span>
+                                ) : hasCookShortage ? (
                                   <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-rose-600 text-white rounded-full font-bold shadow-sm">
                                     <AlertTriangle className="w-3 h-3" /> Short {day.unfilledCooks} Cook{day.unfilledCooks > 1 ? "s" : ""}
+                                  </span>
+                                ) : hasCleanShortage ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-amber-600 text-white rounded-full font-bold shadow-sm">
+                                    <AlertTriangle className="w-3 h-3" /> Needs {day.unfilledCleaners} Cleaner{day.unfilledCleaners > 1 ? "s" : ""}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-bold">
+                                    ✅ Fully Staffed
                                   </span>
                                 )}
                               </div>
@@ -1136,22 +1198,22 @@ export default function App() {
                           </div>
 
                           {/* Clean Team */}
-                          <div className="mt-3">
+                          <div className={`mt-3 ${hasCleanShortage ? "bg-amber-100/60 border border-amber-200 p-2.5 rounded-xl" : ""}`}>
                             <div className="flex items-center justify-between text-xs mb-1">
-                              <span className="font-bold text-sky-700 flex items-center gap-1">
+                              <span className="font-bold text-sky-800 flex items-center gap-1">
                                 🧼 Cleaners ({day.cleaners.length})
                               </span>
-                              {day.unfilledCleaners > 0 && (
-                                <span className="text-xs text-rose-600 font-semibold">
-                                  {day.unfilledCleaners} needed
+                              {hasCleanShortage && (
+                                <span className="text-xs text-amber-800 font-bold">
+                                  ⚠️ {day.unfilledCleaners} needed
                                 </span>
                               )}
                             </div>
-                            <div className="flex flex-wrap gap-1.5">
+                            <div className="flex flex-wrap gap-1.5 mt-1">
                               {day.cleaners.map((name) => (
                                 <span
                                   key={name}
-                                  className="px-2 py-1 bg-sky-50 text-sky-800 border border-sky-200 rounded-lg text-xs font-medium"
+                                  className="px-2 py-1 bg-white text-sky-900 border border-sky-200 rounded-lg text-xs font-semibold shadow-xs"
                                 >
                                   {name}
                                 </span>
@@ -1159,9 +1221,9 @@ export default function App() {
                               {Array.from({ length: day.unfilledCleaners }).map((_, i) => (
                                 <span
                                   key={`empty-clean-${i}`}
-                                  className="px-2 py-1 bg-amber-50 border border-dashed border-amber-300 text-amber-600 rounded-lg text-xs font-bold flex items-center gap-1"
+                                  className="px-2 py-1 bg-amber-50 border border-dashed border-amber-300 text-amber-700 rounded-lg text-xs font-bold flex items-center gap-1"
                                 >
-                                  ❓ Missing Cleaner
+                                  ❓ Missing Cleaner Slot
                                 </span>
                               ))}
                             </div>
@@ -1181,7 +1243,7 @@ export default function App() {
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">Member Quota & Shift Distribution Summary</h3>
                     <p className="text-xs text-slate-500">
-                      Verify that every community member's requested cook quota is fulfilled. Click "Find Dates & Add Extra" to assign extra shifts without violating exception rules.
+                      Verify that every community member's requested cook quota is fulfilled and shifts are on complete meals.
                     </p>
                   </div>
                 </div>
@@ -1196,7 +1258,7 @@ export default function App() {
                         <th className="px-4 py-2.5">Available Clean Days</th>
                         <th className="px-4 py-2.5">Assigned Cleans</th>
                         <th className="px-4 py-2.5">Total Shifts</th>
-                        <th className="px-4 py-2.5">Quota Status</th>
+                        <th className="px-4 py-2.5">Fulfillment Status</th>
                         <th className="px-4 py-2.5 text-right">Action</th>
                       </tr>
                     </thead>
@@ -1204,6 +1266,16 @@ export default function App() {
                       {Object.values(solverResult.memberStats).map((stat) => {
                         const isShort = stat.assignedCooks < stat.requestedCookQuota;
                         const totalMealCount = intakeData?.mealDates.length || 13;
+
+                        // Check if any of their assigned shifts are on dates with missing cleaners/cooks
+                        const assignedDays = solverResult.schedule.filter(
+                          (d) => d.cooks.includes(stat.name) || d.cleaners.includes(stat.name)
+                        );
+                        const incompleteAssignedDays = assignedDays.filter(
+                          (d) => d.unfilledCooks > 0 || d.unfilledCleaners > 0
+                        );
+                        const hasPendingIncomplete = incompleteAssignedDays.length > 0;
+
                         return (
                           <tr key={stat.name} className="hover:bg-slate-50">
                             <td className="px-4 py-2 font-bold text-slate-800">{stat.name}</td>
@@ -1224,13 +1296,29 @@ export default function App() {
                             <td className="px-4 py-2 font-semibold text-sky-600">{stat.assignedCleans}</td>
                             <td className="px-4 py-2 font-bold text-slate-900">{stat.totalAssigned}</td>
                             <td className="px-4 py-2">
-                              {!isShort ? (
-                                <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-semibold">
-                                  Fulfilled
-                                </span>
+                              {isShort ? (
+                                <div className="space-y-0.5">
+                                  <span className="text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-bold inline-block">
+                                    Short ({stat.assignedCooks}/{stat.requestedCookQuota})
+                                  </span>
+                                  {hasPendingIncomplete && (
+                                    <p className="text-[10px] text-amber-700 font-medium">
+                                      ⚠️ {incompleteAssignedDays.length} shift on incomplete meal
+                                    </p>
+                                  )}
+                                </div>
+                              ) : hasPendingIncomplete ? (
+                                <div className="space-y-0.5">
+                                  <span className="text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded font-bold inline-block">
+                                    ⚠️ Pending ({incompleteAssignedDays.length} on Incomplete Meal{incompleteAssignedDays.length > 1 ? "s" : ""})
+                                  </span>
+                                  <p className="text-[10px] text-amber-600">
+                                    Meal missing cleaner/cook team
+                                  </p>
+                                </div>
                               ) : (
-                                <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-semibold">
-                                  Short ({stat.assignedCooks}/{stat.requestedCookQuota})
+                                <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-bold inline-block">
+                                  ✅ Confirmed Fulfilled
                                 </span>
                               )}
                             </td>
@@ -1238,12 +1326,12 @@ export default function App() {
                               <button
                                 onClick={() => setSelectedQuotaMember(stat.name)}
                                 className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
-                                  isShort
+                                  isShort || hasPendingIncomplete
                                     ? "bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
                                     : "bg-slate-100 hover:bg-slate-200 text-slate-600"
                                 }`}
                               >
-                                <Search className="w-3 h-3" /> {isShort ? "Find Dates & Add Extra" : "View Dates"}
+                                <Search className="w-3 h-3" /> {isShort || hasPendingIncomplete ? "Find Dates & Add Extra" : "View Dates"}
                               </button>
                             </td>
                           </tr>
