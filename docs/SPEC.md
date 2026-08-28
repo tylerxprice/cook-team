@@ -66,6 +66,47 @@
 | `is_hard_rule` | Boolean | `true` (strict constraint) vs `false` (soft preference) |
 | `notes` | String (Nullable) | Freeform rationale or duration (e.g. `"Roommates"`, `"Childcare"`) |
 
+#### `Settings` Tab (Global Configuration Registry)
+
+| Field | Type | Description / Example |
+| :--- | :--- | :--- |
+| `key` | String | Setting key (e.g. `"cook_policy"`, `"default_clean_quota"`) |
+| `value` | String / Number | Setting value (e.g. `"ADAPTIVE_3_OR_2"`, `1`) |
+| `description` | String (Nullable) | Rationale or documentation |
+
+### 3.2. Google Drive Workspace Architecture & Folder Hierarchy
+
+The tool organizes all spreadsheets within a designated Google Drive root folder (`1U0cJqnxCgWn-5k0RCj2BjCUj9nc1dMGl`) partitioned into production and testing environments:
+
+```
+📁 CookTeamTool Root Workspace (1U0cJqnxCgWn-5k0RCj2BjCUj9nc1dMGl)
+│
+├── 📁 01_Live_Production/
+│   ├── 📄 Master Community Registry (Live)
+│   │   ├── 📑 Members       (name, google_email, active, last_active_survey)
+│   │   ├── 📑 Exceptions    (person_a, person_b, rule_type, roles, is_hard, notes)
+│   │   └── 📑 Settings      (cook_policy, default_clean_quota)
+│   └── 📁 Monthly_Surveys/
+│       └── 📄 2026-10 Cook Team Survey (Responses)   <-- Live Google Form response sheet
+│
+└── 📁 02_Dev_and_Testing/
+    ├── 📄 Master Community Registry (Dev/Test)
+    ├── 📄 Test Scenario - Standard (30 Responses, 13 meals, 0 shortages)
+    ├── 📄 Test Scenario - Holiday Shortage (Thanksgiving deficit, 7 unfilled slots)
+    ├── 📄 Test Scenario - Quota Deficit (Community undersubscribed, 25 unfilled slots)
+    ├── 📄 Test Scenario - High Conflict (Roommates & complex constraints)
+    └── 📄 Test Scenario - Single Respondent (Single respondent edge case)
+```
+
+### 3.3. Dev vs. Live Environment Isolation
+
+| Dimension | **Live Production** | **Dev & Testing** |
+| :--- | :--- | :--- |
+| **Master Registry** | Live community roster & persistent exception rules. | Sandbox copy for testing member status flips and rule changes safely. |
+| **Survey Inputs** | Live Google Form responses linked monthly. | Synthetic test scenario sheets mirroring real Form response headers. |
+| **Mutation Scope** | `[Mark Inactive]`, `[+ Add Member]`, and `[Add Rule]` persist directly to Live Sheet. | Mutations only modify the Dev Master Sheet. |
+| **Configuration** | Configured via Script Property `MASTER_REGISTRY_SHEET_ID` or UI. | Switchable via Global Settings or preset selector. |
+
 ---
 
 ## 4. Core Shift Rules & Constraints

@@ -74,27 +74,33 @@ This document tracks completed milestones, current progress, and remaining imple
 
 ---
 
-### ⏳ Phase 4: Google Cloud Integration, Sheet Binding & UAT (Current Focus)
-- [ ] **Master Google Sheet Setup**:
-  - Establish canonical Master Sheet with `Members` and `Exceptions` tabs.
-  - Populate initial 30 community member rows.
+### ⏳ Phase 4: Google Cloud Integration, Drive Hierarchy & Live UAT (Current Focus)
+- [ ] **Google Drive Workspace Hierarchy Setup (`1U0cJqnxCgWn-5k0RCj2BjCUj9nc1dMGl`)**:
+  - [ ] Create `01_Live_Production/` and `02_Dev_and_Testing/` folder hierarchy.
+  - [ ] Initialize Live **Master Community Registry** (`Members`, `Exceptions`, `Settings` tabs).
+  - [ ] Initialize Dev/Test Master Registry and create synthetic Google Sheets for all 5 test presets (`standard`, `holiday_shortage`, `quota_deficit`, `high_conflict`, `single_respondent`).
+- [ ] **Automated Drive Provisioning Script ([`src/server/setupDrive.ts`](../src/server/setupDrive.ts))**:
+  - [ ] Write one-click GAS script to automatically provision subfolders, master sheets, and test response spreadsheets in Google Drive.
+- [ ] **Master Registry Persistence & Sheet Bridge ([`src/server/Code.ts`](../src/server/Code.ts))**:
+  - [ ] Connect `setMemberActiveStatus`, `addMember`, and `saveExceptionRule` to persist updates to the Master Google Sheet.
+  - [ ] Configure Script Property `MASTER_REGISTRY_SHEET_ID` with dynamic UI override in Global Settings.
 - [ ] **Google Apps Script Project Linking**:
-  - Log in via `clasp login`.
-  - Link script ID in `.clasp.json`.
+  - [ ] Log in via `clasp login`.
+  - [ ] Link script ID in `.clasp.json`.
 - [ ] **End-to-End Live Sheet Integration**:
-  - Test live `SpreadsheetApp` read against Google Form linked responses.
-  - Test live `Schedule_YYYY-MM` tab export.
+  - [ ] Test live `SpreadsheetApp` read against the October 2026 Google Form response sheet.
+  - [ ] Test live `Schedule_YYYY-MM` tab export.
 - [ ] **Web App Deployment**:
-  - Deploy production version via `clasp push` / Apps Script Web App (`/exec`).
-  - Configure execution permissions ("Execute as me", access for coordinator).
+  - [ ] Deploy production version via `clasp push` / Apps Script Web App (`/exec`).
+  - [ ] Configure execution permissions ("Execute as me", access for community coordinators).
 - [ ] **User Acceptance Testing (UAT)**:
-  - Walkthrough with coordinator (Brenda) on October survey generation.
-  - Gather feedback on UI clarity and export workflow.
+  - [ ] Walkthrough with coordinator (Brenda) on October schedule generation.
+  - [ ] Validate member status toggle and custom exception persistence in live Master Sheet.
 
 ---
 
 ## 🎯 Next Immediate Tasks
 
-1. **Link `clasp` to Apps Script Project**: Create or bind an Apps Script project ID (`.clasp.json`).
-2. **Setup Master Sheet Template**: Create the `Members` and `Exceptions` tabs in Google Drive.
-3. **Conduct Live Test Run**: Ingest the live survey link and export a real schedule tab.
+1. **Build Automated Drive Provisioner Script ([`src/server/setupDrive.ts`](../src/server/setupDrive.ts))**: Generate folder structure, Master Registry sheets, and test scenario spreadsheets in Drive (`1U0cJqnxCgWn-5k0RCj2BjCUj9nc1dMGl`).
+2. **Implement Master Registry Persistence in `Code.ts`**: Hook up live spreadsheet read/write for community members, exceptions, and global settings.
+3. **Link `clasp` to Apps Script Project & Deploy**: Link project ID in `.clasp.json` and deploy for live testing.
