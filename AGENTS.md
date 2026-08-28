@@ -71,6 +71,7 @@ Welcome to **CookTeamTool**! This document provides context, architectural guide
 | Path | Purpose |
 | :--- | :--- |
 | [`docs/SPEC.md`](./docs/SPEC.md) | Product and technical specification. |
+| [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Implementation roadmap & task progress tracker. |
 | [`src/server/types.ts`](./src/server/types.ts) | Canonical TypeScript data interfaces. |
 | [`src/server/matchmaker.ts`](./src/server/matchmaker.ts) | Constraint Satisfaction Problem (CSP) solver engine. |
 | [`src/server/parser.ts`](./src/server/parser.ts) | Google Form sheet parser & audit validator. |

@@ -182,21 +182,6 @@
 
 ---
 
-## 6. Implementation Roadmap
+## 6. Implementation & Status Tracking
 
-1. **Phase 1: Data Model & Local Fixtures**
-   * Define comprehensive TypeScript interfaces for Survey Responses, Members, Exceptions, and Schedule Outputs in `src/server/types.ts`.
-   * Create realistic mock data in `src/client/utils/gas.ts` representing historical community survey responses and edge cases.
-
-2. **Phase 2: Matchmaker Engine**
-   * Implement the backtracking constraint solver in `src/server/matchmaker.ts` supporting team sizes, non-overlap rules, shift quotas, and the 5 exception rule types.
-   * Unit test constraints against historical edge cases.
-
-3. **Phase 3: Web App UI & Gas Integration**
-   * Build the multi-step React wizard in `src/client/` (Step 1: Intake & Audit $\rightarrow$ Step 2: Exceptions & Notes $\rightarrow$ Step 3: Solve & Review $\rightarrow$ Step 4: Export).
-   * Implement member management modal with active/inactive toggles.
-   * Wire `google.script.run` RPC endpoints in `src/server/Code.ts` to read/write Sheet data.
-
-4. **Phase 4: Deployment & Handoff**
-   * Build singlefile bundle and deploy via `clasp push` to Google Apps Script.
-   * Conduct user acceptance testing with Brenda.
+* Detailed implementation milestones, completed work, and remaining tasks are tracked in [`docs/ROADMAP.md`](./ROADMAP.md).
