@@ -507,7 +507,7 @@ export default function App() {
   // Generate Email Summary Text
   const generateEmailText = () => {
     if (!solverResult) return "";
-    let text = "Hi Everyone,\n\nHere is the community cook and clean team schedule for next month:\n\n";
+    let text = "Hi precious friends & neighbours,\n\nHere is the community cook and clean team schedule for next month:\n\n";
     for (const d of solverResult.schedule) {
       text += `📅 ${d.dateLabel} (${d.mealType}${d.specialNote ? ` - ${d.specialNote}` : ""})\n`;
       text += `  • Cooks: ${d.cooks.join(", ") || "(Need Volunteers)"}\n`;
@@ -535,7 +535,7 @@ export default function App() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-                  CookTeamTool
+                  Community Cook Team App
                 </h1>
                 <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-orange-100 text-orange-700">
                   Community Meal Scheduler
@@ -1721,7 +1721,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-3.5 text-center text-xs text-slate-400">
-        CookTeamTool • Built for Community Meal Coordinators • Google Apps Script & React
+        Community Cook Team App • Built for Community Meal Coordinators • Google Apps Script & React
       </footer>
     </div>
   );
