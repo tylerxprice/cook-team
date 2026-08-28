@@ -94,7 +94,22 @@ npm run dev
 * `callGas()` in `src/client/utils/gas.ts` intercepts all RPC calls and simulates server responses with stateful in-memory data.
 * Includes scenario preset switcher (Standard, Holiday Desertion, Quota Deficit, High Conflict, Single Response).
 
-### 2. Build & Type Checking
+### 2. Automated Headless Browser & UI Testing (Playwright + Chromium)
+```bash
+npm run test:e2e
+```
+* Runs full browser end-to-end tests inside the headless devcontainer using Playwright and Chromium.
+* **Test Flow & Coverage:**
+  1. Spawns an isolated local Vite server (`http://localhost:5174`).
+  2. Launches headless Chromium and catches any unhandled React/DOM exceptions or `console.error` logs.
+  3. **Step 1 (Intake & Audit):** Validates survey sheet loading, completeness audit nag screen, and `[Mark Inactive]` triggers.
+  4. **Step 2 (Notes & Rules):** Validates special instructions parser and coordinator rule configuration.
+  5. **Step 3 (Solve & Review):** Executes CSP matchmaker solver, asserts schedule roster generation, validates completeness banner, tests **Modal 4** (`[+ Fill Missing Slot]` override), tests **Modal 3** (`[Find Dates & Add Extra]` calendar inspector), and validates cook team sizing policy changes.
+  6. **Step 4 (Publish & Email):** Validates sheet export card and email announcement greeting (*"Hi precious friends & neighbours,"*).
+  7. **Scenario Presets:** Cycles through all 5 scenario presets (`standard`, `holiday_shortage`, `quota_deficit`, `high_conflict`, `single_respondent`) asserting zero render crashes.
+* **Requirement:** Always run `npm run test:e2e` after making UI or solver modifications.
+
+### 3. Build & Type Checking
 ```bash
 npm run build
 ```
@@ -102,13 +117,13 @@ npm run build
 * Compiles TypeScript server to `dist/Code.js`.
 * Copies `appsscript.json` to `dist/`.
 
-### 3. Google Apps Script Deployment
+### 4. Google Apps Script Deployment
 ```bash
 clasp login        # One-time login to Google account
 npm run deploy     # Builds bundles and pushes to GAS via clasp push
 npm run open       # Opens project in Google Apps Script editor
 ```
 
-### 4. Git Version Control
+### 5. Git Version Control
 * Remote repository is hosted on **GitHub**.
-* Always ensure `npm run build` succeeds before creating commits.
+* Always ensure `npm run build` and `npm run test:e2e` succeed before creating commits.
