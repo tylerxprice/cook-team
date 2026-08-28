@@ -120,8 +120,25 @@ async function runE2ETest() {
       errors.push("Email greeting mismatch");
     }
 
+    // Test Browser Back & Forward button history navigation
+    console.log("9. Testing Browser Back & Forward button history navigation...");
+    // Currently on Step 4 (#step-4) -> Back navigates to Step 3
+    await page.goBack();
+    await page.waitForSelector("text=Schedule Review & Matchmaker Roster");
+    console.log("✓ Browser Back button navigated to Step 3 (#step-3) successfully!");
+
+    // Back navigates to Step 2
+    await page.goBack();
+    await page.waitForSelector("text=Member Notes & Exception Rules");
+    console.log("✓ Browser Back button navigated to Step 2 (#step-2) successfully!");
+
+    // Forward navigates back to Step 3
+    await page.goForward();
+    await page.waitForSelector("text=Schedule Review & Matchmaker Roster");
+    console.log("✓ Browser Forward button navigated forward to Step 3 (#step-3) successfully!");
+
     // Test Scenario Presets across solver
-    console.log("9. Testing Scenario Presets on Step 1...");
+    console.log("10. Testing Scenario Presets on Step 1...");
     const step1Nav = page.locator("button:has-text('Intake & Audit')").first();
     await step1Nav.click();
     await page.waitForSelector("text=Survey Response Spreadsheet");

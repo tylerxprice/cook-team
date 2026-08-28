@@ -97,8 +97,21 @@ export class ErrorBoundary extends React.Component<
 function MainApp() {
   const [inGas, setInGas] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
+  const [currentStep, setCurrentStepState] = useState<1 | 2 | 3 | 4>(1);
   const [notification, setNotification] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+
+  // Synchronize wizard navigation with browser history (Back / Forward buttons)
+  const goToStep = (step: 1 | 2 | 3 | 4, replace = false) => {
+    setCurrentStepState(step);
+    const hash = `#step-${step}`;
+    if (window.location.hash !== hash) {
+      if (replace) {
+        window.history.replaceState({ step }, "", hash);
+      } else {
+        window.history.pushState({ step }, "", hash);
+      }
+    }
+  };
 
   // Spreadsheet URL/ID input
   const [sheetInput, setSheetInput] = useState("1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4");
@@ -152,7 +165,7 @@ function MainApp() {
           data.mealDates,
           data.responses,
           data.exceptions || [],
-          { cookPolicy, maxCleanPerMember: 1 }
+          { cookPolicy, maxCleanPerMember: defaultCleanQuota }
         );
         setSolverResult(res);
       }
@@ -163,7 +176,7 @@ function MainApp() {
     }
   };
 
-  // Initial Load
+  // Initial Load & URL Hash / Browser History Synchronization
   const fetchIntake = async (sheetId?: string) => {
     setLoading(true);
     try {
@@ -183,6 +196,38 @@ function MainApp() {
   useEffect(() => {
     setInGas(isGasEnvironment());
     fetchIntake();
+
+    // Check if initial URL has a step hash (e.g. #step-2)
+    const parseStepFromHash = (): 1 | 2 | 3 | 4 => {
+      const match = window.location.hash.match(/#step-([1-4])/);
+      if (match) {
+        const parsed = parseInt(match[1], 10);
+        if ([1, 2, 3, 4].includes(parsed)) return parsed as 1 | 2 | 3 | 4;
+      }
+      return 1;
+    };
+
+    const initialStep = parseStepFromHash();
+    setCurrentStepState(initialStep);
+    window.history.replaceState({ step: initialStep }, "", `#step-${initialStep}`);
+
+    // Listen for browser Back & Forward button presses
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state && typeof e.state.step === "number" && [1, 2, 3, 4].includes(e.state.step)) {
+        setCurrentStepState(e.state.step as 1 | 2 | 3 | 4);
+      } else {
+        const step = parseStepFromHash();
+        setCurrentStepState(step);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    window.addEventListener("hashchange", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("hashchange", handlePopState);
+    };
   }, []);
 
   // Auto-scroll to top whenever step changes
@@ -547,7 +592,7 @@ function MainApp() {
         { cookPolicy: activePolicy, maxCleanPerMember: defaultCleanQuota }
       );
       setSolverResult(res);
-      setCurrentStep(3);
+      goToStep(3);
       showToast(`Schedule generated in ${res.solveTimeMs}ms!`);
     } catch (err: any) {
       showToast(`Solver error: ${err.message}`, "error");
@@ -675,7 +720,7 @@ function MainApp() {
               return (
                 <React.Fragment key={item.step}>
                   <button
-                    onClick={() => setCurrentStep(item.step as any)}
+                    onClick={() => goToStep(item.step as any)}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
                       isActive
                         ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
@@ -901,7 +946,7 @@ function MainApp() {
             {/* Next Step Button */}
             <div className="flex justify-end">
               <button
-                onClick={() => setCurrentStep(2)}
+                onClick={() => goToStep(2)}
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-colors"
               >
                 Proceed to Notes & Exception Rules <ChevronRight className="w-4 h-4" />
@@ -1052,7 +1097,7 @@ function MainApp() {
             {/* Navigation Buttons */}
             <div className="flex justify-between items-center">
               <button
-                onClick={() => setCurrentStep(1)}
+                onClick={() => goToStep(1)}
                 className="px-4 py-2 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900"
               >
                 Back to Intake
@@ -1496,13 +1541,13 @@ function MainApp() {
             {/* Navigation Buttons */}
             <div className="flex justify-between items-center">
               <button
-                onClick={() => setCurrentStep(2)}
+                onClick={() => goToStep(2)}
                 className="px-4 py-2 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900"
               >
                 Back to Notes & Rules
               </button>
               <button
-                onClick={() => setCurrentStep(4)}
+                onClick={() => goToStep(4)}
                 className="inline-flex items-center gap-2 px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-orange-500/20 transition-all"
               >
                 Proceed to Export & Email <ChevronRight className="w-4 h-4" />
@@ -1573,7 +1618,7 @@ function MainApp() {
 
             <div className="flex justify-start">
               <button
-                onClick={() => setCurrentStep(3)}
+                onClick={() => goToStep(3)}
                 className="px-4 py-2 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900"
               >
                 Back to Schedule View
