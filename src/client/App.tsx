@@ -95,6 +95,16 @@ export default function App() {
       setMembers(data.members || []);
       setSolverResult(null);
       showToast(`Loaded test scenario: ${presetKey}`);
+      if (currentStep === 3) {
+        const res = await callGas<ScheduleOutput>(
+          "solveSchedule",
+          data.mealDates,
+          data.responses,
+          data.exceptions || [],
+          { cookPolicy, maxCleanPerMember: 1 }
+        );
+        setSolverResult(res);
+      }
     } catch (err: any) {
       showToast(`Error: ${err.message}`, "error");
     } finally {
@@ -128,6 +138,13 @@ export default function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [currentStep]);
+
+  // Auto-solve when entering Step 3 if no result exists yet
+  useEffect(() => {
+    if (currentStep === 3 && !solverResult && intakeData && !loading) {
+      handleRunSolver();
+    }
+  }, [currentStep, solverResult, intakeData]);
 
   // Handle Mark Inactive on Audit Screen
   const handleMarkInactive = async (memberName: string) => {
@@ -466,16 +483,17 @@ export default function App() {
   };
 
   // Run Solver
-  const handleRunSolver = async () => {
+  const handleRunSolver = async (policyToUse?: CookTeamPolicy) => {
     if (!intakeData) return;
     setLoading(true);
     try {
+      const activePolicy = policyToUse || cookPolicy;
       const res = await callGas<ScheduleOutput>(
         "solveSchedule",
         intakeData.mealDates,
         intakeData.responses,
         exceptions,
-        { cookPolicy, maxCleanPerMember: 1 }
+        { cookPolicy: activePolicy, maxCleanPerMember: 1 }
       );
       setSolverResult(res);
       setCurrentStep(3);
@@ -999,7 +1017,11 @@ export default function App() {
                   <label className="text-xs font-bold text-slate-700 block mb-1">Cook Team Sizing Policy</label>
                   <select
                     value={cookPolicy}
-                    onChange={(e) => setCookPolicy(e.target.value as CookTeamPolicy)}
+                    onChange={(e) => {
+                      const newPol = e.target.value as CookTeamPolicy;
+                      setCookPolicy(newPol);
+                      handleRunSolver(newPol);
+                    }}
                     className="px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium"
                   >
                     <option value="ADAPTIVE_3_OR_2">Adaptive Sizing (Target 3 for Dinner, allow 2 if cooks agreed)</option>
@@ -1010,7 +1032,7 @@ export default function App() {
 
                 <div className="pt-4">
                   <button
-                    onClick={handleRunSolver}
+                    onClick={() => handleRunSolver()}
                     disabled={loading}
                     className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold transition-colors"
                   >
@@ -1034,6 +1056,28 @@ export default function App() {
                 </div>
               )}
             </div>
+
+            {/* Empty State when solverResult has not run yet */}
+            {!solverResult && !loading && (
+              <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-4 shadow-sm">
+                <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center mx-auto shadow-inner">
+                  <Sparkles className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Ready to Match Teams</h3>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                    Click the button below to generate optimal, constraint-satisfying cook and clean rosters for all monthly meals.
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleRunSolver()}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-orange-500/20 transition-all"
+                >
+                  <Sparkles className="w-4 h-4" /> Run Matchmaker Solver
+                </button>
+              </div>
+            )}
 
             {/* Overall Schedule Completeness Banner */}
             {solverResult && (() => {
