@@ -9,6 +9,7 @@ import {
   Settings,
   Plus,
   Trash2,
+  Pencil,
   Copy,
   Download,
   RefreshCw,
@@ -177,8 +178,9 @@ export default function App() {
       showToast("Please select Person A", "error");
       return;
     }
+    const isEdit = !!newRule.id;
     const rule: ExceptionRule = {
-      id: `RULE-${Date.now().toString().slice(-4)}`,
+      id: newRule.id || `RULE-${Date.now().toString().slice(-4)}`,
       person_a: newRule.person_a,
       person_b: newRule.person_b || undefined,
       rule_type: newRule.rule_type as RuleType,
@@ -191,7 +193,8 @@ export default function App() {
       setExceptions(updated);
       setShowAddRuleModal(false);
       setNewRule({ rule_type: "NOT_SAME_TEAM", is_hard_rule: true, person_a: "", person_b: "", notes: "" });
-      showToast("Exception rule added!");
+      setModalContextNote(null);
+      showToast(isEdit ? "Exception rule updated!" : "Exception rule added!");
     } catch (err: any) {
       showToast(`Failed to save rule: ${err.message}`, "error");
     }
@@ -206,6 +209,23 @@ export default function App() {
       notes: note || "",
     });
     setModalContextNote(note || null);
+    setShowAddRuleModal(true);
+  };
+
+  const handleOpenEditRule = (rule: ExceptionRule) => {
+    // Look up note for person_a
+    const resp = intakeData?.responses.find(
+      (r) => r.name.toLowerCase() === rule.person_a.toLowerCase()
+    );
+    setNewRule({
+      id: rule.id,
+      rule_type: rule.rule_type,
+      is_hard_rule: rule.is_hard_rule,
+      person_a: rule.person_a,
+      person_b: rule.person_b || "",
+      notes: rule.notes || "",
+    });
+    setModalContextNote(resp?.specialInstructions || null);
     setShowAddRuleModal(true);
   };
 
@@ -765,13 +785,22 @@ export default function App() {
                                 </div>
                               </div>
 
-                              <button
-                                onClick={() => handleDeleteRule(rule.id)}
-                                className="p-1 text-slate-400 hover:text-rose-600 rounded"
-                                title="Delete Rule"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => handleOpenEditRule(rule)}
+                                  className="p-1.5 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                  title="Edit Rule"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteRule(rule.id)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                  title="Delete Rule"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1195,7 +1224,9 @@ export default function App() {
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">Add Exception Rule</h3>
+              <h3 className="text-base font-bold text-slate-900">
+                {newRule.id ? "Edit Exception Rule" : "Add Exception Rule"}
+              </h3>
               <button
                 onClick={() => setShowAddRuleModal(false)}
                 className="text-slate-400 hover:text-slate-600"
@@ -1316,7 +1347,7 @@ export default function App() {
                   type="submit"
                   className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-sm"
                 >
-                  Save Rule
+                  {newRule.id ? "Update Rule" : "Save Rule"}
                 </button>
               </div>
             </form>
