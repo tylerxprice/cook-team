@@ -69,6 +69,7 @@ export default function App() {
   const [showAddRuleModal, setShowAddRuleModal] = useState(false);
   const [modalContextNote, setModalContextNote] = useState<string | null>(null);
   const [selectedQuotaMember, setSelectedQuotaMember] = useState<string | null>(null);
+  const [selectedSlotToFill, setSelectedSlotToFill] = useState<{ dateKey: string; dateLabel: string; role: Role } | null>(null);
   const [newRule, setNewRule] = useState<Partial<ExceptionRule>>({
     rule_type: "NOT_SAME_TEAM",
     is_hard_rule: true,
@@ -1187,12 +1188,21 @@ export default function App() {
                                 </span>
                               ))}
                               {Array.from({ length: day.unfilledCooks }).map((_, i) => (
-                                <span
+                                <button
                                   key={`empty-cook-${i}`}
-                                  className="px-2 py-1 bg-rose-50 border border-dashed border-rose-300 text-rose-600 rounded-lg text-xs font-bold flex items-center gap-1"
+                                  onClick={() =>
+                                    setSelectedSlotToFill({
+                                      dateKey: day.dateKey,
+                                      dateLabel: day.dateLabel,
+                                      role: "COOK",
+                                    })
+                                  }
+                                  className="px-2 py-1 bg-white hover:bg-rose-50 border-2 border-dashed border-rose-300 hover:border-rose-400 text-rose-600 hover:text-rose-700 rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs transition-all cursor-pointer group"
+                                  title="Click to fill missing cook slot"
                                 >
-                                  ❓ Missing Cook Slot
-                                </span>
+                                  <Plus className="w-3.5 h-3.5 text-rose-500 group-hover:scale-110 transition-transform" />
+                                  Fill Missing Cook Slot
+                                </button>
                               ))}
                             </div>
                           </div>
@@ -1219,12 +1229,21 @@ export default function App() {
                                 </span>
                               ))}
                               {Array.from({ length: day.unfilledCleaners }).map((_, i) => (
-                                <span
+                                <button
                                   key={`empty-clean-${i}`}
-                                  className="px-2 py-1 bg-amber-50 border border-dashed border-amber-300 text-amber-700 rounded-lg text-xs font-bold flex items-center gap-1"
+                                  onClick={() =>
+                                    setSelectedSlotToFill({
+                                      dateKey: day.dateKey,
+                                      dateLabel: day.dateLabel,
+                                      role: "CLEAN",
+                                    })
+                                  }
+                                  className="px-2 py-1 bg-white hover:bg-amber-50 border-2 border-dashed border-amber-300 hover:border-amber-400 text-amber-700 hover:text-amber-800 rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs transition-all cursor-pointer group"
+                                  title="Click to fill missing cleaner slot"
                                 >
-                                  ❓ Missing Cleaner Slot
-                                </span>
+                                  <Plus className="w-3.5 h-3.5 text-amber-600 group-hover:scale-110 transition-transform" />
+                                  Fill Missing Cleaner Slot
+                                </button>
                               ))}
                             </div>
                           </div>
@@ -1274,7 +1293,8 @@ export default function App() {
                         const incompleteAssignedDays = assignedDays.filter(
                           (d) => d.unfilledCooks > 0 || d.unfilledCleaners > 0
                         );
-                        const hasPendingIncomplete = incompleteAssignedDays.length > 0;
+                        const isOversubscribed =
+                          stat.assignedCleans > 1 || stat.assignedCooks > stat.requestedCookQuota;
 
                         return (
                           <tr key={stat.name} className="hover:bg-slate-50">
@@ -1296,7 +1316,18 @@ export default function App() {
                             <td className="px-4 py-2 font-semibold text-sky-600">{stat.assignedCleans}</td>
                             <td className="px-4 py-2 font-bold text-slate-900">{stat.totalAssigned}</td>
                             <td className="px-4 py-2">
-                              {isShort ? (
+                              {isOversubscribed ? (
+                                <div className="space-y-0.5">
+                                  <span className="text-purple-800 bg-purple-50 border border-purple-300 px-2 py-0.5 rounded font-bold inline-block">
+                                    ⭐ Oversubscribed ({stat.assignedCooks > stat.requestedCookQuota ? `${stat.assignedCooks}/${stat.requestedCookQuota} Cooks` : ""}{stat.assignedCooks > stat.requestedCookQuota && stat.assignedCleans > 1 ? ", " : ""}{stat.assignedCleans > 1 ? `${stat.assignedCleans}/1 Cleans` : ""})
+                                  </span>
+                                  {hasPendingIncomplete && (
+                                    <p className="text-[10px] text-amber-700 font-medium">
+                                      ⚠️ {incompleteAssignedDays.length} shift on incomplete meal
+                                    </p>
+                                  )}
+                                </div>
+                              ) : isShort ? (
                                 <div className="space-y-0.5">
                                   <span className="text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-bold inline-block">
                                     Short ({stat.assignedCooks}/{stat.requestedCookQuota})
@@ -1866,6 +1897,214 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* MODAL 4: FILL MISSING SLOT (OVERRIDE / OVERSUBSCRIBE) */}
+      {selectedSlotToFill && solverResult && intakeData && (() => {
+        const targetDay = solverResult.schedule.find((d) => d.dateKey === selectedSlotToFill.dateKey);
+        if (!targetDay) return null;
+        const role = selectedSlotToFill.role;
+        const isCookRole = role === "COOK";
+
+        // Sort candidates: Available first, then by non-oversubscribed, then lowest total assigned shifts
+        const candidateList = intakeData.responses
+          .map((resp) => {
+            const avail = resp.availability[selectedSlotToFill.dateLabel] || "UNAVAILABLE";
+            const stat = solverResult.memberStats[resp.name];
+            const isAlreadyCook = targetDay.cooks.includes(resp.name);
+            const isAlreadyClean = targetDay.cleaners.includes(resp.name);
+            const conflict = checkAssignmentConflict(resp.name, role, targetDay);
+
+            const isAvailableForRole = isCookRole
+              ? avail === "AVAILABLE" || avail === "COOK_ONLY"
+              : avail === "AVAILABLE" || avail === "CLEAN_ONLY";
+
+            const assignedCount = isCookRole ? stat?.assignedCooks || 0 : stat?.assignedCleans || 0;
+            const quota = isCookRole ? stat?.requestedCookQuota || 1 : 1;
+            const isOversubscribed = assignedCount >= quota;
+
+            return {
+              resp,
+              stat,
+              avail,
+              isAvailableForRole,
+              isAlreadyCook,
+              isAlreadyClean,
+              conflict,
+              assignedCount,
+              quota,
+              isOversubscribed,
+            };
+          })
+          .sort((a, b) => {
+            // Available first
+            if (a.isAvailableForRole && !b.isAvailableForRole) return -1;
+            if (!a.isAvailableForRole && b.isAvailableForRole) return 1;
+            // Non-oversubscribed first
+            if (!a.isOversubscribed && b.isOversubscribed) return -1;
+            if (a.isOversubscribed && !b.isOversubscribed) return 1;
+            return (a.stat?.totalAssigned || 0) - (b.stat?.totalAssigned || 0);
+          });
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl p-6 space-y-4 max-h-[90vh] flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <UserPlus className={`w-5 h-5 ${isCookRole ? "text-orange-600" : "text-sky-600"}`} />
+                    Fill Missing {isCookRole ? "Cook" : "Cleaner"} Slot
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    <strong>{selectedSlotToFill.dateLabel}</strong> ({targetDay.mealType}) • Current Team:{" "}
+                    {isCookRole
+                      ? `Cooks: ${targetDay.cooks.join(", ") || "None"}`
+                      : `Cleaners: ${targetDay.cleaners.join(", ") || "None"}`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedSlotToFill(null)}
+                  className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Informational Callout */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600">
+                💡 Select a community member below to fill this slot. Members who have already fulfilled their requested quota will be marked as <strong>Oversubscribed</strong> in the distribution summary.
+              </div>
+
+              {/* Candidate List */}
+              <div className="overflow-y-auto flex-1 divide-y divide-slate-100 pr-1 space-y-2">
+                {candidateList.map((item) => {
+                  const {
+                    resp,
+                    stat,
+                    avail,
+                    isAvailableForRole,
+                    isAlreadyCook,
+                    isAlreadyClean,
+                    conflict,
+                    assignedCount,
+                    quota,
+                    isOversubscribed,
+                  } = item;
+                  const alreadyAssignedOnRole = isCookRole ? isAlreadyCook : isAlreadyClean;
+
+                  return (
+                    <div
+                      key={resp.name}
+                      className={`p-3 rounded-xl border transition-colors ${
+                        alreadyAssignedOnRole
+                          ? "bg-slate-50 border-slate-200 opacity-60"
+                          : isAvailableForRole && !conflict
+                          ? "bg-white border-slate-200 hover:border-slate-300"
+                          : "bg-slate-50/50 border-slate-100 opacity-60"
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        {/* Left: Member info */}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-900">{resp.name}</span>
+                            <span
+                              className={`text-[10px] px-2 py-0.2 rounded-full font-bold ${
+                                avail === "AVAILABLE"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : avail === "COOK_ONLY"
+                                  ? "bg-orange-100 text-orange-800"
+                                  : avail === "CLEAN_ONLY"
+                                  ? "bg-sky-100 text-sky-800"
+                                  : "bg-slate-100 text-slate-500"
+                              }`}
+                            >
+                              Survey: {avail.replace("_", " ")}
+                            </span>
+                            {isOversubscribed ? (
+                              <span className="text-[10px] px-2 py-0.2 rounded-full font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                                ⚠️ Oversubscribes ({assignedCount}/{quota} shifts)
+                              </span>
+                            ) : (
+                              <span className="text-[10px] px-2 py-0.2 rounded-full font-bold bg-blue-50 text-blue-700">
+                                Has Quota ({assignedCount}/{quota})
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-3">
+                            <span>
+                              Total shifts: <strong>{stat?.totalAssigned || 0}</strong>
+                            </span>
+                            <span>
+                              Cooks: <strong>{stat?.assignedCooks || 0}</strong>
+                            </span>
+                            <span>
+                              Cleans: <strong>{stat?.assignedCleans || 0}</strong>
+                            </span>
+                            {resp.canCookCleanSameDay && (
+                              <span className="text-emerald-600 font-semibold">✓ Same-day willing</span>
+                            )}
+                          </div>
+
+                          {resp.specialInstructions && (
+                            <p className="text-[11px] text-amber-700 italic mt-0.5">
+                              "{resp.specialInstructions}"
+                            </p>
+                          )}
+
+                          {conflict && (
+                            <p className="text-[11px] text-rose-600 font-semibold mt-1">
+                              ⚠️ Conflict: {conflict}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Right: Action */}
+                        <div className="shrink-0">
+                          {alreadyAssignedOnRole ? (
+                            <span className="text-xs text-slate-400 font-semibold">
+                              Already Assigned
+                            </span>
+                          ) : conflict ? (
+                            <span className="text-xs text-rose-500 font-semibold">
+                              Blocked by Rule
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                handleAddExtraShift(selectedSlotToFill.dateKey, resp.name, role);
+                                setSelectedSlotToFill(null);
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors ${
+                                isCookRole
+                                  ? "bg-orange-600 hover:bg-orange-700 text-white"
+                                  : "bg-sky-600 hover:bg-sky-700 text-white"
+                              }`}
+                            >
+                              + Assign {resp.name}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end pt-3 border-t border-slate-100">
+                <button
+                  onClick={() => setSelectedSlotToFill(null)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-3.5 text-center text-xs text-slate-400">
