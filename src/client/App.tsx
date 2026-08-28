@@ -579,47 +579,66 @@ export default function App() {
       )}
 
       {/* Step Wizard Navigation Bar */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
-          <div className="flex items-center justify-between">
-            <nav className="flex space-x-2 sm:space-x-4">
-              {[
-                { step: 1, label: "1. Intake & Audit", icon: Users },
-                { step: 2, label: "2. Notes & Rules", icon: Settings },
-                { step: 3, label: "3. Solve & Review", icon: Calendar },
-                { step: 4, label: "4. Publish & Email", icon: Mail },
-              ].map((item) => {
-                const Icon = item.icon;
-                const isActive = currentStep === item.step;
-                const isDone = currentStep > item.step;
-                return (
+      <div className="bg-white border-b border-slate-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
+          <nav className="flex items-center gap-1 sm:gap-2 overflow-x-auto py-1">
+            {[
+              { step: 1, title: "Intake & Audit", icon: Users },
+              { step: 2, title: "Notes & Rules", icon: Settings },
+              { step: 3, title: "Solve & Review", icon: Calendar },
+              { step: 4, title: "Publish & Email", icon: Mail },
+            ].map((item, idx, arr) => {
+              const Icon = item.icon;
+              const isActive = currentStep === item.step;
+              const isDone = currentStep > item.step;
+
+              return (
+                <React.Fragment key={item.step}>
                   <button
-                    key={item.step}
                     onClick={() => setCurrentStep(item.step as any)}
-                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
                       isActive
-                        ? "bg-orange-50 text-orange-700 ring-1 ring-orange-400"
+                        ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
                         : isDone
-                        ? "text-emerald-700 hover:bg-slate-100"
-                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                        ? "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/60"
+                        : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
                     }`}
                   >
-                    <Icon className={`w-4 h-4 ${isActive ? "text-orange-600" : isDone ? "text-emerald-500" : "text-slate-400"}`} />
-                    <span>{item.label}</span>
+                    <span
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                        isActive
+                          ? "bg-white text-orange-600 shadow-sm"
+                          : isDone
+                          ? "bg-emerald-600 text-white"
+                          : "bg-slate-200 text-slate-600"
+                      }`}
+                    >
+                      {isDone ? <CheckCircle2 className="w-3.5 h-3.5" /> : item.step}
+                    </span>
+                    <span>{item.title}</span>
                   </button>
-                );
-              })}
-            </nav>
 
-            <button
-              onClick={() => fetchIntake()}
-              disabled={loading}
-              className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg"
-              title="Refresh Survey Data"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            </button>
-          </div>
+                  {idx < arr.length - 1 && (
+                    <ChevronRight
+                      className={`w-4 h-4 shrink-0 transition-colors ${
+                        currentStep > item.step ? "text-emerald-500" : "text-slate-300"
+                      }`}
+                    />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </nav>
+
+          <button
+            onClick={() => fetchIntake()}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg text-xs font-medium shrink-0 transition-colors"
+            title="Refresh Survey Data"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
         </div>
       </div>
 
