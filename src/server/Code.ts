@@ -635,6 +635,50 @@ function addCommunityMember(member: Member, masterSheetId?: string): Member[] {
 }
 
 /**
+ * Bulk saves or replaces members in the Master Community Registry
+ */
+function bulkSaveCommunityMembers(
+  newMembers: Member[],
+  masterSheetId?: string,
+  isDevMode?: boolean
+): Member[] {
+  try {
+    const master = getMasterRegistrySpreadsheet(masterSheetId, isDevMode);
+    if (master) {
+      let membersSheet = master.getSheetByName("Members");
+      if (!membersSheet) {
+        membersSheet = master.insertSheet("Members", 0);
+      }
+      membersSheet.clear();
+
+      const rows: any[][] = [
+        ["Name", "Google Email", "Active", "Last Active Survey"],
+      ];
+
+      for (const m of newMembers) {
+        rows.push([
+          m.name,
+          m.google_email || "",
+          m.active !== false,
+          m.last_active_survey || new Date().toISOString().slice(0, 7),
+        ]);
+      }
+
+      membersSheet.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
+      const headerRange = membersSheet.getRange(1, 1, 1, 4);
+      headerRange.setFontWeight("bold");
+      headerRange.setBackground("#e0f2fe");
+      headerRange.setFontColor("#1e293b");
+      membersSheet.setFrozenRows(1);
+    }
+  } catch (err) {
+    console.error("Failed to bulk save members to Master Sheet:", err);
+  }
+
+  return newMembers;
+}
+
+/**
  * Saves or updates an exception rule
  */
 function saveExceptionRule(
@@ -839,6 +883,7 @@ g.loadExistingScheduleFromSheet = loadExistingScheduleFromSheet;
 g.solveSchedule = solveSchedule;
 g.setMemberActiveStatus = setMemberActiveStatus;
 g.addCommunityMember = addCommunityMember;
+g.bulkSaveCommunityMembers = bulkSaveCommunityMembers;
 g.saveExceptionRule = saveExceptionRule;
 g.exportScheduleToSheet = exportScheduleToSheet;
 g.sendScheduleEmail = sendScheduleEmail;

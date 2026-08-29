@@ -174,6 +174,13 @@ export async function callGas<T = any>(
       return localMembers as unknown as T;
     }
 
+    case "bulkSaveCommunityMembers": {
+      const [newMembersList] = args as [Member[]];
+      localMembers = [...newMembersList];
+      localIntake.members = [...localMembers];
+      return localMembers as unknown as T;
+    }
+
     case "setupDriveWorkspace": {
       const [parentFolderId = "1U0cJqnxCgWn-5k0RCj2BjCUj9nc1dMGl"] = args as [string];
       return {

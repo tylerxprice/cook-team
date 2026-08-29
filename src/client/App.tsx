@@ -31,6 +31,7 @@ import {
   FileText,
 } from "lucide-react";
 import { callGas, isGasEnvironment } from "./utils/gas";
+import { parseAndDisambiguateGoogleGroupRoster } from "./utils/nameParser";
 import {
   IntakePayload,
   MealDate,
@@ -145,6 +146,9 @@ function MainApp() {
   const [memberFilter, setMemberFilter] = useState<"all" | "active" | "inactive">("all");
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberEmail, setNewMemberEmail] = useState("");
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [bulkImportText, setBulkImportText] = useState("");
+  const [bulkImportSaving, setBulkImportSaving] = useState(false);
   const [showAddRuleModal, setShowAddRuleModal] = useState(false);
   const [modalContextNote, setModalContextNote] = useState<string | null>(null);
   const [selectedQuotaMember, setSelectedQuotaMember] = useState<string | null>(null);
@@ -512,6 +516,55 @@ function MainApp() {
       showToast(`Added ${newM.name} to community registry.`);
     } catch (err: any) {
       showToast(`Failed to add member: ${err.message}`, "error");
+    }
+  };
+
+  const parsedBulkMembers = useMemo(() => {
+    return parseAndDisambiguateGoogleGroupRoster(bulkImportText);
+  }, [bulkImportText]);
+
+  const handleBulkImportSave = async (mode: "replace" | "merge") => {
+    if (parsedBulkMembers.length === 0) return;
+    setBulkImportSaving(true);
+    try {
+      let finalMembers: Member[] = [];
+      if (mode === "replace") {
+        finalMembers = parsedBulkMembers.map((p) => ({
+          name: p.name,
+          google_email: p.google_email,
+          active: p.active,
+          last_active_survey: new Date().toISOString().slice(0, 7),
+        }));
+      } else {
+        // Merge with existing
+        const existingNames = new Set(members.map((m) => m.name.toLowerCase()));
+        const toAdd = parsedBulkMembers
+          .filter((p) => !existingNames.has(p.name.toLowerCase()))
+          .map((p) => ({
+            name: p.name,
+            google_email: p.google_email,
+            active: p.active,
+            last_active_survey: new Date().toISOString().slice(0, 7),
+          }));
+        finalMembers = [...members, ...toAdd];
+      }
+
+      await callGas("bulkSaveCommunityMembers", finalMembers, masterSheetInput, isDevMode);
+      setMembers(finalMembers);
+      if (intakeData) {
+        setIntakeData({ ...intakeData, members: finalMembers });
+      }
+      showToast(
+        mode === "replace"
+          ? `Master Registry replaced with ${finalMembers.length} community members!`
+          : `Merged ${parsedBulkMembers.length} members into Master Registry!`
+      );
+      setBulkImportText("");
+      setShowBulkImport(false);
+    } catch (err: any) {
+      showToast(`Failed to save members: ${err.message}`, "error");
+    } finally {
+      setBulkImportSaving(false);
     }
   };
 
@@ -2195,25 +2248,105 @@ function MainApp() {
               </button>
             </div>
 
-            {/* Quick Add Member Form */}
-            <form onSubmit={handleAddMember} className="p-4 bg-slate-50 border-b border-slate-200 flex gap-2">
+            {/* Toolbar: Quick Add + Import from Google Group Toggle */}
+            <div className="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setShowBulkImport(!showBulkImport)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm ${
+                  showBulkImport
+                    ? "bg-indigo-700 text-white"
+                    : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200"
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                {showBulkImport ? "Hide Google Group Importer" : "📋 Import from Google Group (vancoho-residents)"}
+              </button>
+
+              <span className="text-[11px] text-slate-500 font-semibold">
+                {members.length} members ({members.filter((m) => m.active).length} active)
+              </span>
+            </div>
+
+            {/* Bulk Import Drawer */}
+            {showBulkImport && (
+              <div className="p-4 bg-indigo-50/70 border-b border-indigo-200 space-y-3">
+                <div>
+                  <h4 className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-indigo-600" />
+                    Import Roster from Google Group (Vancouver Cohousing Residents)
+                  </h4>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    Paste member names, emails, or rows copied directly from Google Groups (<code className="bg-indigo-100 px-1 rounded text-indigo-900">vancoho-residents@googlegroups.com</code>). Names will be formatted as <strong>First Names</strong>, and duplicates are automatically disambiguated with <strong>Last Initials</strong> (e.g. <em>Sarah C.</em> and <em>Sarah M.</em>).
+                  </p>
+                </div>
+
+                <textarea
+                  value={bulkImportText}
+                  onChange={(e) => setBulkImportText(e.target.value)}
+                  placeholder={`Example lines to paste from Google Groups:\nTyler Price <tylerxprice@gmail.com>\nBrenda Coordinator <brenda@vancoho.com>\nSarah Chen <sarah.c@gmail.com>\nSarah Miller <sarah.m@gmail.com>\nMaya Patel`}
+                  rows={5}
+                  className="w-full p-2.5 bg-white border border-indigo-200 rounded-xl text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                />
+
+                {parsedBulkMembers.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-indigo-900">
+                      <span>✓ Detected {parsedBulkMembers.length} Members:</span>
+                      <span className="text-slate-500 font-normal">Auto-formatted (First Name / Initial)</span>
+                    </div>
+
+                    <div className="max-h-32 overflow-y-auto p-2 bg-white rounded-lg border border-indigo-100 divide-y divide-slate-100 text-xs">
+                      {parsedBulkMembers.map((p, idx) => (
+                        <div key={idx} className="py-1 flex items-center justify-between">
+                          <span className="font-bold text-slate-800">{p.name}</span>
+                          <span className="text-[11px] text-slate-400 font-mono">{p.google_email || "no email"}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleBulkImportSave("replace")}
+                        disabled={bulkImportSaving}
+                        className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 shadow-sm"
+                      >
+                        {bulkImportSaving ? "Saving..." : `Replace Master Registry (${parsedBulkMembers.length} Members)`}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBulkImportSave("merge")}
+                        disabled={bulkImportSaving}
+                        className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                      >
+                        Merge with Existing
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Quick Add Single Member Form */}
+            <form onSubmit={handleAddMember} className="p-3 bg-slate-50 border-b border-slate-200 flex gap-2">
               <input
                 type="text"
                 value={newMemberName}
                 onChange={(e) => setNewMemberName(e.target.value)}
-                placeholder="Member name (e.g. Maya)"
+                placeholder="Quick add single member (e.g. Maya)"
                 className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg flex-1 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
               />
               <input
                 type="email"
                 value={newMemberEmail}
                 onChange={(e) => setNewMemberEmail(e.target.value)}
-                placeholder="Google account email"
+                placeholder="Google account email (optional)"
                 className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg flex-1 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
               />
               <button
                 type="submit"
-                className="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold"
+                className="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shrink-0"
               >
                 + Add
               </button>

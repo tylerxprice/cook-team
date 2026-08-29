@@ -42,6 +42,7 @@ function loadExistingScheduleFromSheet(spreadsheetId, tabName) { return globalTh
 function solveSchedule(mealDates, responses, exceptions, options) { return globalThis.solveSchedule(mealDates, responses, exceptions, options); }
 function setMemberActiveStatus(name, active, masterSheetId) { return globalThis.setMemberActiveStatus(name, active, masterSheetId); }
 function addCommunityMember(member, masterSheetId) { return globalThis.addCommunityMember(member, masterSheetId); }
+function bulkSaveCommunityMembers(newMembers, masterSheetId, isDevMode) { return globalThis.bulkSaveCommunityMembers ? globalThis.bulkSaveCommunityMembers(newMembers, masterSheetId, isDevMode) : newMembers; }
 function saveExceptionRule(rule, masterSheetId) { return globalThis.saveExceptionRule(rule, masterSheetId); }
 function exportScheduleToSheet(spreadsheetId, scheduleOutput) { return globalThis.exportScheduleToSheet(spreadsheetId, scheduleOutput); }
 function sendScheduleEmail(payload) { return globalThis.sendScheduleEmail(payload); }
