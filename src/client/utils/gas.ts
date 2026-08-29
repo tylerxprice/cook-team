@@ -45,10 +45,24 @@ export async function callGas<T = any>(
 ): Promise<T> {
   // If running inside Google Apps Script iframe
   if (isGasEnvironment()) {
+    // Sanitize arguments to guarantee plain JSON-serializable structures for GAS RPC
+    const cleanArgs = args.map((arg) => {
+      if (arg === undefined) return null;
+      if (typeof arg === "function" || typeof arg === "symbol") return null;
+      if (typeof arg === "object" && arg !== null) {
+        try {
+          return JSON.parse(JSON.stringify(arg));
+        } catch {
+          return {};
+        }
+      }
+      return arg;
+    });
+
     return new Promise((resolve, reject) => {
       google.script.run
         .withSuccessHandler((result: T) => resolve(result))
-        .withFailureHandler((error: Error) => reject(error))[functionName](...args);
+        .withFailureHandler((error: Error) => reject(error))[functionName](...cleanArgs);
     });
   }
 

@@ -701,17 +701,22 @@ function MainApp() {
   };
 
   // Run Solver
-  const handleRunSolver = async (policyToUse?: CookTeamPolicy) => {
+  const handleRunSolver = async (policyToUse?: CookTeamPolicy | any) => {
     if (!intakeData) return;
     setLoading(true);
     try {
-      const activePolicy = policyToUse || cookPolicy;
+      const activePolicy: CookTeamPolicy =
+        typeof policyToUse === "string" &&
+        ["ADAPTIVE_3_OR_2", "DINNER_3_BRUNCH_2", "TWO_REGARDLESS"].includes(policyToUse)
+          ? (policyToUse as CookTeamPolicy)
+          : cookPolicy;
+
       const res = await callGas<ScheduleOutput>(
         "solveSchedule",
         intakeData.mealDates,
         intakeData.responses,
         exceptions,
-        { cookPolicy: activePolicy, maxCleanPerMember: defaultCleanQuota }
+        { cookPolicy: activePolicy, maxCleanPerMember: Number(defaultCleanQuota) || 1 }
       );
       setSolverResult(res);
       goToStep(3);
@@ -1278,7 +1283,7 @@ function MainApp() {
                 Back to Intake
               </button>
               <button
-                onClick={handleRunSolver}
+                onClick={() => handleRunSolver()}
                 disabled={loading}
                 className="inline-flex items-center gap-2 px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-orange-500/20 transition-all"
               >
