@@ -100,6 +100,7 @@ export class ErrorBoundary extends React.Component<
 
 function MainApp() {
   const [inGas, setInGas] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStepState] = useState<1 | 2 | 3 | 4>(1);
   const [notification, setNotification] = useState<{ msg: string; type: "success" | "error" } | null>(null);
@@ -360,7 +361,16 @@ function MainApp() {
 
   useEffect(() => {
     setInGas(isGasEnvironment());
-    fetchDriveSheets();
+    const init = async () => {
+      try {
+        await fetchDriveSheets();
+      } catch (err) {
+        console.warn("Init error:", err);
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+    init();
 
     // Check if initial URL has a step hash (e.g. #step-2)
     const parseStepFromHash = (): 1 | 2 | 3 | 4 => {
@@ -877,6 +887,41 @@ function MainApp() {
       setSendingEmail(false);
     }
   };
+
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 select-none relative overflow-hidden font-sans">
+        {/* Background gradient decorative glow */}
+        <div className="absolute -top-40 -left-40 w-96 h-96 bg-orange-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 max-w-sm w-full text-center space-y-6 animate-fade-in">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 flex items-center justify-center text-white shadow-xl shadow-orange-500/30 mx-auto animate-pulse">
+            <Utensils className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-1.5">
+            <h1 className="text-xl font-extrabold text-white tracking-tight">
+              Vancouver Cohousing
+            </h1>
+            <p className="text-xs text-orange-400 font-semibold tracking-wider uppercase">
+              Cook Team Planning Tool
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+              <div className="bg-gradient-to-r from-orange-500 to-amber-400 h-1.5 rounded-full animate-progress" />
+            </div>
+            <p className="text-xs text-slate-400 flex items-center justify-center gap-2">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-orange-400" />
+              <span>Connecting to Google Drive & loading surveys...</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">

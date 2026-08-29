@@ -48,6 +48,7 @@ async function runE2ETest() {
 
     // Verify Step 1: Intake & Audit
     console.log("2. Verifying Step 1: Intake & Audit ...");
+    await page.waitForSelector("text=Community Cook Team App");
     await page.waitForSelector("text=Survey Response Spreadsheet");
     await page.waitForSelector("text=Select a Survey to Begin Scheduling");
     const sheetSelect = page.locator("select").first();
