@@ -176,33 +176,40 @@ function MainApp() {
     const hasOct = list.some(
       (s) => s.id === "1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4" || s.name?.includes("2026-10")
     );
-    if (!hasOct) {
-      return [
-        {
-          id: "1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4",
-          name: "2026-10 Cook Team Survey (Responses) — Oct 2026 Form",
-          folderCategory: "live",
-        },
-        ...list,
-      ];
-    }
-    return list;
+    const merged = !hasOct
+      ? [
+          {
+            id: "1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4",
+            name: "2026-10 Cook Team Survey (Responses) — Oct 2026 Form",
+            folderCategory: "live",
+          },
+          ...list,
+        ]
+      : list;
+
+    return [...merged].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
+    );
   }, [driveSheets]);
 
   const devSheetsList = useMemo(() => {
     const list = driveSheets.filter(
       (s) => s.folderCategory === "dev" || s.folderName?.includes("Dev") || s.name?.includes("Test Scenario")
     );
-    if (list.length > 0) {
-      return list;
-    }
-    return [
-      { id: "test-sheet-standard", name: "Test Scenario 1 - Standard Healthy (30 responses, 0 unfilled)" },
-      { id: "test-sheet-holiday", name: "Test Scenario 2 - Holiday Desertion (Oct 11-12 shortage)" },
-      { id: "test-sheet-deficit", name: "Test Scenario 3 - Quota Shortfall (Cook quota deficit)" },
-      { id: "test-sheet-conflict", name: "Test Scenario 4 - High Conflict (8 entangled rules)" },
-      { id: "test-sheet-single", name: "Test Scenario 5 - Single Respondent (Tyler live test)" },
-    ];
+    const baseList =
+      list.length > 0
+        ? list
+        : [
+            { id: "test-sheet-standard", name: "Test Scenario 1 - Standard Healthy (30 responses, 0 unfilled)" },
+            { id: "test-sheet-holiday", name: "Test Scenario 2 - Holiday Desertion (Oct 11-12 shortage)" },
+            { id: "test-sheet-deficit", name: "Test Scenario 3 - Quota Shortfall (Cook quota deficit)" },
+            { id: "test-sheet-conflict", name: "Test Scenario 4 - High Conflict (8 entangled rules)" },
+            { id: "test-sheet-single", name: "Test Scenario 5 - Single Respondent (Tyler live test)" },
+          ];
+
+    return [...baseList].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
+    );
   }, [driveSheets]);
 
   const handleSelectSheetOption = async (optionValue: string) => {

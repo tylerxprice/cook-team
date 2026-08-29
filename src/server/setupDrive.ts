@@ -395,6 +395,11 @@ export function listDriveSpreadsheets(
     console.warn("Could not list Drive spreadsheets:", err);
   }
 
+  // Sort alphabetically using natural numerical ordering (e.g. Scenario 1 before Scenario 2)
+  items.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
+  );
+
   return items;
 }
 
