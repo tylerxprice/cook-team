@@ -830,13 +830,45 @@ function MainApp() {
     }
   };
 
+  // Helper to format clean, non-redundant date headings in the email announcement
+  const formatEmailDateHeader = (d: DaySchedule) => {
+    let label = d.dateLabel.trim();
+    const lowerLabel = label.toLowerCase();
+    const isBrunch = d.mealType === "BRUNCH" || lowerLabel.includes("brunch");
+
+    // Clean specialNote: discard if it's just "BRUNCH"/"DINNER" or already present in label
+    let note = d.specialNote?.trim();
+    if (note) {
+      const lowerNote = note.toLowerCase();
+      if (
+        lowerNote === "brunch" ||
+        lowerNote === "dinner" ||
+        lowerLabel.includes(lowerNote)
+      ) {
+        note = undefined;
+      }
+    }
+
+    // Only append (Brunch) or (Dinner) if not already explicitly stated in label
+    if (!lowerLabel.includes("brunch") && !lowerLabel.includes("dinner")) {
+      const typeStr = isBrunch ? "Brunch" : "Dinner";
+      label = `${label} (${typeStr})`;
+    }
+
+    if (note) {
+      label = `${label} - ${note}`;
+    }
+
+    return `📅 ${label}`;
+  };
+
   // Generate Email Summary Text
   const generateEmailText = () => {
     if (customEmailBody !== null) return customEmailBody;
     if (!solverResult) return "";
     let text = "Hi precious friends & neighbours,\n\nHere is the community cook and clean team schedule for next month:\n\n";
     for (const d of solverResult.schedule) {
-      text += `📅 ${d.dateLabel} (${d.mealType}${d.specialNote ? ` - ${d.specialNote}` : ""})\n`;
+      text += `${formatEmailDateHeader(d)}\n`;
       text += `  • Cooks: ${d.cooks.join(", ") || "(Need Volunteers)"}\n`;
       text += `  • Cleaners: ${d.cleaners.join(", ") || "(Need Volunteers)"}\n\n`;
     }
