@@ -128,4 +128,10 @@ export interface IntakePayload {
   audit: CompletenessAudit;
   exceptions: ExceptionRule[];
   members: Member[];
+  existingScheduleTab?: {
+    name: string;
+    url?: string;
+    exists: boolean;
+    dateMonth?: string;
+  };
 }

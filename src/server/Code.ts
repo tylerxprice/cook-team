@@ -12,6 +12,9 @@ import {
   SolverOptions,
   ScheduleOutput,
   IntakePayload,
+  DaySchedule,
+  MemberQuotaStat,
+  MealType,
 } from "./types";
 import { parseSurveySheetData } from "./parser";
 import { solveCookAndCleanSchedule } from "./matchmaker";
@@ -207,6 +210,20 @@ function getIntakeData(
 
     const parsed = parseSurveySheetData(surveyData, members);
 
+    // Detect if a Schedule tab already exists in this spreadsheet
+    let existingScheduleTab: { name: string; url?: string; exists: boolean; dateMonth?: string } | undefined = undefined;
+    const allSheets = surveySpreadsheet.getSheets();
+    const schedSheet = allSheets.find((s) => s.getName().startsWith("Schedule_"));
+    if (schedSheet) {
+      const tabName = schedSheet.getName();
+      existingScheduleTab = {
+        name: tabName,
+        url: `${surveySpreadsheet.getUrl()}#gid=${schedSheet.getSheetId()}`,
+        exists: true,
+        dateMonth: tabName.replace("Schedule_", ""),
+      };
+    }
+
     return {
       sheetId: surveySpreadsheet.getId(),
       mealDates: parsed.mealDates,
@@ -214,10 +231,144 @@ function getIntakeData(
       audit: parsed.audit,
       exceptions,
       members,
+      existingScheduleTab,
     };
   } catch (err: any) {
     console.error("Error reading spreadsheet:", err);
     throw new Error(`Failed to parse Google Sheet: ${err.message}`);
+  }
+}
+
+/**
+ * Loads a previously saved schedule from an existing "Schedule_YYYY-MM" tab in Google Sheets.
+ */
+function loadExistingScheduleFromSheet(
+  spreadsheetUrlOrId: string,
+  tabName?: string
+): ScheduleOutput {
+  try {
+    let surveySpreadsheet: GoogleAppsScript.Spreadsheet.Spreadsheet;
+    const cleanId = (spreadsheetUrlOrId || "").trim();
+    if (cleanId.startsWith("http")) {
+      surveySpreadsheet = SpreadsheetApp.openByUrl(cleanId);
+    } else {
+      surveySpreadsheet = SpreadsheetApp.openById(cleanId);
+    }
+
+    let targetTab: GoogleAppsScript.Spreadsheet.Sheet | null = null;
+    if (tabName) {
+      targetTab = surveySpreadsheet.getSheetByName(tabName);
+    }
+    if (!targetTab) {
+      const allSheets = surveySpreadsheet.getSheets();
+      targetTab = allSheets.find((s) => s.getName().startsWith("Schedule_")) || null;
+    }
+
+    if (!targetTab) {
+      throw new Error(`Schedule tab not found in spreadsheet.`);
+    }
+
+    const data = targetTab.getDataRange().getValues();
+    if (data.length <= 1) {
+      throw new Error(`Schedule tab is empty.`);
+    }
+
+    // Rows: ["Date", "Meal Type", "Special Note", "Cook Team", "Clean Team", "Status / Notes"]
+    const schedule: DaySchedule[] = [];
+    const memberStats: Record<string, MemberQuotaStat> = {};
+
+    for (let r = 1; r < data.length; r++) {
+      const row = data[r];
+      if (!row[0]) continue;
+
+      const dateLabel = String(row[0]).trim();
+      const mealType = String(row[1] || "DINNER").trim().toUpperCase() as MealType;
+      const specialNote = row[2] ? String(row[2]).trim() : undefined;
+      const cooksStr = row[3] ? String(row[3]).trim() : "";
+      const cleanersStr = row[4] ? String(row[4]).trim() : "";
+
+      const cooks = cooksStr
+        ? cooksStr
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s && !s.includes("Need Cooks"))
+        : [];
+      const cleaners = cleanersStr
+        ? cleanersStr
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s && !s.includes("Need Cleaners"))
+        : [];
+
+      const targetCooks = mealType === "DINNER" ? 3 : 2;
+      const targetCleaners = mealType === "DINNER" ? 3 : 2;
+      const dateKey = `2026-10-${r < 10 ? `0${r}` : r}`;
+
+      schedule.push({
+        dateKey,
+        dateLabel,
+        mealType,
+        specialNote,
+        cooks,
+        cleaners,
+        targetCookCount: targetCooks,
+        targetCleanCount: targetCleaners,
+        unfilledCooks: Math.max(0, targetCooks - cooks.length),
+        unfilledCleaners: Math.max(0, targetCleaners - cleaners.length),
+      });
+
+      for (const cook of cooks) {
+        if (!memberStats[cook]) {
+          memberStats[cook] = {
+            name: cook,
+            requestedCookQuota: 1,
+            requestedCleanQuota: 1,
+            availableCookDays: 1,
+            availableCleanDays: 1,
+            assignedCooks: 0,
+            assignedCleans: 0,
+            totalAssigned: 0,
+          };
+        }
+        memberStats[cook].assignedCooks++;
+        memberStats[cook].totalAssigned++;
+      }
+
+      for (const cleaner of cleaners) {
+        if (!memberStats[cleaner]) {
+          memberStats[cleaner] = {
+            name: cleaner,
+            requestedCookQuota: 1,
+            requestedCleanQuota: 1,
+            availableCookDays: 1,
+            availableCleanDays: 1,
+            assignedCooks: 0,
+            assignedCleans: 0,
+            totalAssigned: 0,
+          };
+        }
+        memberStats[cleaner].assignedCleans++;
+        memberStats[cleaner].totalAssigned++;
+      }
+    }
+
+    const totalUnfilled = schedule.reduce(
+      (acc, d) => acc + d.unfilledCooks + d.unfilledCleaners,
+      0
+    );
+
+    return {
+      success: true,
+      schedule,
+      memberStats,
+      violations: [],
+      unfilledSlotsCount: totalUnfilled,
+      solveTimeMs: 1,
+      cookPolicy: "ADAPTIVE_3_OR_2",
+    };
+  } catch (err: any) {
+    console.error("Error loading saved schedule:", err);
+    throw new Error(`Failed to load schedule from tab: ${err.message}`);
   }
 }
 
@@ -450,6 +601,7 @@ g.getUserInfo = getUserInfo;
 g.setupDriveWorkspace = setupDriveWorkspace;
 g.listAvailableDriveSheets = listAvailableDriveSheets;
 g.getIntakeData = getIntakeData;
+g.loadExistingScheduleFromSheet = loadExistingScheduleFromSheet;
 g.solveSchedule = solveSchedule;
 g.setMemberActiveStatus = setMemberActiveStatus;
 g.addCommunityMember = addCommunityMember;

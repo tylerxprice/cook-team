@@ -232,12 +232,24 @@ export async function callGas<T = any>(
       ] as unknown as T;
     }
 
+    case "loadExistingScheduleFromSheet": {
+      // Return a simulated solved schedule for testing
+      const simulatedSolver = solveCookAndCleanSchedule(
+        localIntake.mealDates,
+        localIntake.responses,
+        localIntake.exceptions || [],
+        { cookPolicy: "ADAPTIVE_3_OR_2", maxCleanPerMember: 1 }
+      );
+      return simulatedSolver as unknown as T;
+    }
+
     case "exportScheduleToSheet": {
       const [spreadsheetId, scheduleOutput] = args as [string, ScheduleOutput];
       return {
         success: true,
         sheetName: "Schedule_2026-10",
-        message: `Successfully exported ${scheduleOutput.schedule.length} meal dates to spreadsheet (${spreadsheetId || "Default Master"}) tab "Schedule_2026-10"!`,
+        url: `https://docs.google.com/spreadsheets/d/${spreadsheetId || "sheet-1"}#gid=0`,
+        message: `Successfully exported ${scheduleOutput?.schedule?.length || 13} meal dates to spreadsheet tab "Schedule_2026-10"!`,
       } as unknown as T;
     }
 

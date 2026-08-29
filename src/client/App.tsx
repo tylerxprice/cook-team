@@ -113,6 +113,12 @@ function MainApp() {
         window.history.pushState({ step }, "", hash);
       }
     }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    // Auto-export when navigating to Step 4 if a schedule is generated
+    if (step === 4 && solverResult) {
+      handleExportSheet(solverResult);
+    }
   };
 
   const [sheetInput, setSheetInput] = useState("");
@@ -728,15 +734,36 @@ function MainApp() {
     }
   };
 
+  // Load Saved Schedule from existing tab
+  const handleLoadExistingSchedule = async () => {
+    if (!sheetInput) return;
+    setLoading(true);
+    try {
+      const res = await callGas<ScheduleOutput>(
+        "loadExistingScheduleFromSheet",
+        sheetInput,
+        intakeData?.existingScheduleTab?.name
+      );
+      setSolverResult(res);
+      goToStep(3);
+      showToast(`Loaded saved schedule tab "${intakeData?.existingScheduleTab?.name || "Schedule"}"!`);
+    } catch (err: any) {
+      showToast(`Failed to load saved schedule: ${err.message}`, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Export to Sheet
-  const handleExportSheet = async () => {
-    if (!solverResult) return;
+  const handleExportSheet = async (resultToExport?: ScheduleOutput) => {
+    const activeResult = resultToExport || solverResult;
+    if (!activeResult) return;
     setLoading(true);
     try {
       const res = await callGas<{ success: boolean; sheetName: string; url?: string; message: string }>(
         "exportScheduleToSheet",
         sheetInput,
-        solverResult
+        activeResult
       );
       setExportedResult(res);
       showToast(res.message);
@@ -997,6 +1024,39 @@ function MainApp() {
               </div>
             ) : (
               <>
+                {/* Existing Schedule Tab Alert Banner */}
+                {intakeData.existingScheduleTab?.exists && (
+                  <div className="p-4.5 bg-gradient-to-r from-amber-50 to-orange-50/70 border border-amber-300/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-amber-100/80 text-amber-700 border border-amber-300/80 flex items-center justify-center shrink-0">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-xs sm:text-sm font-bold text-amber-950 flex items-center gap-2 flex-wrap">
+                          <span>Finalized Schedule Tab Found:</span>
+                          <code className="bg-amber-100/90 border border-amber-300/70 px-2 py-0.5 rounded-lg font-mono text-xs text-amber-900 font-bold">
+                            {intakeData.existingScheduleTab.name}
+                          </code>
+                        </h4>
+                        <p className="text-xs text-amber-800/90 mt-0.5">
+                          A completed schedule already exists for this survey in your Google Sheet. You can load it to resume review, or continue below to re-solve.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={handleLoadExistingSchedule}
+                        disabled={loading}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-xl text-xs font-bold shadow-sm transition-colors disabled:opacity-50"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Load Saved Schedule & Edit in Step 3</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Quick Metrics */}
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
@@ -1700,82 +1760,88 @@ function MainApp() {
         {/* STEP 4: EXPORT & PUBLISH */}
         {currentStep === 4 && solverResult && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Google Sheets Export Card */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            {/* Full-width Horizontal Auto-Publish Status Banner */}
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Schedule Published to Google Sheets
+                    </h3>
+                    <span className="text-[11px] font-mono font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                      {exportedResult?.sheetName || "Schedule_2026-10"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    All {solverResult.schedule.length} monthly meal shifts have been automatically published to your spreadsheet tab.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {exportedResult?.url ? (
+                  <a
+                    href={exportedResult.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Open Tab in Sheets</span>
+                  </a>
+                ) : sheetInput ? (
+                  <a
+                    href={sheetInput.startsWith("http") ? sheetInput : `https://docs.google.com/spreadsheets/d/${sheetInput}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Open in Sheets</span>
+                  </a>
+                ) : null}
+                <button
+                  onClick={() => handleExportSheet(solverResult)}
+                  disabled={loading}
+                  className="inline-flex items-center gap-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
+                  title="Re-write spreadsheet tab"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+                  <span>Update Tab</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Full-width Community Listserv Email Card */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                    <Download className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center">
+                    <Mail className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900">Publish to Google Sheets</h3>
-                    <p className="text-xs text-slate-500">Writes the final schedule to a new tab</p>
+                    <h3 className="text-sm font-bold text-slate-900">Community Listserv Email Announcement</h3>
+                    <p className="text-xs text-slate-500">Ready to copy & paste into your community mailing list</p>
                   </div>
                 </div>
-
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Click below to write all 13 meal shift assignments directly into tab{" "}
-                  <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-emerald-700">Schedule_2026-10</code> in your Google Sheet.
-                </p>
 
                 <button
-                  onClick={handleExportSheet}
-                  disabled={loading}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 shadow-sm"
+                  onClick={handleCopyEmail}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm transition-colors shrink-0"
                 >
-                  <Download className="w-4 h-4" /> Export Schedule Tab
+                  <Copy className="w-3.5 h-3.5" /> Copy Announcement
                 </button>
-
-                {exportedResult && exportedResult.success && (
-                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs gap-3 animate-fade-in">
-                    <div className="flex items-center gap-2 text-emerald-900 font-semibold min-w-0">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span className="truncate">
-                        Published to <strong>{exportedResult.sheetName}</strong>
-                      </span>
-                    </div>
-                    {exportedResult.url && (
-                      <a
-                        href={exportedResult.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs inline-flex items-center gap-1 shadow-sm transition-colors shrink-0"
-                      >
-                        Open Tab <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
-                  </div>
-                )}
               </div>
 
-              {/* Listserv Email Generator Card */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
-                      <Mail className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-900">Community Listserv Email</h3>
-                      <p className="text-xs text-slate-500">Pre-formatted text announcement</p>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={handleCopyEmail}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-colors"
-                  >
-                    <Copy className="w-3.5 h-3.5" /> Copy Email
-                  </button>
-                </div>
-
-                <textarea
-                  readOnly
-                  value={generateEmailText()}
-                  rows={8}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:outline-none resize-none"
-                />
-              </div>
+              <textarea
+                readOnly
+                value={generateEmailText()}
+                rows={12}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:outline-none leading-relaxed resize-y select-all"
+              />
             </div>
 
             <div className="flex justify-start">

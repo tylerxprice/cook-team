@@ -36,6 +36,7 @@ function getUserInfo() { return globalThis.getUserInfo(); }
 function setupDriveWorkspace(parentFolderId) { return globalThis.setupDriveWorkspace(parentFolderId); }
 function listAvailableDriveSheets(parentFolderId) { return globalThis.listAvailableDriveSheets ? globalThis.listAvailableDriveSheets(parentFolderId) : []; }
 function getIntakeData(spreadsheetUrlOrId, masterRegistryUrlOrId) { return globalThis.getIntakeData(spreadsheetUrlOrId, masterRegistryUrlOrId); }
+function loadExistingScheduleFromSheet(spreadsheetId, tabName) { return globalThis.loadExistingScheduleFromSheet(spreadsheetId, tabName); }
 function solveSchedule(mealDates, responses, exceptions, options) { return globalThis.solveSchedule(mealDates, responses, exceptions, options); }
 function setMemberActiveStatus(name, active, masterSheetId) { return globalThis.setMemberActiveStatus(name, active, masterSheetId); }
 function addCommunityMember(member, masterSheetId) { return globalThis.addCommunityMember(member, masterSheetId); }
