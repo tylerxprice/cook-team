@@ -402,3 +402,18 @@ function exportScheduleToSheet(
     };
   }
 }
+
+// Global functions for Google Apps Script runtime & google.script.run
+const g: any = typeof globalThis !== "undefined" ? globalThis : this;
+g.doGet = doGet;
+g.onOpen = onOpen;
+g.openSidebar = openSidebar;
+g.openModal = openModal;
+g.getUserInfo = getUserInfo;
+g.setupDriveWorkspace = setupDriveWorkspace;
+g.getIntakeData = getIntakeData;
+g.solveSchedule = solveSchedule;
+g.setMemberActiveStatus = setMemberActiveStatus;
+g.addCommunityMember = addCommunityMember;
+g.saveExceptionRule = saveExceptionRule;
+g.exportScheduleToSheet = exportScheduleToSheet;

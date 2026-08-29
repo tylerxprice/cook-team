@@ -6,10 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build:client": "vite build",
-    "build:server": "tsc -p tsconfig.server.json",
+    "build:server": "tsc -p tsconfig.server.json --noEmit && esbuild src/server/Code.ts --bundle --outfile=dist/Code.js --target=es2022",
     "build": "npm run build:client && npm run build:server && node scripts/copy-manifest.js",
-    "push": "clasp push",
-    "deploy": "npm run build && clasp push",
+    "push": "clasp push -f",
+    "deploy": "npm run build && clasp push -f",
     "pull": "clasp pull",
     "logs": "clasp logs",
     "open": "clasp open",

@@ -1,6 +1,11 @@
-# Ignore all source, config, and dev dependencies
+# Clasp ignore for rootDir: dist
 **/*
-!dist/**
-!dist/appsscript.json
-!dist/Code.js
-!dist/index.html
+!appsscript.json
+!Code.js
+!index.html
+!matchmaker.js
+!mockData.js
+!parser.js
+!setupDrive.js
+!types.js
+
