@@ -1296,58 +1296,24 @@ function MainApp() {
         {/* STEP 3: SOLVE & REVIEW SCHEDULE */}
         {currentStep === 3 && (
           <div className="space-y-6">
-            {/* Schedule Review & Action Toolbar */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Streamlined Step 3 Header */}
+            <div className="flex items-center justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-bold text-slate-900">Schedule Review & Matchmaker Roster</h2>
-                  <span className="text-[11px] font-semibold text-orange-700 bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                    {cookPolicy === "ADAPTIVE_3_OR_2"
-                      ? "⚡ Adaptive Cook Sizing (3/2)"
-                      : cookPolicy === "DINNER_3_BRUNCH_2"
-                      ? "Strict 3 Dinner / 2 Brunch"
-                      : "Strict 2 Cooks"}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Review assignments, resolve unfilled slots, and inspect individual member quotas. Sizing & quota defaults can be adjusted in{" "}
-                  <button
-                    onClick={() => setShowSettingsModal(true)}
-                    className="text-orange-600 hover:underline font-semibold"
-                  >
-                    Global Settings
-                  </button>.
+                <h2 className="text-base font-bold text-slate-900">Schedule Review</h2>
+                <p className="text-xs text-slate-500">
+                  Review meal assignments, fill open shifts, and inspect volunteer quotas.
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
-                {solverResult && (
-                  <div className="flex items-center gap-3 pr-2 border-r border-slate-200">
-                    <div className="text-right">
-                      <span className="text-[11px] text-slate-400 block">Solver Latency</span>
-                      <p className="text-xs font-bold text-slate-700">{solverResult.solveTimeMs}ms</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[11px] text-slate-400 block">Unfilled Slots</span>
-                      <p
-                        className={`text-xs font-bold ${
-                          solverResult.unfilledSlotsCount === 0 ? "text-emerald-600" : "text-rose-600"
-                        }`}
-                      >
-                        {solverResult.unfilledSlotsCount}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
+              {solverResult && (
                 <button
                   onClick={() => handleRunSolver()}
                   disabled={loading}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold transition-all shadow-xs"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Re-Run Solver
                 </button>
-              </div>
+              )}
             </div>
 
             {/* Empty State when solverResult has not run yet */}

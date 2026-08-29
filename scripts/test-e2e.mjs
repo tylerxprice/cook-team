@@ -70,7 +70,7 @@ async function runE2ETest() {
 
     // Verify Step 3: Solve & Review
     console.log("5. Verifying Step 3: Solve & Review ...");
-    await page.waitForSelector("text=Schedule Review & Matchmaker Roster");
+    await page.waitForSelector("text=Schedule Review");
     await page.waitForSelector("text=Generated Monthly Shift Roster");
     await page.waitForSelector("text=Member Quota & Shift Distribution Summary");
     console.log("✓ Step 3 loaded with full roster, completeness banner, and quota table!");
@@ -128,7 +128,7 @@ async function runE2ETest() {
     console.log("9. Testing Browser Back & Forward button history navigation...");
     // Currently on Step 4 (#step-4) -> Back navigates to Step 3
     await page.goBack();
-    await page.waitForSelector("text=Schedule Review & Matchmaker Roster");
+    await page.waitForSelector("text=Generated Monthly Shift Roster");
     console.log("✓ Browser Back button navigated to Step 3 (#step-3) successfully!");
 
     // Back navigates to Step 2
@@ -138,7 +138,7 @@ async function runE2ETest() {
 
     // Forward navigates back to Step 3
     await page.goForward();
-    await page.waitForSelector("text=Schedule Review & Matchmaker Roster");
+    await page.waitForSelector("text=Generated Monthly Shift Roster");
     console.log("✓ Browser Forward button navigated forward to Step 3 (#step-3) successfully!");
 
     // Test Scenario Presets across solver
