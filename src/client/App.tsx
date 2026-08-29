@@ -235,6 +235,10 @@ function MainApp() {
   }, [driveSheets]);
 
   const devSheetsList = useMemo(() => {
+    // Hide test scenario sheets when running live inside Google Apps Script!
+    if (inGas) {
+      return [];
+    }
     const list = driveSheets.filter(
       (s) => s.folderCategory === "dev" || s.folderName?.includes("Dev") || s.name?.includes("Test Scenario")
     );
@@ -253,7 +257,7 @@ function MainApp() {
     return [...baseList].sort((a, b) =>
       a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
     );
-  }, [driveSheets]);
+  }, [driveSheets, inGas]);
 
   const handleSelectSheetOption = async (optionValue: string) => {
     setSheetSelectMode(optionValue);

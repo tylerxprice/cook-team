@@ -88,7 +88,38 @@ function getMasterRegistrySpreadsheet(
       "MASTER_REGISTRY_SHEET_ID"
     );
     if (scriptPropId) {
-      return SpreadsheetApp.openById(scriptPropId);
+      try {
+        return SpreadsheetApp.openById(scriptPropId);
+      } catch (e) {
+        console.warn("Could not open master by script property ID:", e);
+      }
+    }
+
+    // Automatically locate Master Registry in parent Drive folder hierarchy
+    try {
+      const rootFolder = DriveApp.getFolderById("1U0cJqnxCgWn-5k0RCj2BjCUj9nc1dMGl");
+      const subfolders = rootFolder.getFolders();
+      while (subfolders.hasNext()) {
+        const sub = subfolders.next();
+        const files = sub.getFilesByType(MimeType.GOOGLE_SHEETS);
+        while (files.hasNext()) {
+          const f = files.next();
+          if (f.getName().includes("Master_Registry") || f.getName().includes("Master")) {
+            PropertiesService.getScriptProperties().setProperty("MASTER_REGISTRY_SHEET_ID", f.getId());
+            return SpreadsheetApp.openById(f.getId());
+          }
+        }
+      }
+      const rootFiles = rootFolder.getFilesByType(MimeType.GOOGLE_SHEETS);
+      while (rootFiles.hasNext()) {
+        const f = rootFiles.next();
+        if (f.getName().includes("Master_Registry") || f.getName().includes("Master")) {
+          PropertiesService.getScriptProperties().setProperty("MASTER_REGISTRY_SHEET_ID", f.getId());
+          return SpreadsheetApp.openById(f.getId());
+        }
+      }
+    } catch (driveErr) {
+      console.warn("Drive search for Master Registry error:", driveErr);
     }
   } catch (err) {
     console.warn("Master registry sheet not found or inaccessible:", err);
@@ -166,12 +197,11 @@ function getIntakeData(
     const masterSpreadsheet =
       getMasterRegistrySpreadsheet(masterRegistryUrlOrId) || surveySpreadsheet;
 
-    let members: Member[] = MOCK_MEMBERS;
+    let members: Member[] = [];
     const membersTab = masterSpreadsheet.getSheetByName("Members");
     if (membersTab) {
       const mData = membersTab.getDataRange().getValues();
       if (mData.length > 1) {
-        members = [];
         for (let i = 1; i < mData.length; i++) {
           const row = mData[i];
           if (row[0]) {
@@ -184,6 +214,25 @@ function getIntakeData(
           }
         }
       }
+    }
+
+    // Fallback: If no members tab exists, dynamically extract members from the actual survey responses!
+    if (members.length === 0) {
+      const respondentsFromSurvey: Member[] = [];
+      for (let r = 1; r < surveyData.length; r++) {
+        const row = surveyData[r];
+        const email = String(row[1] || "").trim();
+        const name = String(row[2] || "").trim();
+        if (name && !respondentsFromSurvey.some((m) => m.name.toLowerCase() === name.toLowerCase())) {
+          respondentsFromSurvey.push({
+            name,
+            google_email: email,
+            active: true,
+            last_active_survey: "2026-10",
+          });
+        }
+      }
+      members = respondentsFromSurvey.length > 0 ? respondentsFromSurvey : MOCK_MEMBERS;
     }
 
     let exceptions: ExceptionRule[] = MOCK_EXCEPTIONS;
