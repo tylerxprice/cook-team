@@ -34,6 +34,7 @@ function openSidebar() { return globalThis.openSidebar ? globalThis.openSidebar(
 function openModal() { return globalThis.openModal ? globalThis.openModal() : null; }
 function getUserInfo() { return globalThis.getUserInfo(); }
 function setupDriveWorkspace(parentFolderId) { return globalThis.setupDriveWorkspace(parentFolderId); }
+function createWebAppLinkLaunchers(parentFolderId) { return globalThis.createWebAppLinkLaunchers ? globalThis.createWebAppLinkLaunchers(parentFolderId) : null; }
 function listAvailableDriveSheets(parentFolderId) { return globalThis.listAvailableDriveSheets ? globalThis.listAvailableDriveSheets(parentFolderId) : []; }
 function getMasterRegistryData(isDevMode) { return globalThis.getMasterRegistryData ? globalThis.getMasterRegistryData(isDevMode) : { members: [], exceptions: [] }; }
 function getIntakeData(spreadsheetUrlOrId, masterRegistryUrlOrId) { return globalThis.getIntakeData(spreadsheetUrlOrId, masterRegistryUrlOrId); }

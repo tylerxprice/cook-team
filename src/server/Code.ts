@@ -25,7 +25,13 @@ import {
   MOCK_MEMBERS,
   MOCK_EXCEPTIONS,
 } from "./mockData";
-import { setupCommunityDriveWorkspace, listDriveSpreadsheets, ProvisionResult, DriveSheetItem } from "./setupDrive";
+import {
+  setupCommunityDriveWorkspace,
+  createDriveWebAppLinkLaunchers,
+  listDriveSpreadsheets,
+  ProvisionResult,
+  DriveSheetItem,
+} from "./setupDrive";
 
 /**
  * Web App entry point: Serves the single-file React + Tailwind UI.
@@ -175,6 +181,13 @@ function getUserInfo(): {
  */
 function setupDriveWorkspace(parentFolderId?: string): ProvisionResult {
   return setupCommunityDriveWorkspace(parentFolderId);
+}
+
+/**
+ * Creates web app launch shortcut files (Google Docs and HTML) in Google Drive
+ */
+function createWebAppLinkLaunchers(parentFolderId?: string) {
+  return createDriveWebAppLinkLaunchers(parentFolderId);
 }
 
 /**
@@ -818,6 +831,7 @@ g.openSidebar = openSidebar;
 g.openModal = openModal;
 g.getUserInfo = getUserInfo;
 g.setupDriveWorkspace = setupDriveWorkspace;
+g.createWebAppLinkLaunchers = createWebAppLinkLaunchers;
 g.listAvailableDriveSheets = listAvailableDriveSheets;
 g.getMasterRegistryData = getMasterRegistryData;
 g.getIntakeData = getIntakeData;

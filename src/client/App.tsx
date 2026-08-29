@@ -366,6 +366,19 @@ function MainApp() {
     }
   };
 
+  const handleCreateLaunchers = async () => {
+    setProvisioning(true);
+    try {
+      await callGas("createWebAppLinkLaunchers", driveFolderId);
+      showToast("App launcher documents and HTML shortcuts created in your Google Drive folders!");
+      await fetchDriveSheets();
+    } catch (err: any) {
+      showToast(`Launcher creation failed: ${err.message}`, "error");
+    } finally {
+      setProvisioning(false);
+    }
+  };
+
   useEffect(() => {
     setInGas(isGasEnvironment());
     const init = async () => {
@@ -2974,7 +2987,7 @@ function MainApp() {
                     <span className="text-[11px] font-bold text-slate-700 block mb-1">
                       Target Google Drive Root Folder ID:
                     </span>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <input
                         type="text"
                         value={driveFolderId}
@@ -2982,15 +2995,27 @@ function MainApp() {
                         placeholder="Google Drive Folder ID (e.g. 1U0cJqnxCgWn...)"
                         className="flex-1 px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                       />
-                      <button
-                        type="button"
-                        onClick={handleProvisionDrive}
-                        disabled={provisioning}
-                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 shrink-0 flex items-center gap-1.5 shadow-sm"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${provisioning ? "animate-spin" : ""}`} />
-                        {provisioning ? "Provisioning..." : "Provision Drive Hierarchy"}
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleCreateLaunchers}
+                          disabled={provisioning}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 shrink-0 flex items-center gap-1.5 shadow-sm"
+                          title="Generates direct 1-click launcher documents and HTML shortcuts in Google Drive"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>Create Drive Shortcuts</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleProvisionDrive}
+                          disabled={provisioning}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 shrink-0 flex items-center gap-1.5 shadow-sm"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${provisioning ? "animate-spin" : ""}`} />
+                          <span>{provisioning ? "Provisioning..." : "Re-Provision Folders"}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
 

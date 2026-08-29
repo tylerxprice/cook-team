@@ -255,6 +255,15 @@ export async function callGas<T = any>(
       ] as unknown as T;
     }
 
+    case "createWebAppLinkLaunchers": {
+      return {
+        success: true,
+        message: "Launcher documents and redirect shortcuts created across Google Drive folders.",
+        prodUrl: "https://script.google.com/macros/s/AKfycbwFUo53qovtiFScRr8UufB62fdjjZiCQINHbkpj0U0nuJ6drjxkrJMj7LbJAPPQYN-8lQ/exec",
+        devUrl: "https://script.google.com/macros/s/AKfycbw9ebwRim3jjSVaN6Pm6QeOvNmujB1nnc2MCkBhM7qs/dev",
+      } as unknown as T;
+    }
+
     case "loadExistingScheduleFromSheet": {
       // Return a simulated solved schedule for testing
       const simulatedSolver = solveCookAndCleanSchedule(

@@ -295,6 +295,13 @@ export function setupCommunityDriveWorkspace(
     });
   }
 
+  // 5. Create Web App Link Launchers (Google Docs & HTML shortcuts)
+  try {
+    createDriveWebAppLinkLaunchers(parentFolderId);
+  } catch (launcherErr) {
+    console.warn("Could not create web app link launchers:", launcherErr);
+  }
+
   return {
     rootFolderId: parentFolderId,
     liveFolderId: liveFolder.getId(),
@@ -304,6 +311,105 @@ export function setupCommunityDriveWorkspace(
     devMasterSheetId: devMasterSheet.getId(),
     devMasterSheetUrl: devMasterSheet.getUrl(),
     testSheets,
+  };
+}
+
+const PROD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwFUo53qovtiFScRr8UufB62fdjjZiCQINHbkpj0U0nuJ6drjxkrJMj7LbJAPPQYN-8lQ/exec";
+const DEV_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw9ebwRim3jjSVaN6Pm6QeOvNmujB1nnc2MCkBhM7qs/dev";
+
+/**
+ * Creates rich Google Doc and HTML launch shortcuts in Drive folders
+ */
+export function createDriveWebAppLinkLaunchers(parentFolderId = DEFAULT_DRIVE_FOLDER_ID) {
+  const rootFolder = DriveApp.getFolderById(parentFolderId);
+  const liveFolder = getOrCreateSubfolder(rootFolder, "01_Live_Production");
+  const devFolder = getOrCreateSubfolder(rootFolder, "02_Dev_and_Testing");
+
+  const createRedirectFile = (folder: GoogleAppsScript.Drive.Folder, fileName: string, appUrl: string, title: string) => {
+    const existing = folder.getFilesByName(fileName);
+    while (existing.hasNext()) {
+      existing.next().setTrashed(true);
+    }
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0; url=${appUrl}">
+  <title>${title}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; text-align: center; padding: 60px 20px; background: #f8fafc; color: #1e293b; }
+    .card { max-width: 480px; margin: 0 auto; background: white; padding: 32px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
+    h2 { color: #0f172a; margin-bottom: 12px; }
+    p { color: #64748b; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+    a.btn { display: inline-block; background: #f97316; color: white; text-decoration: none; padding: 12px 24px; border-radius: 10px; font-weight: bold; font-size: 15px; }
+    a.btn:hover { background: #ea580c; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>🍽️ ${title}</h2>
+    <p>Redirecting you to the Vancouver Cohousing Cook Team Application...</p>
+    <a class="btn" href="${appUrl}" target="_top">Open Web Application ↗</a>
+  </div>
+</body>
+</html>`;
+    return folder.createFile(fileName, html, MimeType.HTML);
+  };
+
+  const createGoogleDocLauncher = (folder: GoogleAppsScript.Drive.Folder, docTitle: string, appUrl: string, description: string, isProd: boolean) => {
+    const existing = folder.getFilesByName(docTitle);
+    while (existing.hasNext()) {
+      existing.next().setTrashed(true);
+    }
+
+    const doc = DocumentApp.create(docTitle);
+    const body = doc.getBody();
+    body.clear();
+
+    const titlePara = body.appendParagraph(docTitle);
+    titlePara.setHeading(DocumentApp.ParagraphHeading.HEADING1);
+
+    const descPara = body.appendParagraph(description);
+    descPara.editAsText().setItalic(true);
+
+    body.appendParagraph("\n");
+
+    const linkPara = body.appendParagraph("👉 Click Here to Open Web App in Browser:\n" + appUrl);
+    linkPara.setHeading(DocumentApp.ParagraphHeading.HEADING2);
+    linkPara.setLinkUrl(appUrl);
+
+    body.appendParagraph("\n\n" + "─".repeat(40) + "\n");
+    if (isProd) {
+      body.appendParagraph("📌 Production Environment Notes:\n• Scoped to 01_Live_Production folder\n• Reads live Master Community Registry\n• Final schedule auto-exports to new tab in Survey Sheet\n• Default Announcement Recipient: Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>");
+    } else {
+      body.appendParagraph("📌 Developer / Test Environment Notes:\n• Scoped to 02_Dev_and_Testing folder\n• Reads 30 synthetic members & 6 scenario presets\n• Default Announcement Recipient: tylerxprice@gmail.com");
+    }
+
+    doc.saveAndClose();
+    const file = DriveApp.getFileById(doc.getId());
+    file.moveTo(folder);
+    return file;
+  };
+
+  // Create in Root
+  createGoogleDocLauncher(rootFolder, "🚀 Launch Cook Team App (Production)", PROD_WEB_APP_URL, "Main production link for Brenda and meal coordinators", true);
+  createGoogleDocLauncher(rootFolder, "🧪 Launch Cook Team App (Dev & Test)", DEV_WEB_APP_URL, "Developer test harness with 30 mock members & test scenarios", false);
+  createRedirectFile(rootFolder, "Launch_Production_App.html", PROD_WEB_APP_URL, "Cook Team App (Production)");
+  createRedirectFile(rootFolder, "Launch_Dev_Test_App.html", DEV_WEB_APP_URL, "Cook Team App (Dev/Test)");
+
+  // Create in 01_Live_Production
+  createGoogleDocLauncher(liveFolder, "🚀 Launch Production Web App", PROD_WEB_APP_URL, "Main production link for Brenda and meal coordinators", true);
+  createRedirectFile(liveFolder, "Launch_Production_App.html", PROD_WEB_APP_URL, "Cook Team App (Production)");
+
+  // Create in 02_Dev_and_Testing
+  createGoogleDocLauncher(devFolder, "🧪 Launch Dev & Test Web App", DEV_WEB_APP_URL, "Developer test harness with 30 mock members & test scenarios", false);
+  createRedirectFile(devFolder, "Launch_Dev_Test_App.html", DEV_WEB_APP_URL, "Cook Team App (Dev/Test)");
+
+  return {
+    success: true,
+    message: "Launcher documents and redirect shortcuts created across Google Drive folders.",
+    prodUrl: PROD_WEB_APP_URL,
+    devUrl: DEV_WEB_APP_URL,
   };
 }
 
