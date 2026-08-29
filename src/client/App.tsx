@@ -25,6 +25,8 @@ import {
   UserPlus,
   Search,
   XCircle,
+  Folder,
+  FileSpreadsheet,
 } from "lucide-react";
 import { callGas, isGasEnvironment } from "./utils/gas";
 import {
@@ -127,6 +129,10 @@ function MainApp() {
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [defaultCleanQuota, setDefaultCleanQuota] = useState<number>(1);
+  const [driveFolderId, setDriveFolderId] = useState("1U0cJqnxCgWn-5k0RCj2BjCUj9nc1dMGl");
+  const [masterSheetInput, setMasterSheetInput] = useState("");
+  const [provisionResult, setProvisionResult] = useState<any>(null);
+  const [provisioning, setProvisioning] = useState(false);
   const [memberFilter, setMemberFilter] = useState<"all" | "active" | "inactive">("all");
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberEmail, setNewMemberEmail] = useState("");
@@ -177,10 +183,14 @@ function MainApp() {
   };
 
   // Initial Load & URL Hash / Browser History Synchronization
-  const fetchIntake = async (sheetId?: string) => {
+  const fetchIntake = async (sheetId?: string, masterId?: string) => {
     setLoading(true);
     try {
-      const data = await callGas<IntakePayload>("getIntakeData", sheetId || sheetInput);
+      const data = await callGas<IntakePayload>(
+        "getIntakeData",
+        sheetId || sheetInput,
+        masterId || masterSheetInput
+      );
       setIntakeData(data);
       setExceptions(data.exceptions || []);
       setMembers(data.members || []);
@@ -190,6 +200,22 @@ function MainApp() {
       showToast(`Failed to load survey: ${err.message}`, "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleProvisionDrive = async () => {
+    setProvisioning(true);
+    try {
+      const res = await callGas("setupDriveWorkspace", driveFolderId);
+      setProvisionResult(res);
+      if (res.liveMasterSheetUrl) {
+        setMasterSheetInput(res.liveMasterSheetUrl);
+      }
+      showToast("Google Drive workspace & test scenario sheets successfully provisioned!");
+    } catch (err: any) {
+      showToast(`Provisioning failed: ${err.message}`, "error");
+    } finally {
+      setProvisioning(false);
     }
   };
 
@@ -286,14 +312,23 @@ function MainApp() {
     if (!newMemberName.trim()) return;
     const newM: Member = {
       name: newMemberName.trim(),
-      google_email: newMemberEmail.trim(),
+      google_email: newMemberEmail.trim() || undefined,
       active: true,
-      last_active_survey: "2026-10",
+      last_active_survey: new Date().toISOString().slice(0, 7),
     };
-    setMembers((prev) => [newM, ...prev]);
-    setNewMemberName("");
-    setNewMemberEmail("");
-    showToast(`Added ${newM.name} to community registry.`);
+    try {
+      const updated = await callGas<Member[]>(
+        "addCommunityMember",
+        newM,
+        masterSheetInput
+      );
+      setMembers(updated);
+      setNewMemberName("");
+      setNewMemberEmail("");
+      showToast(`Added ${newM.name} to community registry.`);
+    } catch (err: any) {
+      showToast(`Failed to add member: ${err.message}`, "error");
+    }
   };
 
   // Rule Management
@@ -2405,6 +2440,110 @@ function MainApp() {
                     <span className="font-bold text-amber-900 block text-xs">Brunch Shifts</span>
                     <p className="text-slate-600 text-[11px] mt-0.5">🍳 2 Cooks • 🧼 2 Cleaners</p>
                   </div>
+                </div>
+              </div>
+
+              {/* 4. Google Drive Workspace & Master Community Registry */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Folder className="w-3.5 h-3.5 text-emerald-600" />
+                  Google Drive Workspace & Master Registry
+                </label>
+                <p className="text-slate-500 text-[11px]">
+                  Link the canonical community roster spreadsheet and provision test spreadsheets in your Drive folder.
+                </p>
+
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-700 block mb-1">
+                      Master Registry Sheet URL or ID:
+                    </span>
+                    <input
+                      type="text"
+                      value={masterSheetInput}
+                      onChange={(e) => setMasterSheetInput(e.target.value)}
+                      placeholder="Leave blank to use default Script Property or paste Sheet URL..."
+                      className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-700 block mb-1">
+                      Target Google Drive Root Folder ID:
+                    </span>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={driveFolderId}
+                        onChange={(e) => setDriveFolderId(e.target.value)}
+                        placeholder="Google Drive Folder ID (e.g. 1U0cJqnxCgWn...)"
+                        className="flex-1 px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleProvisionDrive}
+                        disabled={provisioning}
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 shrink-0 flex items-center gap-1.5 shadow-sm"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${provisioning ? "animate-spin" : ""}`} />
+                        {provisioning ? "Provisioning..." : "Provision Drive Hierarchy"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {provisionResult && (
+                    <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl space-y-2 text-[11px]">
+                      <div className="flex items-center gap-1.5 text-emerald-800 font-bold">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        Drive Workspace Ready!
+                      </div>
+                      <div className="space-y-1 text-slate-700">
+                        <p>
+                          <strong>Live Master Registry:</strong>{" "}
+                          <a
+                            href={provisionResult.liveMasterSheetUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-emerald-700 hover:underline inline-flex items-center gap-0.5 font-semibold"
+                          >
+                            Open Live Sheet <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </p>
+                        <p>
+                          <strong>Dev/Test Master Registry:</strong>{" "}
+                          <a
+                            href={provisionResult.devMasterSheetUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-emerald-700 hover:underline inline-flex items-center gap-0.5 font-semibold"
+                          >
+                            Open Dev Sheet <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </p>
+                        {provisionResult.testSheets && (
+                          <div className="pt-1 border-t border-emerald-200/60">
+                            <span className="font-bold text-slate-800 block mb-0.5">
+                              Generated Test Scenario Sheets ({provisionResult.testSheets.length}):
+                            </span>
+                            <ul className="list-disc pl-4 space-y-0.5 text-slate-600">
+                              {provisionResult.testSheets.map((ts: any) => (
+                                <li key={ts.key}>
+                                  <a
+                                    href={ts.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-indigo-600 hover:underline inline-flex items-center gap-0.5"
+                                  >
+                                    {ts.name} <ExternalLink className="w-2.5 h-2.5" />
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -138,6 +138,33 @@ export async function callGas<T = any>(
       return localExceptions as unknown as T;
     }
 
+    case "addCommunityMember": {
+      const [newMember] = args as [Member];
+      localMembers.push(newMember);
+      localIntake.members = [...localMembers];
+      return localMembers as unknown as T;
+    }
+
+    case "setupDriveWorkspace": {
+      const [parentFolderId = "1U0cJqnxCgWn-5k0RCj2BjCUj9nc1dMGl"] = args as [string];
+      return {
+        rootFolderId: parentFolderId,
+        liveFolderId: "folder-live-01",
+        devFolderId: "folder-dev-02",
+        liveMasterSheetId: "sheet-live-master-123",
+        liveMasterSheetUrl: "https://docs.google.com/spreadsheets/d/live-master",
+        devMasterSheetId: "sheet-dev-master-456",
+        devMasterSheetUrl: "https://docs.google.com/spreadsheets/d/dev-master",
+        testSheets: [
+          { key: "standard", name: "Test Scenario 1 - Standard Healthy", id: "test-sheet-1", url: "https://docs.google.com/spreadsheets/d/test-1" },
+          { key: "holiday_shortage", name: "Test Scenario 2 - Holiday Shortage", id: "test-sheet-2", url: "https://docs.google.com/spreadsheets/d/test-2" },
+          { key: "quota_deficit", name: "Test Scenario 3 - Quota Deficit", id: "test-sheet-3", url: "https://docs.google.com/spreadsheets/d/test-3" },
+          { key: "high_conflict", name: "Test Scenario 4 - High Conflict", id: "test-sheet-4", url: "https://docs.google.com/spreadsheets/d/test-4" },
+          { key: "single_respondent", name: "Test Scenario 5 - Single Respondent", id: "test-sheet-5", url: "https://docs.google.com/spreadsheets/d/test-5" },
+        ],
+      } as unknown as T;
+    }
+
     case "exportScheduleToSheet": {
       const [spreadsheetId, scheduleOutput] = args as [string, ScheduleOutput];
       return {
