@@ -96,7 +96,7 @@ export function parseSurveySheetData(
   const nameIdx = headers.findIndex((h) => /name/i.test(h));
   const cookPrefIdx = headers.findIndex((h) => /minimum number of cooks/i.test(h));
   const sameDayIdx = headers.findIndex((h) => /cook and clean on the same day/i.test(h));
-  const cookQuotaIdx = headers.findIndex((h) => /how many meals can you cook/i.test(h));
+  const cookQuotaIdx = headers.findIndex((h) => /how many.*cook|cook.*quota|cook.*shifts|meals.*cook/i.test(h));
   const cleanQuotaIdx = headers.findIndex((h) => /how many.*clean|clean.*quota|clean.*shifts|meals.*clean/i.test(h));
   const notesIdx = headers.findIndex((h) => /special instructions/i.test(h));
 
