@@ -1296,24 +1296,68 @@ function MainApp() {
         {/* STEP 3: SOLVE & REVIEW SCHEDULE */}
         {currentStep === 3 && (
           <div className="space-y-6">
-            {/* Streamlined Step 3 Header */}
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">Schedule Review</h2>
-                <p className="text-xs text-slate-500">
-                  Review meal assignments, fill open shifts, and inspect volunteer quotas.
-                </p>
+            {/* Unified Step 3 Header & Completeness Bar */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
+                    !solverResult
+                      ? "bg-orange-50 text-orange-600 border border-orange-200"
+                      : solverResult.unfilledSlotsCount === 0
+                      ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                      : "bg-amber-50 text-amber-600 border border-amber-200"
+                  }`}
+                >
+                  {!solverResult ? (
+                    <Calendar className="w-5 h-5" />
+                  ) : solverResult.unfilledSlotsCount === 0 ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  ) : (
+                    <AlertTriangle className="w-5 h-5 text-amber-600" />
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h2 className="text-sm font-bold text-slate-900">
+                      {!solverResult
+                        ? "Schedule Review"
+                        : solverResult.unfilledSlotsCount === 0
+                        ? `All ${solverResult.schedule.length} Monthly Meals Fully Staffed!`
+                        : `${solverResult.schedule.filter((d) => d.unfilledCooks > 0 || d.unfilledCleaners > 0).length} of ${solverResult.schedule.length} Meals Need Attention`}
+                    </h2>
+                    {solverResult && (
+                      <span
+                        className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                          solverResult.unfilledSlotsCount === 0
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-amber-100 text-amber-800"
+                        }`}
+                      >
+                        {solverResult.schedule.filter((d) => d.unfilledCooks === 0 && d.unfilledCleaners === 0).length} / {solverResult.schedule.length} Confirmed
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {!solverResult
+                      ? "Review meal assignments, fill open shifts, and inspect volunteer quotas."
+                      : solverResult.unfilledSlotsCount === 0
+                      ? "Every dinner and brunch has a complete cook and clean team assigned."
+                      : `${solverResult.unfilledSlotsCount} open shift(s) remaining. Click [+ Fill Slot] on any date card to resolve.`}
+                  </p>
+                </div>
               </div>
 
-              {solverResult && (
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => handleRunSolver()}
                   disabled={loading}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold transition-all shadow-xs"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:opacity-50"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Re-Run Solver
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+                  <span>Re-Run Solver</span>
                 </button>
-              )}
+              </div>
             </div>
 
             {/* Empty State when solverResult has not run yet */}
@@ -1337,55 +1381,6 @@ function MainApp() {
                 </button>
               </div>
             )}
-
-            {/* Overall Schedule Completeness Banner */}
-            {solverResult && (() => {
-              const incompleteMeals = solverResult.schedule.filter(
-                (d) => d.unfilledCooks > 0 || d.unfilledCleaners > 0
-              );
-              const completeMealsCount = solverResult.schedule.length - incompleteMeals.length;
-
-              return (
-                <div
-                  className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                    incompleteMeals.length === 0
-                      ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-                      : "bg-amber-50/90 border-amber-300 text-amber-900"
-                  }`}
-                >
-                  <div className="flex items-start sm:items-center gap-3">
-                    {incompleteMeals.length === 0 ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
-                    ) : (
-                      <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
-                    )}
-                    <div>
-                      <h4 className="text-xs font-bold">
-                        {incompleteMeals.length === 0
-                          ? `All ${solverResult.schedule.length} Monthly Meals Fully Staffed!`
-                          : `${incompleteMeals.length} of ${solverResult.schedule.length} Meals Incomplete (Action Required)`}
-                      </h4>
-                      <p className="text-xs text-slate-600 mt-0.5">
-                        {incompleteMeals.length === 0
-                          ? "Every dinner and brunch has both a complete cook team and clean team."
-                          : "A meal day cannot happen without both cooks and cleaners. Shifts assigned to incomplete dates are marked as Pending."}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
-                        incompleteMeals.length === 0
-                          ? "bg-emerald-600 text-white shadow-sm"
-                          : "bg-amber-600 text-white shadow-sm"
-                      }`}
-                    >
-                      {completeMealsCount} / {solverResult.schedule.length} Confirmed Meals
-                    </span>
-                  </div>
-                </div>
-              );
-            })()}
 
             {/* Constraint Violations (if any) */}
             {solverResult && solverResult.violations.length > 0 && (

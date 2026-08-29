@@ -70,7 +70,6 @@ async function runE2ETest() {
 
     // Verify Step 3: Solve & Review
     console.log("5. Verifying Step 3: Solve & Review ...");
-    await page.waitForSelector("text=Schedule Review");
     await page.waitForSelector("text=Generated Monthly Shift Roster");
     await page.waitForSelector("text=Member Quota & Shift Distribution Summary");
     console.log("✓ Step 3 loaded with full roster, completeness banner, and quota table!");
