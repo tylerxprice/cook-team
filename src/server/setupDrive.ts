@@ -306,3 +306,95 @@ export function setupCommunityDriveWorkspace(
     testSheets,
   };
 }
+
+export interface DriveSheetItem {
+  id: string;
+  name: string;
+  folderName: string;
+  folderCategory: "live" | "dev" | "other";
+  url: string;
+  lastUpdated?: string;
+}
+
+/**
+ * Lists available survey spreadsheets across Google Drive workspace
+ */
+export function listDriveSpreadsheets(
+  parentFolderId = DEFAULT_DRIVE_FOLDER_ID
+): DriveSheetItem[] {
+  const items: DriveSheetItem[] = [];
+
+  try {
+    const rootFolder = DriveApp.getFolderById(parentFolderId);
+
+    const scanFolder = (
+      folder: GoogleAppsScript.Drive.Folder,
+      folderCategory: "live" | "dev" | "other"
+    ) => {
+      const folderName = folder.getName();
+      const files = folder.getFilesByType(MimeType.GOOGLE_SHEETS);
+      while (files.hasNext()) {
+        const file = files.next();
+        const name = file.getName();
+        if (name.includes("Master Community Registry")) continue;
+
+        items.push({
+          id: file.getId(),
+          name,
+          folderName,
+          folderCategory,
+          url: file.getUrl(),
+          lastUpdated: file.getLastUpdated().toISOString(),
+        });
+      }
+
+      const subfolders = folder.getFolders();
+      while (subfolders.hasNext()) {
+        const sub = subfolders.next();
+        const subName = sub.getName();
+        const subCat: "live" | "dev" | "other" =
+          subName.includes("Live") || folderCategory === "live"
+            ? "live"
+            : subName.includes("Dev") || folderCategory === "dev"
+            ? "dev"
+            : "other";
+        scanFolder(sub, subCat);
+      }
+    };
+
+    // Scan Root files
+    const rootFiles = rootFolder.getFilesByType(MimeType.GOOGLE_SHEETS);
+    while (rootFiles.hasNext()) {
+      const file = rootFiles.next();
+      const name = file.getName();
+      if (!name.includes("Master Community Registry")) {
+        items.push({
+          id: file.getId(),
+          name,
+          folderName: rootFolder.getName(),
+          folderCategory: "live",
+          url: file.getUrl(),
+          lastUpdated: file.getLastUpdated().toISOString(),
+        });
+      }
+    }
+
+    // Scan Subfolders
+    const subfolders = rootFolder.getFolders();
+    while (subfolders.hasNext()) {
+      const sub = subfolders.next();
+      const subName = sub.getName();
+      const cat: "live" | "dev" | "other" = subName.includes("Live")
+        ? "live"
+        : subName.includes("Dev")
+        ? "dev"
+        : "other";
+      scanFolder(sub, cat);
+    }
+  } catch (err) {
+    console.warn("Could not list Drive spreadsheets:", err);
+  }
+
+  return items;
+}
+

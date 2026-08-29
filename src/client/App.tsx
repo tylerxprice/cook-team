@@ -148,11 +148,50 @@ function MainApp() {
     notes: "",
   });
 
+  const [driveSheets, setDriveSheets] = useState<any[]>([]);
+  const [sheetSelectMode, setSheetSelectMode] = useState<string>("1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4");
+
   const [selectedPreset, setSelectedPreset] = useState<string>("standard");
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setNotification({ msg, type });
     setTimeout(() => setNotification(null), 3500);
+  };
+
+  const fetchDriveSheets = async () => {
+    try {
+      const list = await callGas<any[]>("listAvailableDriveSheets", driveFolderId);
+      if (Array.isArray(list) && list.length > 0) {
+        setDriveSheets(list);
+      }
+    } catch (err) {
+      console.warn("Could not fetch Drive sheets:", err);
+    }
+  };
+
+  const handleSelectSheetOption = async (optionValue: string) => {
+    setSheetSelectMode(optionValue);
+    if (optionValue === "custom") {
+      return;
+    }
+    setSheetInput(optionValue);
+    const matched = driveSheets.find((s) => s.id === optionValue);
+    if (matched && matched.id.startsWith("test-sheet-")) {
+      const key = matched.id.replace("test-sheet-", "");
+      const presetKey =
+        key === "holiday"
+          ? "holiday_shortage"
+          : key === "deficit"
+          ? "quota_deficit"
+          : key === "conflict"
+          ? "high_conflict"
+          : key === "single"
+          ? "single_respondent"
+          : "standard";
+      await handleSelectPreset(presetKey);
+    } else {
+      await fetchIntake(optionValue);
+    }
   };
 
   const handleSelectPreset = async (presetKey: string) => {
@@ -212,6 +251,7 @@ function MainApp() {
         setMasterSheetInput(res.liveMasterSheetUrl);
       }
       showToast("Google Drive workspace & test scenario sheets successfully provisioned!");
+      await fetchDriveSheets();
     } catch (err: any) {
       showToast(`Provisioning failed: ${err.message}`, "error");
     } finally {
@@ -222,6 +262,7 @@ function MainApp() {
   useEffect(() => {
     setInGas(isGasEnvironment());
     fetchIntake();
+    fetchDriveSheets();
 
     // Check if initial URL has a step hash (e.g. #step-2)
     const parseStepFromHash = (): 1 | 2 | 3 | 4 => {
@@ -806,50 +847,94 @@ function MainApp() {
         {/* STEP 1: INTAKE & COMPLETENESS AUDIT */}
         {currentStep === 1 && intakeData && (
           <div className="space-y-6">
-            {/* Sheet Link & Scenario Presets Card */}
+            {/* Sheet Link & Dropdown Selector Card */}
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">Survey Response Spreadsheet</h2>
-                  <p className="text-xs text-slate-500">Google Form linked sheet ID or URL for next month's survey</p>
+                  <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                    Survey Response Spreadsheet
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Select a monthly survey response sheet from Google Drive or choose a test scenario
+                  </p>
                 </div>
-                <div className="flex gap-2 w-full md:w-auto">
-                  <input
-                    type="text"
-                    value={sheetInput}
-                    onChange={(e) => setSheetInput(e.target.value)}
-                    placeholder="Paste Google Sheet URL or ID..."
-                    className="px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 flex-1 md:w-80"
-                  />
+                <div className="flex items-center gap-2">
+                  {sheetInput && (
+                    <a
+                      href={sheetInput.startsWith("http") ? sheetInput : `https://docs.google.com/spreadsheets/d/${sheetInput}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition-colors"
+                      title="Open spreadsheet in Google Sheets"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Open in Sheets</span>
+                    </a>
+                  )}
                   <button
                     onClick={() => fetchIntake(sheetInput)}
                     disabled={loading}
-                    className="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                    className="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
                   >
-                    Load Live Sheet
+                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+                    <span>{loading ? "Loading..." : "Load Sheet"}</span>
                   </button>
                 </div>
               </div>
 
-              {/* Preset Scenario Selector for Testing */}
-              <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/70 -mx-5 -mb-5 p-4 rounded-b-2xl">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-orange-600" />
-                  <span className="text-xs font-bold text-slate-700">Test Scenarios & Edge Case Presets:</span>
-                </div>
-                <div className="flex-1 sm:max-w-md">
-                  <select
-                    value={selectedPreset}
-                    onChange={(e) => handleSelectPreset(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 font-medium text-slate-800"
-                  >
-                    <option value="standard">🌟 Standard Healthy Community (30 responses, 0 unfilled)</option>
-                    <option value="holiday_shortage">🦃 Holiday Desertion (Thanksgiving Oct 11-12 shortage)</option>
-                    <option value="quota_deficit">⚠️ Quota Shortfall (Severe cook quota deficit)</option>
-                    <option value="high_conflict">🔒 High Conflict Network (8 entangled hard rules)</option>
-                    <option value="single_respondent">👤 Single Response (Tyler only — Live Google Sheet)</option>
-                  </select>
-                </div>
+              {/* Sheet Dropdown Selector */}
+              <div className="space-y-2">
+                <select
+                  value={sheetSelectMode}
+                  onChange={(e) => handleSelectSheetOption(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 hover:bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 font-medium text-slate-800 transition-colors cursor-pointer"
+                >
+                  <optgroup label="📁 Monthly Surveys (Google Drive Live)">
+                    <option value="1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4">
+                      📄 2026-10 Cook Team Survey (Responses) — Oct 2026 Form
+                    </option>
+                    {driveSheets
+                      .filter((s) => s.folderCategory === "live" && s.id !== "1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4")
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          📄 {s.name}
+                        </option>
+                      ))}
+                  </optgroup>
+
+                  <optgroup label="🧪 Dev / Test Scenarios (Google Drive & Presets)">
+                    <option value="test-sheet-standard">🌟 Test Scenario 1 - Standard Healthy (30 responses, 0 unfilled)</option>
+                    <option value="test-sheet-holiday">🦃 Test Scenario 2 - Holiday Desertion (Oct 11-12 shortage)</option>
+                    <option value="test-sheet-deficit">⚠️ Test Scenario 3 - Quota Shortfall (Cook quota deficit)</option>
+                    <option value="test-sheet-conflict">🔒 Test Scenario 4 - High Conflict (8 entangled rules)</option>
+                    <option value="test-sheet-single">👤 Test Scenario 5 - Single Respondent (Tyler live test)</option>
+                    {driveSheets
+                      .filter((s) => s.folderCategory === "dev" && !s.id.startsWith("test-sheet-"))
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          🧪 {s.name}
+                        </option>
+                      ))}
+                  </optgroup>
+
+                  <optgroup label="🔗 Custom Input">
+                    <option value="custom">✏️ Paste Custom Google Sheet URL or ID...</option>
+                  </optgroup>
+                </select>
+
+                {sheetSelectMode === "custom" && (
+                  <div className="pt-2">
+                    <input
+                      type="text"
+                      value={sheetInput}
+                      onChange={(e) => setSheetInput(e.target.value)}
+                      placeholder="Paste Google Sheet URL or ID..."
+                      className="w-full px-3 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
+                      autoFocus
+                    />
+                  </div>
+                )}
               </div>
             </div>
 

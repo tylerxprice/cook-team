@@ -165,6 +165,59 @@ export async function callGas<T = any>(
       } as unknown as T;
     }
 
+    case "listAvailableDriveSheets": {
+      return [
+        {
+          id: "1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4",
+          name: "2026-10 Cook Team Survey (Responses)",
+          folderName: "Monthly_Surveys",
+          folderCategory: "live",
+          url: "https://docs.google.com/spreadsheets/d/1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4",
+          lastUpdated: new Date().toISOString(),
+        },
+        {
+          id: "test-sheet-standard",
+          name: "Test Scenario 1 - Standard Healthy (30 Responses)",
+          folderName: "02_Dev_and_Testing",
+          folderCategory: "dev",
+          url: "https://docs.google.com/spreadsheets/d/test-sheet-standard",
+          lastUpdated: new Date().toISOString(),
+        },
+        {
+          id: "test-sheet-holiday",
+          name: "Test Scenario 2 - Holiday Shortage (Oct 11-12)",
+          folderName: "02_Dev_and_Testing",
+          folderCategory: "dev",
+          url: "https://docs.google.com/spreadsheets/d/test-sheet-holiday",
+          lastUpdated: new Date().toISOString(),
+        },
+        {
+          id: "test-sheet-deficit",
+          name: "Test Scenario 3 - Quota Deficit",
+          folderName: "02_Dev_and_Testing",
+          folderCategory: "dev",
+          url: "https://docs.google.com/spreadsheets/d/test-sheet-deficit",
+          lastUpdated: new Date().toISOString(),
+        },
+        {
+          id: "test-sheet-conflict",
+          name: "Test Scenario 4 - High Conflict",
+          folderName: "02_Dev_and_Testing",
+          folderCategory: "dev",
+          url: "https://docs.google.com/spreadsheets/d/test-sheet-conflict",
+          lastUpdated: new Date().toISOString(),
+        },
+        {
+          id: "test-sheet-single",
+          name: "Test Scenario 5 - Single Respondent",
+          folderName: "02_Dev_and_Testing",
+          folderCategory: "dev",
+          url: "https://docs.google.com/spreadsheets/d/test-sheet-single",
+          lastUpdated: new Date().toISOString(),
+        },
+      ] as unknown as T;
+    }
+
     case "exportScheduleToSheet": {
       const [spreadsheetId, scheduleOutput] = args as [string, ScheduleOutput];
       return {

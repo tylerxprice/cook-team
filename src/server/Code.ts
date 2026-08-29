@@ -20,7 +20,7 @@ import {
   MOCK_MEMBERS,
   MOCK_EXCEPTIONS,
 } from "./mockData";
-import { setupCommunityDriveWorkspace, ProvisionResult } from "./setupDrive";
+import { setupCommunityDriveWorkspace, listDriveSpreadsheets, ProvisionResult, DriveSheetItem } from "./setupDrive";
 
 /**
  * Web App entry point: Serves the single-file React + Tailwind UI.
@@ -125,6 +125,13 @@ function getUserInfo(): {
  */
 function setupDriveWorkspace(parentFolderId?: string): ProvisionResult {
   return setupCommunityDriveWorkspace(parentFolderId);
+}
+
+/**
+ * Lists all available Google Sheets in the community Drive workspace
+ */
+function listAvailableDriveSheets(parentFolderId?: string): DriveSheetItem[] {
+  return listDriveSpreadsheets(parentFolderId);
 }
 
 /**
@@ -411,6 +418,7 @@ g.openSidebar = openSidebar;
 g.openModal = openModal;
 g.getUserInfo = getUserInfo;
 g.setupDriveWorkspace = setupDriveWorkspace;
+g.listAvailableDriveSheets = listAvailableDriveSheets;
 g.getIntakeData = getIntakeData;
 g.solveSchedule = solveSchedule;
 g.setMemberActiveStatus = setMemberActiveStatus;

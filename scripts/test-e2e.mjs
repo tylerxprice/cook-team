@@ -143,9 +143,15 @@ async function runE2ETest() {
     await step1Nav.click();
     await page.waitForSelector("text=Survey Response Spreadsheet");
 
-    const presets = ["standard", "holiday_shortage", "quota_deficit", "high_conflict", "single_respondent"];
+    const presets = [
+      "test-sheet-standard",
+      "test-sheet-holiday",
+      "test-sheet-deficit",
+      "test-sheet-conflict",
+      "test-sheet-single",
+    ];
     for (const preset of presets) {
-      console.log(`   Testing preset: ${preset} ...`);
+      console.log(`   Testing dropdown option: ${preset} ...`);
       const presetSelect = page.locator("select").first();
       await presetSelect.selectOption(preset);
       await page.waitForTimeout(600);

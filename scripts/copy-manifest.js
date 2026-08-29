@@ -34,6 +34,7 @@ function openSidebar() { return globalThis.openSidebar ? globalThis.openSidebar(
 function openModal() { return globalThis.openModal ? globalThis.openModal() : null; }
 function getUserInfo() { return globalThis.getUserInfo(); }
 function setupDriveWorkspace(parentFolderId) { return globalThis.setupDriveWorkspace(parentFolderId); }
+function listAvailableDriveSheets(parentFolderId) { return globalThis.listAvailableDriveSheets ? globalThis.listAvailableDriveSheets(parentFolderId) : []; }
 function getIntakeData(spreadsheetUrlOrId, masterRegistryUrlOrId) { return globalThis.getIntakeData(spreadsheetUrlOrId, masterRegistryUrlOrId); }
 function solveSchedule(mealDates, responses, exceptions, options) { return globalThis.solveSchedule(mealDates, responses, exceptions, options); }
 function setMemberActiveStatus(name, active, masterSheetId) { return globalThis.setMemberActiveStatus(name, active, masterSheetId); }
