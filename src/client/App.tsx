@@ -164,11 +164,27 @@ function MainApp() {
   const LIVE_LISTSERV_EMAIL = "Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>";
   const DEV_TEST_EMAIL = "tylerxprice@gmail.com";
 
+  // Helper to format subject line in Brenda's standard format: "MEAL SCHEDULE - Month 1 - Month 31 - Please Note Your Dates"
+  const formatDefaultSubject = (dates?: MealDate[] | DaySchedule[]) => {
+    const list = dates || solverResult?.schedule || intakeData?.mealDates;
+    if (list && list.length > 0) {
+      const firstDate = list[0].dateKey;
+      try {
+        const d1 = new Date(`${firstDate}T00:00:00`);
+        const monthName = d1.toLocaleString("en-US", { month: "long" });
+        const year = d1.getFullYear();
+        const lastDayOfMonth = new Date(year, d1.getMonth() + 1, 0).getDate();
+        return `MEAL SCHEDULE - ${monthName} 1 - ${monthName} ${lastDayOfMonth} - Please Note Your Dates`;
+      } catch (e) {
+        // fallback
+      }
+    }
+    return "MEAL SCHEDULE - October 1 - October 31 - Please Note Your Dates";
+  };
+
   // Email Dispatch States
   const [emailTo, setEmailTo] = useState(isGasEnvironment() ? LIVE_LISTSERV_EMAIL : DEV_TEST_EMAIL);
-  const [emailSubject, setEmailSubject] = useState("[Community Meals] October 2026 Cook & Clean Team Schedule");
-  const [emailBcc, setEmailBcc] = useState("");
-  const [includeAllMembersBcc, setIncludeAllMembersBcc] = useState(false);
+  const [emailSubject, setEmailSubject] = useState("MEAL SCHEDULE - October 1 - October 31 - Please Note Your Dates");
   const [customEmailBody, setCustomEmailBody] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailDeliveryResult, setEmailDeliveryResult] = useState<{
@@ -276,6 +292,7 @@ function MainApp() {
       setIntakeData(data);
       setExceptions(data.exceptions || []);
       setMembers(data.members || []);
+      setEmailSubject(formatDefaultSubject(data.mealDates));
       setSolverResult(null);
       showToast(`Loaded test scenario: ${presetKey}`);
       if (currentStep === 3) {
@@ -311,6 +328,7 @@ function MainApp() {
       setIntakeData(data);
       setExceptions(data.exceptions || []);
       setMembers(data.members || []);
+      setEmailSubject(formatDefaultSubject(data.mealDates));
       if (!targetSheet.startsWith("test-sheet-")) {
         setEmailTo(LIVE_LISTSERV_EMAIL);
       }
@@ -826,23 +844,8 @@ function MainApp() {
   const handleSendGmail = async (mode: "send" | "draft") => {
     if (!solverResult) return;
     const bodyToSend = generateEmailText();
-    const activeMembersEmails = members
-      .filter((m) => m.active && m.google_email)
-      .map((m) => m.google_email)
-      .filter(Boolean);
 
-    let finalBcc = emailBcc.trim();
-    if (includeAllMembersBcc && activeMembersEmails.length > 0) {
-      const uniqueEmails = Array.from(
-        new Set([
-          ...finalBcc.split(",").map((s) => s.trim()).filter(Boolean),
-          ...activeMembersEmails,
-        ])
-      );
-      finalBcc = uniqueEmails.join(", ");
-    }
-
-    if (!emailTo.trim() && !finalBcc) {
+    if (!emailTo.trim()) {
       showToast("Please provide a recipient or listserv email address.", "error");
       return;
     }
@@ -855,10 +858,9 @@ function MainApp() {
         message: string;
         recipientCount: number;
       }>("sendScheduleEmail", {
-        to: emailTo.trim() || (activeMembersEmails[0] || "community@example.com"),
-        subject: emailSubject.trim() || "[Community Meals] Schedule Announcement",
+        to: emailTo.trim(),
+        subject: emailSubject.trim() || formatDefaultSubject(),
         body: bodyToSend,
-        bcc: finalBcc || undefined,
         mode,
       });
 
@@ -866,7 +868,7 @@ function MainApp() {
         success: res.success,
         mode: res.mode,
         message: res.message,
-        recipient: emailTo.trim() || "all active members (BCC)",
+        recipient: emailTo.trim(),
       });
       showToast(res.message);
     } catch (err: any) {
@@ -2022,31 +2024,6 @@ function MainApp() {
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white font-medium"
                   />
                 </div>
-              </div>
-
-              {/* BCC Options */}
-              <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <label className="flex items-center gap-2 cursor-pointer text-slate-700 font-medium select-none">
-                  <input
-                    type="checkbox"
-                    checked={includeAllMembersBcc}
-                    onChange={(e) => setIncludeAllMembersBcc(e.target.checked)}
-                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
-                  />
-                  <span>
-                    BCC all <strong>{members.filter((m) => m.active && m.google_email).length}</strong> active community members with email addresses
-                  </span>
-                </label>
-
-                {!includeAllMembersBcc && (
-                  <input
-                    type="text"
-                    value={emailBcc}
-                    onChange={(e) => setEmailBcc(e.target.value)}
-                    placeholder="Custom BCC emails (comma separated)..."
-                    className="px-2.5 py-1 text-xs border border-slate-300 rounded-lg bg-white sm:w-64 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                )}
               </div>
 
               {/* Email Body Editor */}
