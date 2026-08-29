@@ -169,6 +169,42 @@ function MainApp() {
     }
   };
 
+  const liveSheetsList = useMemo(() => {
+    const list = driveSheets.filter(
+      (s) => s.folderCategory === "live" || s.folderName?.includes("Monthly") || s.folderName?.includes("Live")
+    );
+    const hasOct = list.some(
+      (s) => s.id === "1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4" || s.name?.includes("2026-10")
+    );
+    if (!hasOct) {
+      return [
+        {
+          id: "1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4",
+          name: "2026-10 Cook Team Survey (Responses) — Oct 2026 Form",
+          folderCategory: "live",
+        },
+        ...list,
+      ];
+    }
+    return list;
+  }, [driveSheets]);
+
+  const devSheetsList = useMemo(() => {
+    const list = driveSheets.filter(
+      (s) => s.folderCategory === "dev" || s.folderName?.includes("Dev") || s.name?.includes("Test Scenario")
+    );
+    if (list.length > 0) {
+      return list;
+    }
+    return [
+      { id: "test-sheet-standard", name: "Test Scenario 1 - Standard Healthy (30 responses, 0 unfilled)" },
+      { id: "test-sheet-holiday", name: "Test Scenario 2 - Holiday Desertion (Oct 11-12 shortage)" },
+      { id: "test-sheet-deficit", name: "Test Scenario 3 - Quota Shortfall (Cook quota deficit)" },
+      { id: "test-sheet-conflict", name: "Test Scenario 4 - High Conflict (8 entangled rules)" },
+      { id: "test-sheet-single", name: "Test Scenario 5 - Single Respondent (Tyler live test)" },
+    ];
+  }, [driveSheets]);
+
   const handleSelectSheetOption = async (optionValue: string) => {
     setSheetSelectMode(optionValue);
     if (optionValue === "custom") {
@@ -891,31 +927,19 @@ function MainApp() {
                   className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 hover:bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 font-medium text-slate-800 transition-colors cursor-pointer"
                 >
                   <optgroup label="📁 Monthly Surveys (Google Drive Live)">
-                    <option value="1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4">
-                      📄 2026-10 Cook Team Survey (Responses) — Oct 2026 Form
-                    </option>
-                    {driveSheets
-                      .filter((s) => s.folderCategory === "live" && s.id !== "1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4")
-                      .map((s) => (
-                        <option key={s.id} value={s.id}>
-                          📄 {s.name}
-                        </option>
-                      ))}
+                    {liveSheetsList.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        📄 {s.name}
+                      </option>
+                    ))}
                   </optgroup>
 
                   <optgroup label="🧪 Dev / Test Scenarios (Google Drive & Presets)">
-                    <option value="test-sheet-standard">🌟 Test Scenario 1 - Standard Healthy (30 responses, 0 unfilled)</option>
-                    <option value="test-sheet-holiday">🦃 Test Scenario 2 - Holiday Desertion (Oct 11-12 shortage)</option>
-                    <option value="test-sheet-deficit">⚠️ Test Scenario 3 - Quota Shortfall (Cook quota deficit)</option>
-                    <option value="test-sheet-conflict">🔒 Test Scenario 4 - High Conflict (8 entangled rules)</option>
-                    <option value="test-sheet-single">👤 Test Scenario 5 - Single Respondent (Tyler live test)</option>
-                    {driveSheets
-                      .filter((s) => s.folderCategory === "dev" && !s.id.startsWith("test-sheet-"))
-                      .map((s) => (
-                        <option key={s.id} value={s.id}>
-                          🧪 {s.name}
-                        </option>
-                      ))}
+                    {devSheetsList.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        🧪 {s.name}
+                      </option>
+                    ))}
                   </optgroup>
 
                   <optgroup label="🔗 Custom Input">
