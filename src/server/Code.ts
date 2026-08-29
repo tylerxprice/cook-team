@@ -403,7 +403,7 @@ function exportScheduleToSheet(
   }
 }
 
-// Global functions for Google Apps Script runtime & google.script.run
+// Global exposure for Google Apps Script runtime & google.script.run
 const g: any = typeof globalThis !== "undefined" ? globalThis : this;
 g.doGet = doGet;
 g.onOpen = onOpen;

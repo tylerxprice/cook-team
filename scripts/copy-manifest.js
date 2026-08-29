@@ -22,3 +22,25 @@ if (fs.existsSync(manifestSrc)) {
 } else {
   console.warn("⚠️ appsscript.json not found in root!");
 }
+
+// Append top-level GAS entrypoints so Apps Script exposes them to google.script.run
+const codeDest = path.resolve(distDir, "Code.js");
+if (fs.existsSync(codeDest)) {
+  const gasStubs = `
+// Top-level function declarations for Google Apps Script AST scanner & google.script.run
+function doGet(e) { return globalThis.doGet ? globalThis.doGet(e) : null; }
+function onOpen(e) { return globalThis.onOpen ? globalThis.onOpen(e) : null; }
+function openSidebar() { return globalThis.openSidebar ? globalThis.openSidebar() : null; }
+function openModal() { return globalThis.openModal ? globalThis.openModal() : null; }
+function getUserInfo() { return globalThis.getUserInfo(); }
+function setupDriveWorkspace(parentFolderId) { return globalThis.setupDriveWorkspace(parentFolderId); }
+function getIntakeData(spreadsheetUrlOrId, masterRegistryUrlOrId) { return globalThis.getIntakeData(spreadsheetUrlOrId, masterRegistryUrlOrId); }
+function solveSchedule(mealDates, responses, exceptions, options) { return globalThis.solveSchedule(mealDates, responses, exceptions, options); }
+function setMemberActiveStatus(name, active, masterSheetId) { return globalThis.setMemberActiveStatus(name, active, masterSheetId); }
+function addCommunityMember(member, masterSheetId) { return globalThis.addCommunityMember(member, masterSheetId); }
+function saveExceptionRule(rule, masterSheetId) { return globalThis.saveExceptionRule(rule, masterSheetId); }
+function exportScheduleToSheet(spreadsheetId, scheduleOutput) { return globalThis.exportScheduleToSheet(spreadsheetId, scheduleOutput); }
+`;
+  fs.appendFileSync(codeDest, gasStubs, "utf8");
+  console.log("✓ Appended top-level GAS entrypoint functions to dist/Code.js");
+}
