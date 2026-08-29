@@ -1132,7 +1132,9 @@ function MainApp() {
                   className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 hover:bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 font-medium text-slate-800 transition-colors cursor-pointer"
                 >
                   <option value="" disabled>
-                    -- Select a Monthly Survey or Test Scenario to Begin --
+                    {typeof window !== "undefined" && window.location.href.includes("/exec")
+                      ? "-- Select a Monthly Survey to Begin --"
+                      : "-- Select a Monthly Survey or Test Scenario to Begin --"}
                   </option>
                   <optgroup label="📁 Monthly Surveys (Google Drive Live)">
                     {liveSheetsList.map((s) => (
@@ -1142,13 +1144,15 @@ function MainApp() {
                     ))}
                   </optgroup>
 
-                  <optgroup label="🧪 Dev / Test Scenarios (Google Drive & Presets)">
-                    {devSheetsList.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        🧪 {s.name}
-                      </option>
-                    ))}
-                  </optgroup>
+                  {!(typeof window !== "undefined" && window.location.href.includes("/exec")) && devSheetsList.length > 0 && (
+                    <optgroup label="🧪 Dev / Test Scenarios (Google Drive & Presets)">
+                      {devSheetsList.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          🧪 {s.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
 
                   <optgroup label="🔗 Custom Input">
                     <option value="custom">✏️ Paste Custom Google Sheet URL or ID...</option>
