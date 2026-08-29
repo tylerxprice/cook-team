@@ -80,7 +80,16 @@ export async function callGas<T = any>(
         authMode: "Local Dev Mock (Vite HMR)",
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         timestamp: new Date().toISOString(),
+        isDevMode: true,
       } as unknown as T;
+
+    case "getMasterRegistryData": {
+      const isDev = args[0] !== false;
+      return {
+        members: isDev ? localMembers : [{ name: "Tyler Price", google_email: "tylerxprice@gmail.com", active: true, last_active_survey: "2026-10" }],
+        exceptions: isDev ? localExceptions : [],
+      } as unknown as T;
+    }
 
     case "getMockPresets":
       return MOCK_PRESETS as unknown as T;

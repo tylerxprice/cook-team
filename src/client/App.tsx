@@ -371,14 +371,20 @@ function MainApp() {
     const init = async () => {
       try {
         const info = await callGas<any>("getUserInfo");
-        if (info && typeof info.isDevMode === "boolean") {
-          setIsDevMode(info.isDevMode);
-          if (info.isDevMode) {
-            setEmailTo(DEV_TEST_EMAIL);
-          } else {
-            setEmailTo(LIVE_LISTSERV_EMAIL);
-          }
+        const devMode = info && typeof info.isDevMode === "boolean" ? info.isDevMode : !isGasEnvironment();
+        setIsDevMode(devMode);
+        if (devMode) {
+          setEmailTo(DEV_TEST_EMAIL);
+        } else {
+          setEmailTo(LIVE_LISTSERV_EMAIL);
         }
+
+        const regData = await callGas<any>("getMasterRegistryData", devMode);
+        if (regData && Array.isArray(regData.members) && regData.members.length > 0) {
+          setMembers(regData.members);
+          setExceptions(regData.exceptions || []);
+        }
+
         await fetchDriveSheets();
       } catch (err) {
         console.warn("Init error:", err);

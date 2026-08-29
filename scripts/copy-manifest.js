@@ -35,6 +35,7 @@ function openModal() { return globalThis.openModal ? globalThis.openModal() : nu
 function getUserInfo() { return globalThis.getUserInfo(); }
 function setupDriveWorkspace(parentFolderId) { return globalThis.setupDriveWorkspace(parentFolderId); }
 function listAvailableDriveSheets(parentFolderId) { return globalThis.listAvailableDriveSheets ? globalThis.listAvailableDriveSheets(parentFolderId) : []; }
+function getMasterRegistryData(isDevMode) { return globalThis.getMasterRegistryData ? globalThis.getMasterRegistryData(isDevMode) : { members: [], exceptions: [] }; }
 function getIntakeData(spreadsheetUrlOrId, masterRegistryUrlOrId) { return globalThis.getIntakeData(spreadsheetUrlOrId, masterRegistryUrlOrId); }
 function loadExistingScheduleFromSheet(spreadsheetId, tabName) { return globalThis.loadExistingScheduleFromSheet(spreadsheetId, tabName); }
 function solveSchedule(mealDates, responses, exceptions, options) { return globalThis.solveSchedule(mealDates, responses, exceptions, options); }

@@ -185,6 +185,87 @@ function listAvailableDriveSheets(parentFolderId?: string): DriveSheetItem[] {
 }
 
 /**
+ * Fetches the Master Community Registry data (members and rules) on demand.
+ */
+function getMasterRegistryData(
+  isDevMode?: boolean
+): { members: Member[]; exceptions: ExceptionRule[] } {
+  let dev = isDevMode;
+  if (typeof dev === "undefined") {
+    try {
+      const url = ScriptApp.getService().getUrl() || "";
+      dev = url.endsWith("/dev");
+    } catch {
+      dev = false;
+    }
+  }
+
+  const masterSpreadsheet = getMasterRegistrySpreadsheet(undefined, dev);
+  let members: Member[] = [];
+  let exceptions: ExceptionRule[] = [];
+
+  if (masterSpreadsheet) {
+    const membersTab = masterSpreadsheet.getSheetByName("Members");
+    if (membersTab) {
+      const mData = membersTab.getDataRange().getValues();
+      for (let i = 1; i < mData.length; i++) {
+        const row = mData[i];
+        if (row[0] && String(row[0]).trim() !== "") {
+          const val = String(row[2] || "").trim().toLowerCase();
+          const isActive =
+            row[2] === true ||
+            val === "true" ||
+            val === "yes" ||
+            val === "y" ||
+            val === "1" ||
+            val === "active" ||
+            val === "";
+
+          members.push({
+            name: String(row[0]).trim(),
+            google_email: String(row[1] || "").trim(),
+            active: isActive,
+            last_active_survey: row[3] ? String(row[3]).trim() : undefined,
+          });
+        }
+      }
+    }
+
+    const exceptionsTab = masterSpreadsheet.getSheetByName("Exceptions");
+    if (exceptionsTab) {
+      const eData = exceptionsTab.getDataRange().getValues();
+      for (let i = 1; i < eData.length; i++) {
+        const row = eData[i];
+        if (row[0] && String(row[0]).trim() !== "") {
+          const isHard =
+            row[5] === true ||
+            String(row[5] || "").trim().toLowerCase() === "true" ||
+            String(row[5] || "").trim().toLowerCase() === "yes";
+
+          exceptions.push({
+            id: `RULE-${i}`,
+            person_a: String(row[0]).trim(),
+            person_b: row[1] ? String(row[1]).trim() : undefined,
+            rule_type: String(row[2]).trim() as any,
+            target_role_a: row[3] ? (String(row[3]).trim() as any) : undefined,
+            target_role_b: row[4] ? (String(row[4]).trim() as any) : undefined,
+            is_hard_rule: isHard,
+            notes: row[6] ? String(row[6]).trim() : undefined,
+          });
+        }
+      }
+    }
+  }
+
+  if (members.length === 0 && dev) {
+    members = MOCK_MEMBERS;
+    exceptions = MOCK_EXCEPTIONS;
+  }
+
+  return { members, exceptions };
+}
+
+/**
  * Parses intake data from a Google Sheet (or returns initialized mock payload).
  */
 function getIntakeData(
@@ -237,11 +318,21 @@ function getIntakeData(
       if (mData.length > 1) {
         for (let i = 1; i < mData.length; i++) {
           const row = mData[i];
-          if (row[0]) {
+          if (row[0] && String(row[0]).trim() !== "") {
+            const val = String(row[2] || "").trim().toLowerCase();
+            const isActive =
+              row[2] === true ||
+              val === "true" ||
+              val === "yes" ||
+              val === "y" ||
+              val === "1" ||
+              val === "active" ||
+              val === "";
+
             members.push({
               name: String(row[0]).trim(),
               google_email: String(row[1] || "").trim(),
-              active: row[2] === true || String(row[2]).toLowerCase() === "true",
+              active: isActive,
               last_active_survey: row[3] ? String(row[3]).trim() : undefined,
             });
           }
@@ -728,6 +819,7 @@ g.openModal = openModal;
 g.getUserInfo = getUserInfo;
 g.setupDriveWorkspace = setupDriveWorkspace;
 g.listAvailableDriveSheets = listAvailableDriveSheets;
+g.getMasterRegistryData = getMasterRegistryData;
 g.getIntakeData = getIntakeData;
 g.loadExistingScheduleFromSheet = loadExistingScheduleFromSheet;
 g.solveSchedule = solveSchedule;
