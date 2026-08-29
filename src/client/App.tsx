@@ -211,6 +211,7 @@ function MainApp() {
             { id: "test-sheet-deficit", name: "Test Scenario 3 - Quota Shortfall (Cook quota deficit)" },
             { id: "test-sheet-conflict", name: "Test Scenario 4 - High Conflict (8 entangled rules)" },
             { id: "test-sheet-single", name: "Test Scenario 5 - Single Respondent (Tyler live test)" },
+            { id: "test-sheet-saved", name: "Test Scenario 6 - Existing Saved Schedule (Resume in Step 3)" },
           ];
 
     return [...baseList].sort((a, b) =>
@@ -236,6 +237,8 @@ function MainApp() {
           ? "high_conflict"
           : key === "single"
           ? "single_respondent"
+          : key === "saved"
+          ? "saved_schedule"
           : "standard";
       await handleSelectPreset(presetKey);
     } else {

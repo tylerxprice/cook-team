@@ -98,8 +98,14 @@ export async function callGas<T = any>(
       return localIntake as unknown as T;
     }
 
-    case "getIntakeData":
+    case "getIntakeData": {
+      const [sheetUrlOrId] = args as [string];
+      if (sheetUrlOrId === "test-sheet-saved" || sheetUrlOrId === "saved_schedule") {
+        localIntake = { ...MOCK_SAVED_SCHEDULE_PAYLOAD };
+        return localIntake as unknown as T;
+      }
       return localIntake as unknown as T;
+    }
 
     case "solveSchedule": {
       const [mealDates, responses, exceptions, options] = args as [
@@ -227,6 +233,14 @@ export async function callGas<T = any>(
           folderName: "02_Dev_and_Testing",
           folderCategory: "dev",
           url: "https://docs.google.com/spreadsheets/d/test-sheet-single",
+          lastUpdated: new Date().toISOString(),
+        },
+        {
+          id: "test-sheet-saved",
+          name: "Test Scenario 6 - Existing Saved Schedule (Resume in Step 3)",
+          folderName: "02_Dev_and_Testing",
+          folderCategory: "dev",
+          url: "https://docs.google.com/spreadsheets/d/test-sheet-saved",
           lastUpdated: new Date().toISOString(),
         },
       ] as unknown as T;

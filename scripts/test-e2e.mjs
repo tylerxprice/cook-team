@@ -152,6 +152,7 @@ async function runE2ETest() {
       "test-sheet-deficit",
       "test-sheet-conflict",
       "test-sheet-single",
+      "test-sheet-saved",
     ];
     for (const preset of presets) {
       console.log(`   Testing dropdown option: ${preset} ...`);
@@ -159,7 +160,19 @@ async function runE2ETest() {
       await presetSelect.selectOption(preset);
       await page.waitForTimeout(600);
     }
-    console.log("✓ All 5 test presets verified without error!");
+    console.log("✓ All 6 test presets verified without error!");
+
+    // Test Saved Schedule Tab Detection & One-Click Jump to Step 3
+    console.log("11. Testing Saved Schedule Detection & Resume Workflow...");
+    const selectEl = page.locator("select").first();
+    await selectEl.selectOption("test-sheet-saved");
+    await page.waitForSelector("text=Finalized Schedule Tab Found:");
+    console.log("✓ Saved schedule alert banner verified.");
+
+    const loadSavedBtn = page.locator("button:has-text('Load Saved Schedule & Edit in Step 3')");
+    await loadSavedBtn.click();
+    await page.waitForSelector("text=Generated Monthly Shift Roster");
+    console.log("✓ One-click jump to Step 3 with saved roster verified!");
 
     console.log("\n==========================================");
     if (errors.length === 0) {

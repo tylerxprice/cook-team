@@ -278,6 +278,16 @@ export const MOCK_SINGLE_PAYLOAD: IntakePayload = {
   members: MOCK_MEMBERS,
 };
 
+export const MOCK_SAVED_SCHEDULE_PAYLOAD: IntakePayload = {
+  ...MOCK_INTAKE_PAYLOAD,
+  existingScheduleTab: {
+    name: "Schedule_2026-10",
+    url: "https://docs.google.com/spreadsheets/d/test-sheet-saved#gid=123",
+    exists: true,
+    dateMonth: "2026-10",
+  },
+};
+
 // Dataset Dictionary Map
 export const MOCK_PRESETS: Record<
   string,
@@ -287,6 +297,11 @@ export const MOCK_PRESETS: Record<
     name: "🌟 Standard Healthy Community (30 responses)",
     description: "Fully populated availability with balanced quotas and zero unfilled slots.",
     payload: MOCK_INTAKE_PAYLOAD,
+  },
+  saved_schedule: {
+    name: "📅 Saved Finalized Schedule (Existing Schedule_2026-10 tab)",
+    description: "Simulation of a spreadsheet that already has a finalized Schedule_2026-10 tab.",
+    payload: MOCK_SAVED_SCHEDULE_PAYLOAD,
   },
   holiday_shortage: {
     name: "🦃 Holiday Desertion (Thanksgiving Oct 11-12 shortage)",
