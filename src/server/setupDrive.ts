@@ -336,7 +336,7 @@ export function listDriveSpreadsheets(
       while (files.hasNext()) {
         const file = files.next();
         const name = file.getName();
-        if (name.includes("Master Community Registry")) continue;
+        if (name.includes("Master") || name.includes("Registry")) continue;
 
         items.push({
           id: file.getId(),
@@ -362,23 +362,6 @@ export function listDriveSpreadsheets(
       }
     };
 
-    // Scan Root files
-    const rootFiles = rootFolder.getFilesByType(MimeType.GOOGLE_SHEETS);
-    while (rootFiles.hasNext()) {
-      const file = rootFiles.next();
-      const name = file.getName();
-      if (!name.includes("Master Community Registry")) {
-        items.push({
-          id: file.getId(),
-          name,
-          folderName: rootFolder.getName(),
-          folderCategory: "live",
-          url: file.getUrl(),
-          lastUpdated: file.getLastUpdated().toISOString(),
-        });
-      }
-    }
-
     // Scan Subfolders
     const subfolders = rootFolder.getFolders();
     while (subfolders.hasNext()) {
@@ -390,6 +373,23 @@ export function listDriveSpreadsheets(
         ? "dev"
         : "other";
       scanFolder(sub, cat);
+    }
+
+    // Scan Root files (if any outside subfolders)
+    const rootFiles = rootFolder.getFilesByType(MimeType.GOOGLE_SHEETS);
+    while (rootFiles.hasNext()) {
+      const file = rootFiles.next();
+      const name = file.getName();
+      if (!name.includes("Master") && !name.includes("Registry")) {
+        items.push({
+          id: file.getId(),
+          name,
+          folderName: rootFolder.getName(),
+          folderCategory: "live",
+          url: file.getUrl(),
+          lastUpdated: file.getLastUpdated().toISOString(),
+        });
+      }
     }
   } catch (err) {
     console.warn("Could not list Drive spreadsheets:", err);

@@ -100,6 +100,7 @@ export class ErrorBoundary extends React.Component<
 
 function MainApp() {
   const [inGas, setInGas] = useState(false);
+  const [isDevMode, setIsDevMode] = useState<boolean>(!isGasEnvironment());
   const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStepState] = useState<1 | 2 | 3 | 4>(1);
@@ -212,8 +213,11 @@ function MainApp() {
   };
 
   const liveSheetsList = useMemo(() => {
+    if (isDevMode) {
+      return [];
+    }
     const list = driveSheets.filter(
-      (s) => s.folderCategory === "live" || s.folderName?.includes("Monthly") || s.folderName?.includes("Live")
+      (s) => s.folderCategory === "live" || s.folderName?.includes("Monthly") || s.folderName?.includes("Live") || s.folderName?.includes("01_Live")
     );
     const hasOct = list.some(
       (s) => s.id === "1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4" || s.name?.includes("2026-10")
@@ -232,15 +236,14 @@ function MainApp() {
     return [...merged].sort((a, b) =>
       a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
     );
-  }, [driveSheets]);
+  }, [driveSheets, isDevMode]);
 
   const devSheetsList = useMemo(() => {
-    // Hide test scenario sheets when running live inside Google Apps Script!
-    if (inGas) {
+    if (!isDevMode) {
       return [];
     }
     const list = driveSheets.filter(
-      (s) => s.folderCategory === "dev" || s.folderName?.includes("Dev") || s.name?.includes("Test Scenario")
+      (s) => s.folderCategory === "dev" || s.folderName?.includes("Dev") || s.folderName?.includes("02_Dev") || s.name?.includes("Test Scenario")
     );
     const baseList =
       list.length > 0
@@ -257,7 +260,7 @@ function MainApp() {
     return [...baseList].sort((a, b) =>
       a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
     );
-  }, [driveSheets, inGas]);
+  }, [driveSheets, isDevMode]);
 
   const handleSelectSheetOption = async (optionValue: string) => {
     setSheetSelectMode(optionValue);
@@ -367,6 +370,15 @@ function MainApp() {
     setInGas(isGasEnvironment());
     const init = async () => {
       try {
+        const info = await callGas<any>("getUserInfo");
+        if (info && typeof info.isDevMode === "boolean") {
+          setIsDevMode(info.isDevMode);
+          if (info.isDevMode) {
+            setEmailTo(DEV_TEST_EMAIL);
+          } else {
+            setEmailTo(LIVE_LISTSERV_EMAIL);
+          }
+        }
         await fetchDriveSheets();
       } catch (err) {
         console.warn("Init error:", err);
@@ -1136,20 +1148,22 @@ function MainApp() {
                   className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 hover:bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 font-medium text-slate-800 transition-colors cursor-pointer"
                 >
                   <option value="" disabled>
-                    {typeof window !== "undefined" && window.location.href.includes("/exec")
-                      ? "-- Select a Monthly Survey to Begin --"
-                      : "-- Select a Monthly Survey or Test Scenario to Begin --"}
+                    {isDevMode
+                      ? "-- Select a Test Scenario to Begin --"
+                      : "-- Select a Monthly Survey to Begin --"}
                   </option>
-                  <optgroup label="📁 Monthly Surveys (Google Drive Live)">
-                    {liveSheetsList.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        📄 {s.name}
-                      </option>
-                    ))}
-                  </optgroup>
+                  {!isDevMode && liveSheetsList.length > 0 && (
+                    <optgroup label="📁 Monthly Surveys (01_Live_Production)">
+                      {liveSheetsList.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          📄 {s.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
 
-                  {!(typeof window !== "undefined" && window.location.href.includes("/exec")) && devSheetsList.length > 0 && (
-                    <optgroup label="🧪 Dev / Test Scenarios (Google Drive & Presets)">
+                  {isDevMode && devSheetsList.length > 0 && (
+                    <optgroup label="🧪 Dev / Test Scenarios (02_Dev_and_Testing)">
                       {devSheetsList.map((s) => (
                         <option key={s.id} value={s.id}>
                           🧪 {s.name}

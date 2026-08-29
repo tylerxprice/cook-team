@@ -74,7 +74,8 @@ function openModal(): void {
 // -------------------------------------------------------------
 
 function getMasterRegistrySpreadsheet(
-  customMasterIdOrUrl?: string
+  customMasterIdOrUrl?: string,
+  isDevMode?: boolean
 ): GoogleAppsScript.Spreadsheet.Spreadsheet | null {
   try {
     if (customMasterIdOrUrl && customMasterIdOrUrl.trim() !== "") {
@@ -84,38 +85,40 @@ function getMasterRegistrySpreadsheet(
         : SpreadsheetApp.openById(clean);
     }
 
-    const scriptPropId = PropertiesService.getScriptProperties().getProperty(
-      "MASTER_REGISTRY_SHEET_ID"
-    );
+    let dev = isDevMode;
+    if (typeof dev === "undefined") {
+      try {
+        const url = ScriptApp.getService().getUrl() || "";
+        dev = url.endsWith("/dev");
+      } catch {
+        dev = false;
+      }
+    }
+
+    const propKey = dev ? "DEV_MASTER_REGISTRY_SHEET_ID" : "MASTER_REGISTRY_SHEET_ID";
+    const scriptPropId = PropertiesService.getScriptProperties().getProperty(propKey);
     if (scriptPropId) {
       try {
         return SpreadsheetApp.openById(scriptPropId);
       } catch (e) {
-        console.warn("Could not open master by script property ID:", e);
+        console.warn(`Could not open master by property ID (${propKey}):`, e);
       }
     }
 
-    // Automatically locate Master Registry in parent Drive folder hierarchy
+    // Locate Master Registry in the appropriate folder: 01_Live_Production vs 02_Dev_and_Testing
     try {
       const rootFolder = DriveApp.getFolderById("1U0cJqnxCgWn-5k0RCj2BjCUj9nc1dMGl");
-      const subfolders = rootFolder.getFolders();
-      while (subfolders.hasNext()) {
-        const sub = subfolders.next();
-        const files = sub.getFilesByType(MimeType.GOOGLE_SHEETS);
+      const targetFolderName = dev ? "02_Dev_and_Testing" : "01_Live_Production";
+      const targetFolders = rootFolder.getFoldersByName(targetFolderName);
+      if (targetFolders.hasNext()) {
+        const targetFolder = targetFolders.next();
+        const files = targetFolder.getFilesByType(MimeType.GOOGLE_SHEETS);
         while (files.hasNext()) {
           const f = files.next();
-          if (f.getName().includes("Master_Registry") || f.getName().includes("Master")) {
-            PropertiesService.getScriptProperties().setProperty("MASTER_REGISTRY_SHEET_ID", f.getId());
+          if (f.getName().includes("Master") || f.getName().includes("Registry")) {
+            PropertiesService.getScriptProperties().setProperty(propKey, f.getId());
             return SpreadsheetApp.openById(f.getId());
           }
-        }
-      }
-      const rootFiles = rootFolder.getFilesByType(MimeType.GOOGLE_SHEETS);
-      while (rootFiles.hasNext()) {
-        const f = rootFiles.next();
-        if (f.getName().includes("Master_Registry") || f.getName().includes("Master")) {
-          PropertiesService.getScriptProperties().setProperty("MASTER_REGISTRY_SHEET_ID", f.getId());
-          return SpreadsheetApp.openById(f.getId());
         }
       }
     } catch (driveErr) {
@@ -136,7 +139,16 @@ function getUserInfo(): {
   authMode: string;
   timezone: string;
   timestamp: string;
+  isDevMode: boolean;
 } {
+  let isDevMode = false;
+  try {
+    const url = ScriptApp.getService().getUrl() || "";
+    isDevMode = url.endsWith("/dev");
+  } catch {
+    isDevMode = false;
+  }
+
   try {
     const user = Session.getActiveUser();
     return {
@@ -144,6 +156,7 @@ function getUserInfo(): {
       authMode: "V8 Runtime (Google Apps Script)",
       timezone: Session.getScriptTimeZone(),
       timestamp: new Date().toISOString(),
+      isDevMode,
     };
   } catch {
     return {
@@ -151,6 +164,7 @@ function getUserInfo(): {
       authMode: "V8 Runtime",
       timezone: "America/Los_Angeles",
       timestamp: new Date().toISOString(),
+      isDevMode: false,
     };
   }
 }
@@ -193,9 +207,28 @@ function getIntakeData(
     const firstSheet = surveySpreadsheet.getSheets()[0];
     const surveyData = firstSheet.getDataRange().getValues();
 
-    // 1. Resolve Master Community Registry (either from designated sheet or tabs in survey sheet)
+    // Determine dev mode from URL or survey file location
+    let isDevMode = false;
+    try {
+      const url = ScriptApp.getService().getUrl() || "";
+      isDevMode = url.endsWith("/dev");
+    } catch {}
+
+    try {
+      const file = DriveApp.getFileById(surveySpreadsheet.getId());
+      const parents = file.getParents();
+      while (parents.hasNext()) {
+        const p = parents.next();
+        if (p.getName().includes("Dev")) {
+          isDevMode = true;
+          break;
+        }
+      }
+    } catch {}
+
+    // 1. Resolve Master Community Registry from appropriate environment folder
     const masterSpreadsheet =
-      getMasterRegistrySpreadsheet(masterRegistryUrlOrId) || surveySpreadsheet;
+      getMasterRegistrySpreadsheet(masterRegistryUrlOrId, isDevMode) || surveySpreadsheet;
 
     let members: Member[] = [];
     const membersTab = masterSpreadsheet.getSheetByName("Members");
@@ -216,26 +249,30 @@ function getIntakeData(
       }
     }
 
-    // Fallback: If no members tab exists, dynamically extract members from the actual survey responses!
+    // Fallback: If no members tab found in registry, extract from survey responses or mock
     if (members.length === 0) {
-      const respondentsFromSurvey: Member[] = [];
-      for (let r = 1; r < surveyData.length; r++) {
-        const row = surveyData[r];
-        const email = String(row[1] || "").trim();
-        const name = String(row[2] || "").trim();
-        if (name && !respondentsFromSurvey.some((m) => m.name.toLowerCase() === name.toLowerCase())) {
-          respondentsFromSurvey.push({
-            name,
-            google_email: email,
-            active: true,
-            last_active_survey: "2026-10",
-          });
+      if (isDevMode) {
+        members = MOCK_MEMBERS;
+      } else {
+        const respondentsFromSurvey: Member[] = [];
+        for (let r = 1; r < surveyData.length; r++) {
+          const row = surveyData[r];
+          const email = String(row[1] || "").trim();
+          const name = String(row[2] || "").trim();
+          if (name && !respondentsFromSurvey.some((m) => m.name.toLowerCase() === name.toLowerCase())) {
+            respondentsFromSurvey.push({
+              name,
+              google_email: email,
+              active: true,
+              last_active_survey: "2026-10",
+            });
+          }
         }
+        members = respondentsFromSurvey.length > 0 ? respondentsFromSurvey : MOCK_MEMBERS;
       }
-      members = respondentsFromSurvey.length > 0 ? respondentsFromSurvey : MOCK_MEMBERS;
     }
 
-    let exceptions: ExceptionRule[] = MOCK_EXCEPTIONS;
+    let exceptions: ExceptionRule[] = isDevMode ? MOCK_EXCEPTIONS : [];
     const exceptionsTab = masterSpreadsheet.getSheetByName("Exceptions");
     if (exceptionsTab) {
       const eData = exceptionsTab.getDataRange().getValues();
