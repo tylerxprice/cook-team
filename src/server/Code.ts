@@ -363,12 +363,25 @@ function saveExceptionRule(
  * Exports final schedule tab to Google Sheet
  */
 function exportScheduleToSheet(
-  spreadsheetId: string,
+  spreadsheetIdOrUrl: string,
   scheduleOutput: ScheduleOutput
-): { success: boolean; sheetName: string; message: string } {
+): { success: boolean; sheetName: string; url?: string; message: string } {
   try {
-    const sheet = SpreadsheetApp.openById(spreadsheetId);
-    const tabName = `Schedule_${new Date().toISOString().slice(0, 7)}`;
+    let sheet: GoogleAppsScript.Spreadsheet.Spreadsheet;
+    const clean = (spreadsheetIdOrUrl || "").trim();
+    if (clean.startsWith("http")) {
+      sheet = SpreadsheetApp.openByUrl(clean);
+    } else {
+      sheet = SpreadsheetApp.openById(clean);
+    }
+
+    // Determine month string from schedule if available (e.g. 2026-10)
+    let monthSuffix = new Date().toISOString().slice(0, 7);
+    if (scheduleOutput.schedule.length > 0 && scheduleOutput.schedule[0].dateKey) {
+      monthSuffix = scheduleOutput.schedule[0].dateKey.slice(0, 7);
+    }
+    const tabName = `Schedule_${monthSuffix}`;
+
     let outputTab = sheet.getSheetByName(tabName);
     if (!outputTab) {
       outputTab = sheet.insertSheet(tabName);
@@ -376,9 +389,9 @@ function exportScheduleToSheet(
       outputTab.clear();
     }
 
-    // Write header
+    // Header
     const rows: any[][] = [
-      ["Date", "Meal Type", "Special Note", "Cook Team", "Clean Team", "Unfilled Slots"],
+      ["Date", "Meal Type", "Special Note", "Cook Team", "Clean Team", "Status / Notes"],
     ];
 
     for (const d of scheduleOutput.schedule) {
@@ -386,18 +399,35 @@ function exportScheduleToSheet(
         d.dateLabel,
         d.mealType,
         d.specialNote || "",
-        d.cooks.join(", "),
-        d.cleaners.join(", "),
+        d.cooks.join(", ") || "(Need Cooks)",
+        d.cleaners.join(", ") || "(Need Cleaners)",
         d.unfilledCooks + d.unfilledCleaners > 0
-          ? `${d.unfilledCooks} cooks, ${d.unfilledCleaners} cleaners`
-          : "Full",
+          ? `⚠️ Missing: ${d.unfilledCooks > 0 ? `${d.unfilledCooks} cook(s) ` : ""}${d.unfilledCleaners > 0 ? `${d.unfilledCleaners} cleaner(s)` : ""}`
+          : "✅ Complete",
       ]);
     }
 
-    outputTab.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
+    const range = outputTab.getRange(1, 1, rows.length, rows[0].length);
+    range.setValues(rows);
+
+    // Format header
+    const headerRange = outputTab.getRange(1, 1, 1, rows[0].length);
+    headerRange.setFontWeight("bold");
+    headerRange.setBackground("#f1f5f9");
+    headerRange.setFontColor("#0f172a");
+    outputTab.setFrozenRows(1);
+
+    // Auto-resize columns
+    for (let c = 1; c <= rows[0].length; c++) {
+      outputTab.autoResizeColumn(c);
+    }
+
+    const tabUrl = `${sheet.getUrl()}#gid=${outputTab.getSheetId()}`;
+
     return {
       success: true,
       sheetName: tabName,
+      url: tabUrl,
       message: `Successfully published schedule to sheet tab "${tabName}"!`,
     };
   } catch (err: any) {

@@ -150,6 +150,7 @@ function MainApp() {
 
   const [driveSheets, setDriveSheets] = useState<any[]>([]);
   const [sheetSelectMode, setSheetSelectMode] = useState<string>("1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4");
+  const [exportedResult, setExportedResult] = useState<{ success: boolean; sheetName: string; url?: string; message: string } | null>(null);
 
   const [selectedPreset, setSelectedPreset] = useState<string>("standard");
 
@@ -725,11 +726,12 @@ function MainApp() {
     if (!solverResult) return;
     setLoading(true);
     try {
-      const res = await callGas<{ success: boolean; sheetName: string; message: string }>(
+      const res = await callGas<{ success: boolean; sheetName: string; url?: string; message: string }>(
         "exportScheduleToSheet",
         sheetInput,
         solverResult
       );
+      setExportedResult(res);
       showToast(res.message);
     } catch (err: any) {
       showToast(`Export failed: ${err.message}`, "error");
@@ -1734,6 +1736,27 @@ function MainApp() {
                 >
                   <Download className="w-4 h-4" /> Export Schedule Tab
                 </button>
+
+                {exportedResult && exportedResult.success && (
+                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs gap-3 animate-fade-in">
+                    <div className="flex items-center gap-2 text-emerald-900 font-semibold min-w-0">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="truncate">
+                        Published to <strong>{exportedResult.sheetName}</strong>
+                      </span>
+                    </div>
+                    {exportedResult.url && (
+                      <a
+                        href={exportedResult.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs inline-flex items-center gap-1 shadow-sm transition-colors shrink-0"
+                      >
+                        Open Tab <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Listserv Email Generator Card */}
