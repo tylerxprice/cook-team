@@ -32,6 +32,10 @@ import {
   ProvisionResult,
   DriveSheetItem,
 } from "./setupDrive";
+import {
+  scanHistoricalDriveFolder,
+  importHistoricalMonthsToEnvironment,
+} from "./historical";
 
 /**
  * Web App entry point: Serves the single-file React + Tailwind UI.
@@ -867,6 +871,28 @@ function sendScheduleEmail(payload: EmailPayload): EmailResult {
   }
 }
 
+/**
+ * Scans the historical reference folder
+ */
+function scanHistoricalFolder(folderId?: string) {
+  return scanHistoricalDriveFolder(folderId);
+}
+
+/**
+ * Converts legacy signup spreadsheet tabs and email announcements into validation survey sheets
+ */
+function importHistoricalMonths(
+  sourceHistoricalFolderId?: string,
+  targetEnv: "prod" | "dev" = "prod",
+  targetRootFolderId?: string
+) {
+  return importHistoricalMonthsToEnvironment(
+    sourceHistoricalFolderId,
+    targetEnv,
+    targetRootFolderId
+  );
+}
+
 // Global exposure for Google Apps Script runtime & google.script.run
 const g: any = typeof globalThis !== "undefined" ? globalThis : this;
 g.doGet = doGet;
@@ -887,3 +913,5 @@ g.bulkSaveCommunityMembers = bulkSaveCommunityMembers;
 g.saveExceptionRule = saveExceptionRule;
 g.exportScheduleToSheet = exportScheduleToSheet;
 g.sendScheduleEmail = sendScheduleEmail;
+g.scanHistoricalFolder = scanHistoricalFolder;
+g.importHistoricalMonths = importHistoricalMonths;

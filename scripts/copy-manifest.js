@@ -46,6 +46,8 @@ function bulkSaveCommunityMembers(newMembers, masterSheetId, isDevMode) { return
 function saveExceptionRule(rule, masterSheetId) { return globalThis.saveExceptionRule(rule, masterSheetId); }
 function exportScheduleToSheet(spreadsheetId, scheduleOutput) { return globalThis.exportScheduleToSheet(spreadsheetId, scheduleOutput); }
 function sendScheduleEmail(payload) { return globalThis.sendScheduleEmail(payload); }
+function scanHistoricalFolder(folderId) { return globalThis.scanHistoricalFolder ? globalThis.scanHistoricalFolder(folderId) : null; }
+function importHistoricalMonths(sourceHistoricalFolderId, targetEnv, targetRootFolderId) { return globalThis.importHistoricalMonths ? globalThis.importHistoricalMonths(sourceHistoricalFolderId, targetEnv, targetRootFolderId) : null; }
 `;
   fs.appendFileSync(codeDest, gasStubs, "utf8");
   console.log("✓ Appended top-level GAS entrypoint functions to dist/Code.js");

@@ -271,6 +271,41 @@ export async function callGas<T = any>(
       } as unknown as T;
     }
 
+    case "scanHistoricalFolder": {
+      return {
+        folderId: "1Lm-l2Cm8DFO4swnPuDHpYlTz8FOGN8df",
+        folderName: "Historical Meal Data & Announcements",
+        files: [
+          {
+            id: "hist-sheet-1",
+            name: "Vancouver Cohousing Cook & Clean Teams (Legacy Signup)",
+            mimeType: "application/vnd.google-apps.spreadsheet",
+            url: "https://docs.google.com/spreadsheets/d/hist-sheet-1",
+            tabs: ["Aug 2026", "Jul 2026", "Jun 2026", "May 2026", "Apr 2026"],
+          },
+          {
+            id: "hist-doc-1",
+            name: "MEAL SCHEDULE - August 1 - August 31 (Announcement)",
+            mimeType: "application/vnd.google-apps.document",
+            url: "https://docs.google.com/document/d/hist-doc-1",
+            snippet: "MEAL SCHEDULE - August 1 - August 31 - Please Note Your Dates...",
+          },
+        ],
+      } as unknown as T;
+    }
+
+    case "importHistoricalMonths": {
+      return {
+        success: true,
+        createdSheets: [
+          { monthName: "Aug 2026", title: "Historical - Aug 2026 Cook Team Survey (Responses)", id: "hist-aug-2026", url: "https://docs.google.com/spreadsheets/d/hist-aug-2026" },
+          { monthName: "Jul 2026", title: "Historical - Jul 2026 Cook Team Survey (Responses)", id: "hist-jul-2026", url: "https://docs.google.com/spreadsheets/d/hist-jul-2026" },
+        ],
+        emailsFound: 1,
+        message: "Converted 2 historical months into standardized survey sheets with handcrafted schedule comparison tabs!",
+      } as unknown as T;
+    }
+
     case "loadExistingScheduleFromSheet": {
       // Return a simulated solved schedule for testing
       const simulatedSolver = solveCookAndCleanSchedule(
