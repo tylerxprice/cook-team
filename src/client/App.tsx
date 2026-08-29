@@ -161,13 +161,6 @@ function MainApp() {
     notes: "",
   });
 
-  const [histFolderId, setHistFolderId] = useState("1Lm-l2Cm8DFO4swnPuDHpYlTz8FOGN8df");
-  const [histTargetEnv, setHistTargetEnv] = useState<"prod" | "dev">("prod");
-  const [scanningHist, setScanningHist] = useState(false);
-  const [histInventory, setHistInventory] = useState<any>(null);
-  const [importingHist, setImportingHist] = useState(false);
-  const [histImportResult, setHistImportResult] = useState<any>(null);
-
   const [driveSheets, setDriveSheets] = useState<any[]>([]);
   const [sheetSelectMode, setSheetSelectMode] = useState<string>("");
   const [exportedResult, setExportedResult] = useState<{ success: boolean; sheetName: string; url?: string; message: string } | null>(null);
@@ -387,33 +380,6 @@ function MainApp() {
       showToast(`Launcher creation failed: ${err.message}`, "error");
     } finally {
       setProvisioning(false);
-    }
-  };
-
-  const handleScanHistorical = async () => {
-    setScanningHist(true);
-    try {
-      const inv = await callGas("scanHistoricalFolder", histFolderId);
-      setHistInventory(inv);
-      showToast(`Found ${inv?.files?.length || 0} files in historical folder.`);
-    } catch (err: any) {
-      showToast(`Scan failed: ${err.message}`, "error");
-    } finally {
-      setScanningHist(false);
-    }
-  };
-
-  const handleImportHistorical = async () => {
-    setImportingHist(true);
-    try {
-      const res = await callGas("importHistoricalMonths", histFolderId, histTargetEnv, driveFolderId);
-      setHistImportResult(res);
-      showToast(res?.message || "Successfully converted historical months to survey sheets!");
-      await fetchDriveSheets();
-    } catch (err: any) {
-      showToast(`Historical conversion failed: ${err.message}`, "error");
-    } finally {
-      setImportingHist(false);
     }
   };
 
@@ -3240,129 +3206,6 @@ function MainApp() {
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* 5. Historical Validation & Retrospective Analysis */}
-              <div className="space-y-3 pt-3 border-t border-slate-200">
-                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600" />
-                  Historical Retrospective Validation (Legacy Signup Converter)
-                </label>
-                <p className="text-slate-500 text-[11px]">
-                  Scans legacy signup spreadsheets (Names in Col A, special instructions in Col B, dates in Col C+) and historical email announcements, converting them into standardized test surveys with handcrafted schedule comparison tabs in Dev.
-                </p>
-
-                <div className="space-y-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                    <span className="text-[11px] font-bold text-slate-700 block">
-                      Historical Drive Folder ID:
-                    </span>
-                    <div className="flex items-center gap-3 text-[11px]">
-                      <span className="text-slate-500 font-semibold">Import into:</span>
-                      <label className="flex items-center gap-1 cursor-pointer font-bold text-emerald-800">
-                        <input
-                          type="radio"
-                          name="histEnv"
-                          value="prod"
-                          checked={histTargetEnv === "prod"}
-                          onChange={() => setHistTargetEnv("prod")}
-                          className="text-emerald-600 focus:ring-emerald-500"
-                        />
-                        <span>🟢 Production (01_Live)</span>
-                      </label>
-                      <label className="flex items-center gap-1 cursor-pointer font-bold text-purple-800">
-                        <input
-                          type="radio"
-                          name="histEnv"
-                          value="dev"
-                          checked={histTargetEnv === "dev"}
-                          onChange={() => setHistTargetEnv("dev")}
-                          className="text-purple-600 focus:ring-purple-500"
-                        />
-                        <span>🧪 Dev/Test (02_Dev)</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      value={histFolderId}
-                      onChange={(e) => setHistFolderId(e.target.value)}
-                      placeholder="Historical Folder ID (1Lm-l2Cm8DFO4swn...)"
-                      className="flex-1 px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 font-mono"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={handleScanHistorical}
-                        disabled={scanningHist || importingHist}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 shrink-0 flex items-center gap-1.5 shadow-sm"
-                      >
-                        <Search className={`w-3.5 h-3.5 ${scanningHist ? "animate-spin" : ""}`} />
-                        <span>{scanningHist ? "Scanning..." : "Inspect Folder"}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleImportHistorical}
-                        disabled={scanningHist || importingHist}
-                        className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 shrink-0 flex items-center gap-1.5 shadow-sm"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${importingHist ? "animate-spin" : ""}`} />
-                        <span>{importingHist ? "Converting..." : `🚀 Convert to ${histTargetEnv === "prod" ? "Prod" : "Dev"} Surveys`}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {histInventory && (
-                  <div className="p-3 bg-purple-50/70 border border-purple-200 rounded-xl space-y-2 text-[11px]">
-                    <div className="flex items-center justify-between text-purple-900 font-bold">
-                      <span>📁 Folder: {histInventory.folderName}</span>
-                      <span>{histInventory.files?.length || 0} Files Detected</span>
-                    </div>
-                    <div className="max-h-36 overflow-y-auto divide-y divide-purple-100 bg-white rounded-lg border border-purple-100 p-2 text-xs">
-                      {histInventory.files.map((file: any) => (
-                        <div key={file.id} className="py-1.5">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-slate-800">{file.name}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">{file.mimeType.split(".").pop()}</span>
-                          </div>
-                          {file.tabs && (
-                            <p className="text-[11px] text-purple-700 mt-0.5 font-medium">
-                              Tabs ({file.tabs.length}): {file.tabs.join(", ")}
-                            </p>
-                          )}
-                          {file.snippet && (
-                            <p className="text-[10px] text-slate-500 italic mt-0.5">
-                              "{file.snippet}"
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {histImportResult && (
-                  <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl space-y-1.5 text-[11px]">
-                    <div className="flex items-center gap-1.5 text-emerald-800 font-bold">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      {histImportResult.message}
-                    </div>
-                    {histImportResult.createdSheets && (
-                      <ul className="list-disc list-inside text-slate-700 space-y-0.5 pl-1">
-                        {histImportResult.createdSheets.map((s: any) => (
-                          <li key={s.id}>
-                            <a href={s.url} target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline font-semibold">
-                              {s.title} ↗
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
 
