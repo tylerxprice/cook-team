@@ -115,8 +115,7 @@ function MainApp() {
     }
   };
 
-  // Spreadsheet URL/ID input
-  const [sheetInput, setSheetInput] = useState("1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4");
+  const [sheetInput, setSheetInput] = useState("");
 
   // Core Data States
   const [intakeData, setIntakeData] = useState<IntakePayload | null>(null);
@@ -149,7 +148,7 @@ function MainApp() {
   });
 
   const [driveSheets, setDriveSheets] = useState<any[]>([]);
-  const [sheetSelectMode, setSheetSelectMode] = useState<string>("1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4");
+  const [sheetSelectMode, setSheetSelectMode] = useState<string>("");
   const [exportedResult, setExportedResult] = useState<{ success: boolean; sheetName: string; url?: string; message: string } | null>(null);
 
   const [selectedPreset, setSelectedPreset] = useState<string>("standard");
@@ -267,11 +266,15 @@ function MainApp() {
 
   // Initial Load & URL Hash / Browser History Synchronization
   const fetchIntake = async (sheetId?: string, masterId?: string) => {
+    const targetSheet = sheetId || sheetInput;
+    if (!targetSheet || targetSheet.trim() === "") {
+      return;
+    }
     setLoading(true);
     try {
       const data = await callGas<IntakePayload>(
         "getIntakeData",
-        sheetId || sheetInput,
+        targetSheet,
         masterId || masterSheetInput
       );
       setIntakeData(data);
@@ -305,7 +308,6 @@ function MainApp() {
 
   useEffect(() => {
     setInGas(isGasEnvironment());
-    fetchIntake();
     fetchDriveSheets();
 
     // Check if initial URL has a step hash (e.g. #step-2)
@@ -890,7 +892,7 @@ function MainApp() {
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full space-y-6">
         {/* STEP 1: INTAKE & COMPLETENESS AUDIT */}
-        {currentStep === 1 && intakeData && (
+        {currentStep === 1 && (
           <div className="space-y-6">
             {/* Sheet Link & Dropdown Selector Card */}
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
@@ -919,7 +921,7 @@ function MainApp() {
                   )}
                   <button
                     onClick={() => fetchIntake(sheetInput)}
-                    disabled={loading}
+                    disabled={loading || !sheetInput}
                     className="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -935,6 +937,9 @@ function MainApp() {
                   onChange={(e) => handleSelectSheetOption(e.target.value)}
                   className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 hover:bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 font-medium text-slate-800 transition-colors cursor-pointer"
                 >
+                  <option value="" disabled>
+                    -- Select a Monthly Survey or Test Scenario to Begin --
+                  </option>
                   <optgroup label="📁 Monthly Surveys (Google Drive Live)">
                     {liveSheetsList.map((s) => (
                       <option key={s.id} value={s.id}>
@@ -971,8 +976,24 @@ function MainApp() {
               </div>
             </div>
 
-            {/* Quick Metrics */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            {!intakeData ? (
+              <div className="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center space-y-4 max-w-2xl mx-auto my-6">
+                <div className="w-14 h-14 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center mx-auto shadow-inner">
+                  <FileSpreadsheet className="w-7 h-7" />
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-base font-bold text-slate-900">
+                    Select a Survey to Begin Scheduling
+                  </h3>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                    Choose a monthly Google Form response sheet from your Google Drive above, or pick a test scenario to load volunteer availability and start matching cook and clean teams.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Quick Metrics */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <span className="text-xs font-medium text-slate-500">Scheduled Meals</span>
                 <p className="text-2xl font-bold text-slate-900 mt-1">{intakeData.mealDates.length}</p>
@@ -1104,8 +1125,10 @@ function MainApp() {
                 Proceed to Notes & Exception Rules <ChevronRight className="w-4 h-4" />
               </button>
             </div>
-          </div>
+          </>
         )}
+      </div>
+    )}
 
         {/* STEP 2: MEMBER NOTES & EXCEPTION RULES (UNIFIED PER-MEMBER VIEW) */}
         {currentStep === 2 && intakeData && (

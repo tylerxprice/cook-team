@@ -49,7 +49,11 @@ async function runE2ETest() {
     // Verify Step 1: Intake & Audit
     console.log("2. Verifying Step 1: Intake & Audit ...");
     await page.waitForSelector("text=Survey Response Spreadsheet");
-    console.log("✓ Step 1 verified.");
+    await page.waitForSelector("text=Select a Survey to Begin Scheduling");
+    const sheetSelect = page.locator("select").first();
+    await sheetSelect.selectOption("test-sheet-standard");
+    await page.waitForSelector("text=Proceed to Notes & Exception Rules");
+    console.log("✓ Step 1 verified after explicit selection.");
 
     // Navigate to Step 2: Notes & Rules
     console.log("3. Navigating to Step 2: Notes & Rules ...");
