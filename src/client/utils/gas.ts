@@ -267,6 +267,19 @@ export async function callGas<T = any>(
       } as unknown as T;
     }
 
+    case "sendScheduleEmail": {
+      const [payload] = args as [EmailPayload];
+      return {
+        success: true,
+        mode: payload.mode,
+        message:
+          payload.mode === "draft"
+            ? `Draft created in your Gmail account for ${payload.to}!`
+            : `Announcement email successfully sent via Gmail to ${payload.to}!`,
+        recipientCount: 1,
+      } as unknown as T;
+    }
+
     default:
       return {
         mock: true,

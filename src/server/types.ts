@@ -135,3 +135,19 @@ export interface IntakePayload {
     dateMonth?: string;
   };
 }
+
+export interface EmailPayload {
+  to: string;
+  subject: string;
+  body: string;
+  cc?: string;
+  bcc?: string;
+  mode: "send" | "draft";
+}
+
+export interface EmailResult {
+  success: boolean;
+  mode: "send" | "draft";
+  message: string;
+  recipientCount: number;
+}

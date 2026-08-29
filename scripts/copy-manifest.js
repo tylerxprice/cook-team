@@ -42,6 +42,7 @@ function setMemberActiveStatus(name, active, masterSheetId) { return globalThis.
 function addCommunityMember(member, masterSheetId) { return globalThis.addCommunityMember(member, masterSheetId); }
 function saveExceptionRule(rule, masterSheetId) { return globalThis.saveExceptionRule(rule, masterSheetId); }
 function exportScheduleToSheet(spreadsheetId, scheduleOutput) { return globalThis.exportScheduleToSheet(spreadsheetId, scheduleOutput); }
+function sendScheduleEmail(payload) { return globalThis.sendScheduleEmail(payload); }
 `;
   fs.appendFileSync(codeDest, gasStubs, "utf8");
   console.log("✓ Appended top-level GAS entrypoint functions to dist/Code.js");

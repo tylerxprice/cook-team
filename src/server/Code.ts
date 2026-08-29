@@ -15,6 +15,8 @@ import {
   DaySchedule,
   MemberQuotaStat,
   MealType,
+  EmailPayload,
+  EmailResult,
 } from "./types";
 import { parseSurveySheetData } from "./parser";
 import { solveCookAndCleanSchedule } from "./matchmaker";
@@ -591,6 +593,46 @@ function exportScheduleToSheet(
   }
 }
 
+/**
+ * Sends or drafts a schedule announcement email directly via Gmail.
+ */
+function sendScheduleEmail(payload: EmailPayload): EmailResult {
+  try {
+    const { to, subject, body, cc, bcc, mode } = payload;
+    if (!to || to.trim() === "") {
+      throw new Error("Recipient email address cannot be empty.");
+    }
+    if (!subject || subject.trim() === "") {
+      throw new Error("Email subject cannot be empty.");
+    }
+
+    const options: GoogleAppsScript.Gmail.GmailAdvancedOptions = {};
+    if (cc && cc.trim()) options.cc = cc.trim();
+    if (bcc && bcc.trim()) options.bcc = bcc.trim();
+
+    if (mode === "draft") {
+      GmailApp.createDraft(to.trim(), subject.trim(), body, options);
+      return {
+        success: true,
+        mode: "draft",
+        message: `Draft created in your Gmail account! You can review and send it anytime from Gmail.`,
+        recipientCount: 1,
+      };
+    } else {
+      GmailApp.sendEmail(to.trim(), subject.trim(), body, options);
+      return {
+        success: true,
+        mode: "send",
+        message: `Announcement email successfully sent via Gmail to ${to}!`,
+        recipientCount: 1,
+      };
+    }
+  } catch (err: any) {
+    console.error("Email sending error:", err);
+    throw new Error(`Failed to ${payload.mode === "draft" ? "create draft" : "send email"}: ${err.message}`);
+  }
+}
+
 // Global exposure for Google Apps Script runtime & google.script.run
 const g: any = typeof globalThis !== "undefined" ? globalThis : this;
 g.doGet = doGet;
@@ -607,3 +649,4 @@ g.setMemberActiveStatus = setMemberActiveStatus;
 g.addCommunityMember = addCommunityMember;
 g.saveExceptionRule = saveExceptionRule;
 g.exportScheduleToSheet = exportScheduleToSheet;
+g.sendScheduleEmail = sendScheduleEmail;

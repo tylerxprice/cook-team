@@ -114,7 +114,7 @@ async function runE2ETest() {
     console.log("8. Navigating to Step 4: Publish & Email ...");
     const step4Btn = page.locator("button:has-text('Proceed to Export & Email')").first();
     await step4Btn.click();
-    await page.waitForSelector("text=Community Listserv Email");
+    await page.waitForSelector("text=Community Announcement & Gmail Dispatch");
 
     const emailContent = await page.locator("textarea").inputValue();
     if (emailContent.includes("Hi precious friends & neighbours,")) {
@@ -122,6 +122,20 @@ async function runE2ETest() {
     } else {
       errors.push("Email greeting mismatch");
     }
+
+    // Test Create Gmail Draft
+    console.log("   Testing Create Gmail Draft button...");
+    const draftBtn = page.locator("button:has-text('Create Gmail Draft')");
+    await draftBtn.click();
+    await page.waitForSelector("text=Draft created in your Gmail account");
+    console.log("✓ Gmail Draft creation verified!");
+
+    // Test Send via Gmail
+    console.log("   Testing Send via Gmail button...");
+    const sendBtn = page.locator("button:has-text('Send via Gmail')");
+    await sendBtn.click();
+    await page.waitForSelector("text=Announcement email successfully sent via Gmail");
+    console.log("✓ Send via Gmail verified!");
 
     // Test Browser Back & Forward button history navigation
     console.log("9. Testing Browser Back & Forward button history navigation...");
