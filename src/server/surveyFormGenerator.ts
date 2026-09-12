@@ -147,7 +147,6 @@ export function executeCreateSurveyForm(payload: CreateSurveyFormPayload): Creat
     form.setDescription(formDescription);
 
     try {
-      form.setCollectEmail(true);
       form.setAllowResponseEdits(true);
       form.setLimitOneResponsePerUser(true);
       form.setPublishingSummary(true);
@@ -156,48 +155,6 @@ export function executeCreateSurveyForm(payload: CreateSurveyFormPayload): Creat
       } catch {}
     } catch (e) {
       console.warn("Could not set form preferences on form:", e);
-    }
-
-    // Explicitly set emailCollectionType to VERIFIED (1-click account consent) via Google Forms REST API v1
-    try {
-      const token = ScriptApp.getOAuthToken();
-      if (token) {
-        const formId = form.getId();
-        const apiUrl = `https://forms.googleapis.com/v1/forms/${formId}:batchUpdate`;
-        const updatePayload = {
-          includeFormInResponse: false,
-          requests: [
-            {
-              updateSettings: {
-                settings: {
-                  emailCollectionType: "VERIFIED",
-                },
-                updateMask: "emailCollectionType",
-              },
-            },
-          ],
-        };
-        const response = UrlFetchApp.fetch(apiUrl, {
-          method: "post",
-          contentType: "application/json",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          payload: JSON.stringify(updatePayload),
-          muteHttpExceptions: true,
-        });
-        const code = response.getResponseCode();
-        if (code >= 200 && code < 300) {
-          console.info(`Form ${formId} emailCollectionType successfully updated to VERIFIED`);
-        } else {
-          console.warn(
-            `Google Forms REST API updateSettings returned status ${code}:`,
-            response.getContentText()
-          );
-        }
-      }
-    } catch (apiErr) {
-      console.warn("Could not invoke Forms REST API for VERIFIED mode:", apiErr);
     }
 
     // 2. Question 1: Name (Short Answer)
@@ -293,6 +250,51 @@ export function executeCreateSurveyForm(payload: CreateSurveyFormPayload): Creat
       }
     }
 
+    // 11. Explicitly set emailCollectionType to VERIFIED (1-click account consent) via Google Forms REST API v1
+    let emailStatus = "Verified email mode enabled";
+    try {
+      const token = ScriptApp.getOAuthToken();
+      if (token) {
+        const formId = form.getId();
+        const apiUrl = `https://forms.googleapis.com/v1/forms/${formId}:batchUpdate`;
+        const updatePayload = {
+          includeFormInResponse: false,
+          requests: [
+            {
+              updateSettings: {
+                settings: {
+                  emailCollectionType: "VERIFIED",
+                },
+                updateMask: "emailCollectionType",
+              },
+            },
+          ],
+        };
+        const response = UrlFetchApp.fetch(apiUrl, {
+          method: "post",
+          contentType: "application/json",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          payload: JSON.stringify(updatePayload),
+          muteHttpExceptions: true,
+        });
+        const code = response.getResponseCode();
+        if (code >= 200 && code < 300) {
+          console.info(`Form ${formId} emailCollectionType successfully updated to VERIFIED`);
+        } else {
+          console.warn(
+            `Google Forms REST API updateSettings returned status ${code}:`,
+            response.getContentText()
+          );
+          emailStatus = `API status ${code}`;
+        }
+      }
+    } catch (apiErr: any) {
+      console.warn("Could not invoke Forms REST API for VERIFIED mode:", apiErr);
+      emailStatus = `API note: ${apiErr?.message || apiErr}`;
+    }
+
     const formEditUrl = form.getEditUrl();
     const formPublishedUrl = form.getPublishedUrl();
     const spreadsheetUrl = responseSs.getUrl();
@@ -309,7 +311,7 @@ export function executeCreateSurveyForm(payload: CreateSurveyFormPayload): Creat
       folderId: targetFolder ? targetFolder.getId() : undefined,
       folderUrl,
       totalDates: activeDates.length,
-      message: `Successfully created Google Form '${title}' with ${activeDates.length} dates and linked response sheet.`,
+      message: `Successfully created Google Form '${title}' with ${activeDates.length} dates and linked response sheet (${emailStatus}).`,
     };
   } catch (err: any) {
     console.error("executeCreateSurveyForm error:", err);
