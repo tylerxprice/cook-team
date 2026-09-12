@@ -19,11 +19,13 @@ declare namespace google {
     }
 
     namespace url {
-      function getLocation(callback: (location: {
-        hash: string;
-        parameter: Record<string, string>;
-        parameters: Record<string, string[]>;
-      }) => void): void;
+      function getLocation(
+        callback: (location: {
+          hash: string;
+          parameter: Record<string, string>;
+          parameters: Record<string, string[]>;
+        }) => void
+      ): void;
     }
   }
 }

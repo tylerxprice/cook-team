@@ -1,103 +1,66 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Utensils,
-  Sparkles,
   Users,
   AlertTriangle,
   CheckCircle2,
   Calendar,
   Settings,
-  Plus,
-  Trash2,
-  Pencil,
-  Copy,
-  Download,
   RefreshCw,
-  Clock,
   Mail,
-  ShieldCheck,
-  UserX,
-  UserCheck,
   ChevronRight,
-  ExternalLink,
-  Info,
-  MessageSquare,
-  UserPlus,
-  Search,
-  XCircle,
-  Folder,
-  FileSpreadsheet,
-  Send,
   FileText,
+  BarChart3,
+  ClipboardList,
+  Menu,
+  X,
 } from "lucide-react";
 import { callGas, isGasEnvironment } from "./utils/gas";
 import { parseAndDisambiguateGoogleGroupRoster } from "./utils/nameParser";
 import {
   IntakePayload,
-  MealDate,
-  SurveyResponse,
+  EmailResult,
   ExceptionRule,
   Member,
   ScheduleOutput,
+  DaySchedule,
+  MealDate,
   CookTeamPolicy,
   RuleType,
   Role,
+  CommunityReportSummary,
+  MealSignupExportResult,
+  MealSignupWorkbookInfo,
+  SurveyFormDateConfig,
+  CreateSurveyFormResult,
+  EmailDispatchInfo,
 } from "../server/types";
+import {
+  computeMemberQuotaStats,
+  isWillingTwoPersonDinner,
+  parseDateFromLabelOrKey,
+} from "../server/scheduleParser";
+import { deriveMonthTabName } from "../server/signupWorkbook";
+import { extractEmails, extractAliases } from "../server/parser";
 
-function getOrdinal(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
+import { ErrorBoundary } from "./components/common/ErrorBoundary";
 
-export class ErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean; error: Error | null }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+import { Step1IntakeAudit } from "./components/steps/Step1IntakeAudit";
+import { Step2NotesRules } from "./components/steps/Step2NotesRules";
+import { Step3SolveReview } from "./components/steps/Step3SolveReview";
+import { Step4PublishEmail } from "./components/steps/Step4PublishEmail";
 
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("UI Error Caught:", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6 font-sans">
-          <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-xl border border-rose-200 space-y-4 text-center">
-            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
-            <h2 className="text-base font-bold text-slate-900">Application Error</h2>
-            <p className="text-xs text-slate-600">
-              An unexpected error occurred during rendering. Here are the details:
-            </p>
-            <p className="text-xs text-rose-700 font-mono bg-rose-50 p-3 rounded-lg text-left break-all border border-rose-200">
-              {this.state.error?.message || "Unknown error"}
-            </p>
-            <button
-              onClick={() => {
-                this.setState({ hasError: false, error: null });
-                window.location.reload();
-              }}
-              className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm"
-            >
-              Reload Application
-            </button>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
+import { MemberDirectoryModal } from "./components/modals/MemberDirectoryModal";
+import { RuleConfigModal } from "./components/modals/RuleConfigModal";
+import { MemberCalendarInspectorModal } from "./components/modals/MemberCalendarInspectorModal";
+import { FillMissingSlotModal } from "./components/modals/FillMissingSlotModal";
+import { GlobalSettingsModal } from "./components/modals/GlobalSettingsModal";
+import { SwapShiftsModal } from "./components/modals/SwapShiftsModal";
+import { CommunityReportsModal } from "./components/modals/CommunityReportsModal";
+import { MealSignupGeneratorModal } from "./components/modals/MealSignupGeneratorModal";
+import { SurveyFormGeneratorModal } from "./components/modals/SurveyFormGeneratorModal";
+import { NearCompleteOpportunityModal } from "./components/modals/NearCompleteOpportunityModal";
+import { ResendConfirmModal } from "./components/modals/ResendConfirmModal";
 
 function MainApp() {
   const [inGas, setInGas] = useState(false);
@@ -105,7 +68,149 @@ function MainApp() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStepState] = useState<1 | 2 | 3 | 4>(1);
-  const [notification, setNotification] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [notification, setNotification] = useState<{
+    msg: string;
+    type: "success" | "error";
+  } | null>(null);
+
+  // Swap Modal State
+  const [swapModal, setSwapModal] = useState<{
+    isOpen: boolean;
+    sourceDateKey: string;
+    sourceRole: Role;
+    sourceMemberName: string;
+  } | null>(null);
+  const [swapSearchText, setSwapSearchText] = useState("");
+
+  // Reports Modal State
+  const [showReportsModal, setShowReportsModal] = useState(false);
+  const [availableReportMonths, setAvailableReportMonths] = useState<string[]>([]);
+  const [selectedReportMonths, setSelectedReportMonths] = useState<string[]>([]);
+  const [_loadingReportMonths, setLoadingReportMonths] = useState(false);
+  const [communityReport, setCommunityReport] = useState<CommunityReportSummary | null>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
+  const [reportSearch, setReportSearch] = useState("");
+  const [reportSort, setReportSort] = useState<"shifts" | "cooks" | "cleans" | "months" | "name">(
+    "shifts"
+  );
+
+  const [sheetInput, setSheetInput] = useState("");
+
+  // Core Data States
+  const [intakeData, setIntakeData] = useState<IntakePayload | null>(null);
+  const intakeCacheRef = useRef<Record<string, IntakePayload>>({});
+  const [exceptions, setExceptions] = useState<ExceptionRule[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [cookPolicy, setCookPolicy] = useState<CookTeamPolicy>("ADAPTIVE_3_OR_2");
+  const [autoCancelDeficitDates, setAutoCancelDeficitDates] = useState<boolean>(true);
+  const [solverResult, setSolverResult] = useState<ScheduleOutput | null>(null);
+
+  // Modals
+  const [showMemberModal, setShowMemberModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [defaultCleanQuota, setDefaultCleanQuota] = useState<number>(1);
+  const [driveFolderId, setDriveFolderId] = useState("1U0cJqnxCgWn-5k0RCj2BjCUj9nc1dMGl");
+  const [masterSheetInput, setMasterSheetInput] = useState("");
+  const [provisionResult, setProvisionResult] = useState<any>(null);
+  const [provisioning, setProvisioning] = useState(false);
+  const [memberFilter, setMemberFilter] = useState<"all" | "active" | "inactive">("all");
+  const [memberSearchQuery, setMemberSearchQuery] = useState("");
+  const [updatingMemberName, setUpdatingMemberName] = useState<string | null>(null);
+  const [newMemberName, setNewMemberName] = useState("");
+  const [newMemberEmail, setNewMemberEmail] = useState("");
+  const [newMemberAliases, setNewMemberAliases] = useState("");
+  const [editingMember, setEditingMember] = useState<{
+    originalName: string;
+    name: string;
+    emails: string;
+    aliases: string;
+    active: boolean;
+  } | null>(null);
+  const [isSavingMember, setIsSavingMember] = useState(false);
+  const [linkingAliasFor, setLinkingAliasFor] = useState<string | null>(null);
+  const [selectedCanonicalLinkMap, setSelectedCanonicalLinkMap] = useState<Record<string, string>>(
+    {}
+  );
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [bulkImportText, setBulkImportText] = useState("");
+  const [bulkImportSaving, setBulkImportSaving] = useState(false);
+  const [showAddRuleModal, setShowAddRuleModal] = useState(false);
+  const [modalContextNote, setModalContextNote] = useState<string | null>(null);
+  const [selectedQuotaMember, setSelectedQuotaMember] = useState<string | null>(null);
+  const [selectedQuotaFocusDateKey, setSelectedQuotaFocusDateKey] = useState<string | null>(null);
+  const [selectedSlotToFill, setSelectedSlotToFill] = useState<{
+    dateKey: string;
+    dateLabel: string;
+    role: Role;
+  } | null>(null);
+  const [selectedNearCompleteDateKey, setSelectedNearCompleteDateKey] = useState<string | null>(
+    null
+  );
+  const [recoverySelectedCooks, setRecoverySelectedCooks] = useState<string[]>([]);
+  const [recoverySelectedCleaners, setRecoverySelectedCleaners] = useState<string[]>([]);
+  const [showNonParticipatingQuota, setShowNonParticipatingQuota] = useState(false);
+  const [newRule, setNewRule] = useState<Partial<ExceptionRule>>({
+    rule_type: "NOT_SAME_TEAM",
+    is_hard_rule: true,
+    person_a: "",
+    person_b: "",
+    target_role_a: "COOK",
+    target_role_b: "CLEAN",
+  });
+
+  // Meal Signup Workbook Generator (Rose's Workflow) State
+  const [showMealSignupModal, setShowMealSignupModal] = useState(false);
+  const [mealSignupSourceSheet, setMealSignupSourceSheet] = useState<string>("");
+  const [mealSignupTargetWorkbookId, setMealSignupTargetWorkbookId] = useState<string>("");
+  const [mealSignupTargetTabName, setMealSignupTargetTabName] = useState<string>("");
+  const [mealSignupBackupExisting, setMealSignupBackupExisting] = useState<boolean>(true);
+  const [mealSignupHideOlder, setMealSignupHideOlder] = useState<boolean>(true);
+  const [mealSignupCustomDeadlines, setMealSignupCustomDeadlines] = useState<
+    Record<string, string>
+  >({});
+  const [mealSignupCustomDayLabels, setMealSignupCustomDayLabels] = useState<
+    Record<string, string>
+  >({});
+  const [mealSignupSchedule, setMealSignupSchedule] = useState<DaySchedule[]>([]);
+  const [mealSignupLoadingInfo, setMealSignupLoadingInfo] = useState<boolean>(false);
+  const [mealSignupLoadingExport, setMealSignupLoadingExport] = useState<boolean>(false);
+  const [mealSignupWorkbookInfo, setMealSignupWorkbookInfo] =
+    useState<MealSignupWorkbookInfo | null>(null);
+  const [mealSignupWorkbookError, setMealSignupWorkbookError] = useState<string | null>(null);
+  const [mealSignupLoadingWorkbook, setMealSignupLoadingWorkbook] = useState<boolean>(false);
+  const [mealSignupExportResult, setMealSignupExportResult] =
+    useState<MealSignupExportResult | null>(null);
+  const mealSignupModalBodyRef = useRef<HTMLDivElement>(null);
+
+  // Modal 9: Survey Form Generator State (Brenda's Workflow)
+  const [showSurveyFormModal, setShowSurveyFormModal] = useState(false);
+  const [surveyFormMonthKey, setSurveyFormMonthKey] = useState("2026-11");
+  const [surveyFormTitle, setSurveyFormTitle] = useState("26-11 Nov Meal Team Sign-Up");
+  const [surveyFormFolderId, setSurveyFormFolderId] = useState("1miNkXw-7co1ncAMZvaRJYUZXkFT07R4o");
+  const [surveyFormDates, setSurveyFormDates] = useState<SurveyFormDateConfig[]>([]);
+  const [surveyFormLoadingDates, setSurveyFormLoadingDates] = useState(false);
+  const [surveyFormLoadingCreate, setSurveyFormLoadingCreate] = useState(false);
+  const [surveyFormResult, setSurveyFormResult] = useState<CreateSurveyFormResult | null>(null);
+  const [surveyFormCopiedLink, setSurveyFormCopiedLink] = useState(false);
+  const surveyFormModalBodyRef = useRef<HTMLDivElement>(null);
+
+  // Main Navigation Hamburger Menu State
+  const [showMainMenu, setShowMainMenu] = useState(false);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest("#header-menu-container")) {
+        setShowMainMenu(false);
+      }
+    };
+    if (showMainMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showMainMenu]);
 
   // Synchronize wizard navigation with browser history (Back / Forward buttons)
   const goToStep = (step: 1 | 2 | 3 | 4, replace = false) => {
@@ -118,6 +223,13 @@ function MainApp() {
         window.history.pushState({ step }, "", hash);
       }
     }
+    if (typeof (window as any).google !== "undefined" && (window as any).google?.script?.history) {
+      try {
+        (window as any).google.script.history.push(null, { step: String(step) }, `step-${step}`);
+      } catch (err) {
+        console.warn("GAS history push failed:", err);
+      }
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
 
     // Auto-export when navigating to Step 4 if a schedule is generated
@@ -126,46 +238,370 @@ function MainApp() {
     }
   };
 
-  const [sheetInput, setSheetInput] = useState("");
+  const scanReportMonths = async () => {
+    setLoadingReportMonths(true);
+    try {
+      const activeTarget = sheetInput || undefined;
+      const months = await callGas<string[]>("getAvailableScheduleTabs", activeTarget);
+      const uniqueMonths = Array.from(
+        new Set(
+          months.length > 0
+            ? months
+            : [
+                "2026-10",
+                "2026-09",
+                "2026-08",
+                "2026-07",
+                "2026-06",
+                "2026-05",
+                "2026-04",
+                "2026-03",
+                "2026-02",
+                "2026-01",
+              ]
+        )
+      );
+      setAvailableReportMonths(uniqueMonths);
+      if (selectedReportMonths.length === 0) {
+        setSelectedReportMonths(uniqueMonths);
+      }
+    } catch (err: any) {
+      console.error("scanReportMonths error:", err);
+      const fallback = [
+        "2026-10",
+        "2026-09",
+        "2026-08",
+        "2026-07",
+        "2026-06",
+        "2026-05",
+        "2026-04",
+        "2026-03",
+        "2026-02",
+        "2026-01",
+      ];
+      setAvailableReportMonths(fallback);
+      if (selectedReportMonths.length === 0) {
+        setSelectedReportMonths(fallback);
+      }
+    } finally {
+      setLoadingReportMonths(false);
+    }
+  };
 
-  // Core Data States
-  const [intakeData, setIntakeData] = useState<IntakePayload | null>(null);
-  const [exceptions, setExceptions] = useState<ExceptionRule[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [cookPolicy, setCookPolicy] = useState<CookTeamPolicy>("ADAPTIVE_3_OR_2");
-  const [solverResult, setSolverResult] = useState<ScheduleOutput | null>(null);
+  const fetchCommunityReports = async (monthsToFetch?: string[]) => {
+    const months =
+      monthsToFetch || (selectedReportMonths.length > 0 ? selectedReportMonths : undefined);
+    setLoadingReport(true);
+    try {
+      const activeTarget = sheetInput || undefined;
+      const res = await callGas<CommunityReportSummary>(
+        "getHistoricalCommunityReports",
+        activeTarget,
+        months
+      );
+      setCommunityReport(res);
+      if (res.monthsList && res.monthsList.length > 0) {
+        setAvailableReportMonths((prev) => Array.from(new Set([...prev, ...res.monthsList])));
+        if (selectedReportMonths.length === 0) {
+          setSelectedReportMonths(res.monthsList);
+        }
+      }
+    } catch (err: any) {
+      console.error("fetchCommunityReports error:", err);
+      showToast("Could not load community report: " + err.message, "error");
+    } finally {
+      setLoadingReport(false);
+    }
+  };
 
-  // Modals
-  const [showMemberModal, setShowMemberModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [defaultCleanQuota, setDefaultCleanQuota] = useState<number>(1);
-  const [driveFolderId, setDriveFolderId] = useState("1U0cJqnxCgWn-5k0RCj2BjCUj9nc1dMGl");
-  const [masterSheetInput, setMasterSheetInput] = useState("");
-  const [provisionResult, setProvisionResult] = useState<any>(null);
-  const [provisioning, setProvisioning] = useState(false);
-  const [memberFilter, setMemberFilter] = useState<"all" | "active" | "inactive">("all");
-  const [newMemberName, setNewMemberName] = useState("");
-  const [newMemberEmail, setNewMemberEmail] = useState("");
-  const [showBulkImport, setShowBulkImport] = useState(false);
-  const [bulkImportText, setBulkImportText] = useState("");
-  const [bulkImportSaving, setBulkImportSaving] = useState(false);
-  const [showAddRuleModal, setShowAddRuleModal] = useState(false);
-  const [modalContextNote, setModalContextNote] = useState<string | null>(null);
-  const [selectedQuotaMember, setSelectedQuotaMember] = useState<string | null>(null);
-  const [selectedSlotToFill, setSelectedSlotToFill] = useState<{ dateKey: string; dateLabel: string; role: Role } | null>(null);
-  const [newRule, setNewRule] = useState<Partial<ExceptionRule>>({
-    rule_type: "NOT_SAME_TEAM",
-    is_hard_rule: true,
-    person_a: "",
-    person_b: "",
-    notes: "",
-  });
+  const initMealSignupModal = async (sourceSheetId?: string) => {
+    setMealSignupLoadingInfo(true);
+    setMealSignupExportResult(null);
+    try {
+      // 1. Determine active schedule
+      let activeSchedule: DaySchedule[] = [];
+      const srcId = sourceSheetId || mealSignupSourceSheet || sheetInput;
+
+      if (
+        solverResult &&
+        solverResult.schedule.length > 0 &&
+        (!sourceSheetId || sourceSheetId === sheetInput)
+      ) {
+        activeSchedule = solverResult.schedule;
+      } else if (srcId) {
+        const loaded = await callGas<ScheduleOutput>("loadExistingScheduleFromSheet", srcId);
+        if (loaded && loaded.schedule.length > 0) {
+          activeSchedule = loaded.schedule;
+        }
+      }
+
+      setMealSignupSchedule(activeSchedule);
+      const derivedTab = deriveMonthTabName(activeSchedule.length > 0 ? activeSchedule : undefined);
+      setMealSignupTargetTabName(derivedTab);
+
+      // 2. Fetch workbook metadata (Check saved Script Properties first, then state, then Drive auto-discovery)
+      let targetId = mealSignupTargetWorkbookId;
+      try {
+        const info = await callGas<MealSignupWorkbookInfo>(
+          "getMealSignupWorkbookInfo",
+          targetId || undefined,
+          derivedTab
+        );
+        if (info && info.spreadsheetId) {
+          setMealSignupWorkbookInfo(info);
+          setMealSignupTargetWorkbookId(info.spreadsheetId);
+          targetId = info.spreadsheetId;
+        }
+      } catch {
+        // If no property was saved yet, try driveSheets auto-discovery
+        if (!targetId && driveSheets.length > 0) {
+          const found = driveSheets.find(
+            (s) =>
+              s.name?.toLowerCase().includes("common meal sign up") ||
+              s.name?.toLowerCase().includes("meal sign up") ||
+              s.name?.toLowerCase().includes("sign-up")
+          );
+          if (found) {
+            targetId = found.id;
+            setMealSignupTargetWorkbookId(targetId);
+            await checkTargetWorkbook(targetId, derivedTab);
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn("initMealSignupModal error:", err);
+      showToast("Notice: " + err.message, "error");
+    } finally {
+      setMealSignupLoadingInfo(false);
+    }
+  };
+
+  const checkTargetWorkbook = async (targetIdOrUrl: string, tabNameOverride?: string) => {
+    const clean = (targetIdOrUrl || "").trim();
+    if (!clean) {
+      setMealSignupWorkbookInfo(null);
+      setMealSignupWorkbookError(null);
+      return;
+    }
+
+    setMealSignupLoadingWorkbook(true);
+    setMealSignupWorkbookError(null);
+    try {
+      const tabName = tabNameOverride || mealSignupTargetTabName || "OCT 2026";
+      const info = await callGas<MealSignupWorkbookInfo>(
+        "getMealSignupWorkbookInfo",
+        clean,
+        tabName
+      );
+      setMealSignupWorkbookInfo(info);
+      setMealSignupWorkbookError(null);
+    } catch (err: any) {
+      console.warn("checkTargetWorkbook error:", err);
+      setMealSignupWorkbookInfo(null);
+      setMealSignupWorkbookError(
+        err.message || "Could not find or access spreadsheet with this URL or ID."
+      );
+    } finally {
+      setMealSignupLoadingWorkbook(false);
+    }
+  };
+
+  const handleExecuteMealSignupExport = async () => {
+    if (!mealSignupSchedule || mealSignupSchedule.length === 0) {
+      showToast("No meal dates found in selected source schedule.", "error");
+      return;
+    }
+
+    setMealSignupLoadingExport(true);
+    try {
+      const res = await callGas<MealSignupExportResult>(
+        "exportToMealSignupWorkbook",
+        mealSignupTargetWorkbookId,
+        mealSignupSchedule,
+        {
+          monthTabName: mealSignupTargetTabName.trim() || deriveMonthTabName(mealSignupSchedule),
+          backupExisting: mealSignupBackupExisting,
+          hideOlderMonths: mealSignupHideOlder,
+          keepTemplateHidden: true,
+          customDeadlines: mealSignupCustomDeadlines,
+          customDayLabels: mealSignupCustomDayLabels,
+        }
+      );
+
+      setMealSignupExportResult(res);
+      showToast(res.message || "Common Meal Sign-Up tab created successfully!");
+      setTimeout(() => {
+        mealSignupModalBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      }, 100);
+    } catch (err: any) {
+      console.error("handleExecuteMealSignupExport error:", err);
+      showToast("Failed to generate Sign-Up Sheet: " + err.message, "error");
+    } finally {
+      setMealSignupLoadingExport(false);
+    }
+  };
+
+  const initSurveyFormModal = async (targetMonth?: string) => {
+    let defaultMonth = targetMonth;
+    if (!defaultMonth) {
+      const now = new Date();
+      let nextM = now.getMonth() + 2; // e.g. Aug (7) -> Oct (9) or Nov
+      let nextY = now.getFullYear();
+      if (nextM > 12) {
+        nextM -= 12;
+        nextY += 1;
+      }
+      defaultMonth = `${nextY}-${String(nextM).padStart(2, "0")}`;
+    }
+
+    setSurveyFormMonthKey(defaultMonth);
+    setSurveyFormResult(null);
+    setSurveyFormCopiedLink(false);
+    setShowSurveyFormModal(true);
+    await loadSurveyFormDatesPreview(defaultMonth);
+  };
+
+  const loadSurveyFormDatesPreview = async (monthKey: string) => {
+    setSurveyFormLoadingDates(true);
+    try {
+      const res = await callGas<{
+        monthKey: string;
+        defaultTitle: string;
+        dates: SurveyFormDateConfig[];
+      }>("getSurveyFormDatesPreview", monthKey);
+
+      if (res && Array.isArray(res.dates)) {
+        setSurveyFormTitle(res.defaultTitle);
+        setSurveyFormDates(res.dates);
+      }
+    } catch (err: any) {
+      console.warn("loadSurveyFormDatesPreview error:", err);
+      showToast("Notice: " + err.message, "error");
+    } finally {
+      setSurveyFormLoadingDates(false);
+    }
+  };
+
+  const handleExecuteCreateSurveyForm = async () => {
+    const activeDates = surveyFormDates.filter((d) => d.included);
+    if (activeDates.length === 0) {
+      showToast("Please include at least one meal date.", "error");
+      return;
+    }
+
+    setSurveyFormLoadingCreate(true);
+    try {
+      const res = await callGas<CreateSurveyFormResult>("createMonthlySurveyForm", {
+        monthKey: surveyFormMonthKey,
+        title: surveyFormTitle.trim(),
+        folderId:
+          surveyFormFolderId.trim() || driveFolderId.trim() || "1miNkXw-7co1ncAMZvaRJYUZXkFT07R4o",
+        dates: surveyFormDates,
+      });
+
+      setSurveyFormResult(res);
+      showToast(res.message || "Google Form & Response Sheet created successfully!");
+      setTimeout(() => {
+        surveyFormModalBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      }, 100);
+    } catch (err: any) {
+      console.error("handleExecuteCreateSurveyForm error:", err);
+      showToast("Failed to create Google Form: " + err.message, "error");
+    } finally {
+      setSurveyFormLoadingCreate(false);
+    }
+  };
+
+  const handleCopySurveyLink = (url: string) => {
+    navigator.clipboard.writeText(url);
+    setSurveyFormCopiedLink(true);
+    showToast("Public survey link copied to clipboard!");
+    setTimeout(() => setSurveyFormCopiedLink(false), 3000);
+  };
+
+  const handleAddCustomSurveyDate = () => {
+    const nextIdx = surveyFormDates.length + 1;
+    const newDate: SurveyFormDateConfig = {
+      dateKey: `${surveyFormMonthKey}-15`,
+      dateLabel: `Custom Date ${nextIdx}`,
+      dayOfWeek: "Other",
+      mealType: "DINNER",
+      included: true,
+    };
+    setSurveyFormDates((prev) => [...prev, newDate]);
+  };
+
+  const handleExecuteSwap = (
+    sourceDateKey: string,
+    sourceRole: Role,
+    sourceMemberName: string,
+    targetDateKey: string,
+    targetRole: Role,
+    targetMemberName: string
+  ) => {
+    if (!solverResult || !intakeData) return;
+
+    const newSchedule = solverResult.schedule.map((day) => {
+      const newCooks = [...day.cooks];
+      const newCleaners = [...day.cleaners];
+
+      // Replace on source day
+      if (day.dateKey === sourceDateKey) {
+        if (sourceRole === "COOK") {
+          const idx = newCooks.indexOf(sourceMemberName);
+          if (idx >= 0) newCooks[idx] = targetMemberName;
+        } else {
+          const idx = newCleaners.indexOf(sourceMemberName);
+          if (idx >= 0) newCleaners[idx] = targetMemberName;
+        }
+      }
+
+      // Replace on target day
+      if (day.dateKey === targetDateKey) {
+        if (targetRole === "COOK") {
+          const idx = newCooks.indexOf(targetMemberName);
+          if (idx >= 0) newCooks[idx] = sourceMemberName;
+        } else {
+          const idx = newCleaners.indexOf(targetMemberName);
+          if (idx >= 0) newCleaners[idx] = sourceMemberName;
+        }
+      }
+
+      return {
+        ...day,
+        cooks: newCooks,
+        cleaners: newCleaners,
+        unfilledCooks: Math.max(0, day.targetCookCount - newCooks.length),
+        unfilledCleaners: Math.max(0, day.targetCleanCount - newCleaners.length),
+      };
+    });
+
+    const newStats = computeMemberQuotaStats(newSchedule, intakeData.responses);
+    const newUnfilled = newSchedule.reduce(
+      (sum, d) => sum + d.unfilledCooks + d.unfilledCleaners,
+      0
+    );
+
+    setSolverResult({
+      ...solverResult,
+      schedule: newSchedule,
+      memberStats: newStats,
+      unfilledSlotsCount: newUnfilled,
+    });
+    setSwapModal(null);
+    showToast(`Swapped ${sourceMemberName} and ${targetMemberName} successfully!`);
+  };
 
   const [driveSheets, setDriveSheets] = useState<any[]>([]);
   const [sheetSelectMode, setSheetSelectMode] = useState<string>("");
-  const [exportedResult, setExportedResult] = useState<{ success: boolean; sheetName: string; url?: string; message: string } | null>(null);
+  const [exportedResult, setExportedResult] = useState<{
+    success: boolean;
+    sheetName: string;
+    url?: string;
+    message: string;
+  } | null>(null);
 
-  const [selectedPreset, setSelectedPreset] = useState<string>("standard");
+  const [_selectedPreset, setSelectedPreset] = useState<string>("standard");
 
   const LIVE_LISTSERV_EMAIL = "Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>";
   const DEV_TEST_EMAIL = "tylerxprice@gmail.com";
@@ -174,15 +610,14 @@ function MainApp() {
   const formatDefaultSubject = (dates?: MealDate[] | DaySchedule[]) => {
     const list = dates || solverResult?.schedule || intakeData?.mealDates;
     if (list && list.length > 0) {
-      const firstDate = list[0].dateKey;
-      try {
-        const d1 = new Date(`${firstDate}T00:00:00`);
-        const monthName = d1.toLocaleString("en-US", { month: "long" });
-        const year = d1.getFullYear();
-        const lastDayOfMonth = new Date(year, d1.getMonth() + 1, 0).getDate();
-        return `MEAL SCHEDULE - ${monthName} 1 - ${monthName} ${lastDayOfMonth} - Please Note Your Dates`;
-      } catch (e) {
-        // fallback
+      for (const item of list) {
+        const dObj = parseDateFromLabelOrKey(item.dateLabel, item.dateKey);
+        if (dObj && !isNaN(dObj.getTime())) {
+          const monthName = dObj.toLocaleString("en-US", { month: "long" });
+          const year = dObj.getFullYear();
+          const lastDayOfMonth = new Date(year, dObj.getMonth() + 1, 0).getDate();
+          return `MEAL SCHEDULE - ${monthName} 1 - ${monthName} ${lastDayOfMonth} - Please Note Your Dates`;
+        }
       }
     }
     return "MEAL SCHEDULE - October 1 - October 31 - Please Note Your Dates";
@@ -190,15 +625,28 @@ function MainApp() {
 
   // Email Dispatch States
   const [emailTo, setEmailTo] = useState(isGasEnvironment() ? LIVE_LISTSERV_EMAIL : DEV_TEST_EMAIL);
-  const [emailSubject, setEmailSubject] = useState("MEAL SCHEDULE - October 1 - October 31 - Please Note Your Dates");
+  const [emailSubject, setEmailSubject] = useState(formatDefaultSubject());
+  const isEmailSubjectDirty = useRef(false);
   const [customEmailBody, setCustomEmailBody] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailDispatchInfo, setEmailDispatchInfo] = useState<EmailDispatchInfo | null>(null);
+  const [showResendConfirmModal, setShowResendConfirmModal] = useState<boolean>(false);
   const [emailDeliveryResult, setEmailDeliveryResult] = useState<{
     success: boolean;
     mode: "send" | "draft";
     message: string;
     recipient: string;
   } | null>(null);
+
+  // Synchronize default email subject whenever survey or schedule changes
+  useEffect(() => {
+    if (!isEmailSubjectDirty.current) {
+      const sub = formatDefaultSubject();
+      if (sub) {
+        setEmailSubject(sub);
+      }
+    }
+  }, [intakeData?.mealDates, solverResult?.schedule]);
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setNotification({ msg, type });
@@ -221,7 +669,11 @@ function MainApp() {
       return [];
     }
     const list = driveSheets.filter(
-      (s) => s.folderCategory === "live" || s.folderName?.includes("Monthly") || s.folderName?.includes("Live") || s.folderName?.includes("01_Live")
+      (s) =>
+        s.folderCategory === "live" ||
+        s.folderName?.includes("Monthly") ||
+        s.folderName?.includes("Live") ||
+        s.folderName?.includes("01_Live")
     );
     const hasOct = list.some(
       (s) => s.id === "1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4" || s.name?.includes("2026-10")
@@ -238,7 +690,7 @@ function MainApp() {
       : list;
 
     return [...merged].sort((a, b) =>
-      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
+      b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: "base" })
     );
   }, [driveSheets, isDevMode]);
 
@@ -247,18 +699,40 @@ function MainApp() {
       return [];
     }
     const list = driveSheets.filter(
-      (s) => s.folderCategory === "dev" || s.folderName?.includes("Dev") || s.folderName?.includes("02_Dev") || s.name?.includes("Test Scenario")
+      (s) =>
+        s.folderCategory === "dev" ||
+        s.folderName?.includes("Dev") ||
+        s.folderName?.includes("02_Dev") ||
+        s.name?.includes("Test Scenario")
     );
     const baseList =
       list.length > 0
         ? list
         : [
-            { id: "test-sheet-standard", name: "Test Scenario 1 - Standard Healthy (30 responses, 0 unfilled)" },
-            { id: "test-sheet-holiday", name: "Test Scenario 2 - Holiday Desertion (Oct 11-12 shortage)" },
-            { id: "test-sheet-deficit", name: "Test Scenario 3 - Quota Shortfall (Cook quota deficit)" },
-            { id: "test-sheet-conflict", name: "Test Scenario 4 - High Conflict (8 entangled rules)" },
-            { id: "test-sheet-single", name: "Test Scenario 5 - Single Respondent (Tyler live test)" },
-            { id: "test-sheet-saved", name: "Test Scenario 6 - Existing Saved Schedule (Resume in Step 3)" },
+            {
+              id: "test-sheet-standard",
+              name: "Test Scenario 1 - Standard Healthy (30 responses, 0 unfilled)",
+            },
+            {
+              id: "test-sheet-holiday",
+              name: "Test Scenario 2 - Holiday Desertion (Oct 11-12 shortage)",
+            },
+            {
+              id: "test-sheet-deficit",
+              name: "Test Scenario 3 - Quota Shortfall (Cook quota deficit)",
+            },
+            {
+              id: "test-sheet-conflict",
+              name: "Test Scenario 4 - High Conflict (8 entangled rules)",
+            },
+            {
+              id: "test-sheet-single",
+              name: "Test Scenario 5 - Single Respondent (Tyler live test)",
+            },
+            {
+              id: "test-sheet-saved",
+              name: "Test Scenario 6 - Existing Saved Schedule (Resume in Step 3)",
+            },
           ];
 
     return [...baseList].sort((a, b) =>
@@ -280,14 +754,14 @@ function MainApp() {
         key === "holiday"
           ? "holiday_shortage"
           : key === "deficit"
-          ? "quota_deficit"
-          : key === "conflict"
-          ? "high_conflict"
-          : key === "single"
-          ? "single_respondent"
-          : key === "saved"
-          ? "saved_schedule"
-          : "standard";
+            ? "quota_deficit"
+            : key === "conflict"
+              ? "high_conflict"
+              : key === "single"
+                ? "single_respondent"
+                : key === "saved"
+                  ? "saved_schedule"
+                  : "standard";
       await handleSelectPreset(presetKey);
     } else {
       setEmailTo(LIVE_LISTSERV_EMAIL);
@@ -304,6 +778,8 @@ function MainApp() {
       setIntakeData(data);
       setExceptions(data.exceptions || []);
       setMembers(data.members || []);
+      setEmailDispatchInfo(data.emailDispatchInfo || null);
+      isEmailSubjectDirty.current = false;
       setEmailSubject(formatDefaultSubject(data.mealDates));
       setSolverResult(null);
       showToast(`Loaded test scenario: ${presetKey}`);
@@ -313,7 +789,7 @@ function MainApp() {
           data.mealDates,
           data.responses,
           data.exceptions || [],
-          { cookPolicy, maxCleanPerMember: defaultCleanQuota }
+          { cookPolicy, maxCleanPerMember: defaultCleanQuota, autoCancelDeficitDates }
         );
         setSolverResult(res);
       }
@@ -325,26 +801,52 @@ function MainApp() {
   };
 
   // Initial Load & URL Hash / Browser History Synchronization
-  const fetchIntake = async (sheetId?: string, masterId?: string) => {
+  const fetchIntake = async (sheetId?: string, masterId?: string, forceRefresh = false) => {
     const targetSheet = sheetId || sheetInput;
     if (!targetSheet || targetSheet.trim() === "") {
       return;
     }
+
+    // Fast-path: Check in-memory cache for instant 0ms survey switching
+    if (!forceRefresh && intakeCacheRef.current[targetSheet]) {
+      const cached = intakeCacheRef.current[targetSheet];
+      setIntakeData(cached);
+      setExceptions(cached.exceptions || []);
+      setMembers(cached.members || []);
+      setEmailDispatchInfo(cached.emailDispatchInfo || null);
+      isEmailSubjectDirty.current = false;
+      setEmailSubject(formatDefaultSubject(cached.mealDates));
+      if (!targetSheet.startsWith("test-sheet-")) {
+        setEmailTo(LIVE_LISTSERV_EMAIL);
+      }
+      showToast(
+        `Loaded ${cached.responses.length} survey responses across ${cached.mealDates.length} meals.`
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       const data = await callGas<IntakePayload>(
         "getIntakeData",
         targetSheet,
-        masterId || masterSheetInput
+        masterId || masterSheetInput,
+        members && members.length > 0 ? members : undefined,
+        exceptions && exceptions.length > 0 ? exceptions : undefined
       );
+      intakeCacheRef.current[targetSheet] = data;
       setIntakeData(data);
       setExceptions(data.exceptions || []);
       setMembers(data.members || []);
+      setEmailDispatchInfo(data.emailDispatchInfo || null);
+      isEmailSubjectDirty.current = false;
       setEmailSubject(formatDefaultSubject(data.mealDates));
       if (!targetSheet.startsWith("test-sheet-")) {
         setEmailTo(LIVE_LISTSERV_EMAIL);
       }
-      showToast(`Loaded ${data.responses.length} survey responses across ${data.mealDates.length} meals.`);
+      showToast(
+        `Loaded ${data.responses.length} survey responses across ${data.mealDates.length} meals.`
+      );
     } catch (err: any) {
       console.error(err);
       showToast(`Failed to load survey: ${err.message}`, "error");
@@ -384,29 +886,87 @@ function MainApp() {
   };
 
   useEffect(() => {
+    document.title = "Community Cook Team App";
+    const svgIcon = `data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0%25'%20y1='100%25'%20x2='100%25'%20y2='0%25'%3E%3Cstop%20offset='0%25'%20stop-color='%23f59e0b'/%3E%3Cstop%20offset='50%25'%20stop-color='%23f97316'/%3E%3Cstop%20offset='100%25'%20stop-color='%23f43f5e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width='100'%20height='100'%20rx='26'%20fill='url(%23g)'/%3E%3Cg%20transform='translate(22,%2022)%20scale(2.333)'%20stroke='%23ffffff'%20stroke-width='2.2'%20stroke-linecap='round'%20stroke-linejoin='round'%20fill='none'%3E%3Cpath%20d='M3%202v7c0%201.1.9%202%202%202h4a2%202%200%200%200%202-2V2'/%3E%3Cpath%20d='M7%202v20'/%3E%3Cpath%20d='M21%2015V2a5%205%200%200%200-5%205v6c0%201.1.9%202%202%202h3Zm0%200v7'/%3E%3C/g%3E%3C/svg%3E`;
+    let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    link.type = "image/svg+xml";
+    link.href = svgIcon;
+
     setInGas(isGasEnvironment());
     const init = async () => {
-      try {
-        const info = await callGas<any>("getUserInfo");
-        const devMode = info && typeof info.isDevMode === "boolean" ? info.isDevMode : !isGasEnvironment();
-        setIsDevMode(devMode);
-        if (devMode) {
-          setEmailTo(DEV_TEST_EMAIL);
-        } else {
-          setEmailTo(LIVE_LISTSERV_EMAIL);
+      // 1. Check for server-injected bootstrap data (0ms instant initial hydration in GAS)
+      let bootstrapped = false;
+      const bootstrapEl = document.getElementById("bootstrap-data");
+      if (bootstrapEl && bootstrapEl.textContent) {
+        try {
+          const raw = bootstrapEl.textContent.trim();
+          if (raw && raw.startsWith("{") && raw !== "{}") {
+            const boot = JSON.parse(raw);
+            if (boot && boot.userInfo) {
+              const devMode =
+                typeof boot.userInfo.isDevMode === "boolean"
+                  ? boot.userInfo.isDevMode
+                  : !isGasEnvironment();
+              setIsDevMode(devMode);
+              if (devMode) {
+                setEmailTo(DEV_TEST_EMAIL);
+              } else {
+                setEmailTo(LIVE_LISTSERV_EMAIL);
+              }
+              if (
+                boot.registry &&
+                Array.isArray(boot.registry.members) &&
+                boot.registry.members.length > 0
+              ) {
+                setMembers(boot.registry.members);
+                setExceptions(boot.registry.exceptions || []);
+              }
+              if (
+                boot.driveSheets &&
+                Array.isArray(boot.driveSheets) &&
+                boot.driveSheets.length > 0
+              ) {
+                setDriveSheets(boot.driveSheets);
+              }
+              bootstrapped = true;
+              setInitialLoading(false);
+            }
+          }
+        } catch (bootErr) {
+          console.warn("Bootstrap hydration failed, falling back to RPC:", bootErr);
         }
+      }
 
-        const regData = await callGas<any>("getMasterRegistryData", devMode);
-        if (regData && Array.isArray(regData.members) && regData.members.length > 0) {
-          setMembers(regData.members);
-          setExceptions(regData.exceptions || []);
+      // If bootstrap data was not present (e.g. Vite dev or direct fallback), run RPCs
+      if (!bootstrapped) {
+        try {
+          const info = await callGas<any>("getUserInfo");
+          const devMode =
+            info && typeof info.isDevMode === "boolean" ? info.isDevMode : !isGasEnvironment();
+          setIsDevMode(devMode);
+          if (devMode) {
+            setEmailTo(DEV_TEST_EMAIL);
+          } else {
+            setEmailTo(LIVE_LISTSERV_EMAIL);
+          }
+
+          const regData = await callGas<any>("getMasterRegistryData", devMode);
+          if (regData && Array.isArray(regData.members) && regData.members.length > 0) {
+            setMembers(regData.members);
+            setExceptions(regData.exceptions || []);
+          }
+
+          await fetchDriveSheets();
+        } catch (err) {
+          console.warn("Init error:", err);
+        } finally {
+          setInitialLoading(false);
         }
-
-        await fetchDriveSheets();
-      } catch (err) {
-        console.warn("Init error:", err);
-      } finally {
-        setInitialLoading(false);
       }
     };
     init();
@@ -426,9 +986,10 @@ function MainApp() {
     window.history.replaceState({ step: initialStep }, "", `#step-${initialStep}`);
 
     // Listen for browser Back & Forward button presses
-    const handlePopState = (e: PopStateEvent) => {
-      if (e.state && typeof e.state.step === "number" && [1, 2, 3, 4].includes(e.state.step)) {
-        setCurrentStepState(e.state.step as 1 | 2 | 3 | 4);
+    const handlePopState = (e: Event) => {
+      const popState = (e as PopStateEvent).state;
+      if (popState && typeof popState.step === "number" && [1, 2, 3, 4].includes(popState.step)) {
+        setCurrentStepState(popState.step as 1 | 2 | 3 | 4);
       } else {
         const step = parseStepFromHash();
         setCurrentStepState(step);
@@ -437,6 +998,22 @@ function MainApp() {
 
     window.addEventListener("popstate", handlePopState);
     window.addEventListener("hashchange", handlePopState);
+
+    if (typeof (window as any).google !== "undefined" && (window as any).google?.script?.history) {
+      try {
+        (window as any).google.script.history.setChangeHandler((e: any) => {
+          const raw =
+            e.state?.step ||
+            (e.location?.hash ? e.location.hash.replace("#step-", "").replace("step-", "") : "");
+          const parsed = parseInt(raw, 10);
+          if ([1, 2, 3, 4].includes(parsed)) {
+            setCurrentStepState(parsed as 1 | 2 | 3 | 4);
+          }
+        });
+      } catch (err) {
+        console.warn("GAS setChangeHandler failed:", err);
+      }
+    }
 
     return () => {
       window.removeEventListener("popstate", handlePopState);
@@ -456,66 +1033,314 @@ function MainApp() {
     }
   }, [currentStep, solverResult, intakeData]);
 
+  // Auto-scroll to selected day in Modal 3 (Member Inspector) if opened from schedule badge
+  useEffect(() => {
+    if (selectedQuotaMember && selectedQuotaFocusDateKey) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`quota-modal-day-${selectedQuotaFocusDateKey}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedQuotaMember, selectedQuotaFocusDateKey]);
+
+  // Global Escape key listener to dismiss open modals
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (selectedNearCompleteDateKey) setSelectedNearCompleteDateKey(null);
+        else if (selectedSlotToFill) setSelectedSlotToFill(null);
+        else if (swapModal) setSwapModal(null);
+        else if (selectedQuotaMember) {
+          setSelectedQuotaMember(null);
+          setSelectedQuotaFocusDateKey(null);
+        } else if (showAddRuleModal) {
+          setShowAddRuleModal(false);
+          setModalContextNote(null);
+        } else if (showSurveyFormModal) setShowSurveyFormModal(false);
+        else if (showMealSignupModal) setShowMealSignupModal(false);
+        else if (showReportsModal) setShowReportsModal(false);
+        else if (showMemberModal) setShowMemberModal(false);
+        else if (showSettingsModal) setShowSettingsModal(false);
+        else if (showResendConfirmModal) setShowResendConfirmModal(false);
+        else if (showMainMenu) setShowMainMenu(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    selectedNearCompleteDateKey,
+    selectedSlotToFill,
+    swapModal,
+    selectedQuotaMember,
+    showAddRuleModal,
+    showSurveyFormModal,
+    showMealSignupModal,
+    showReportsModal,
+    showMemberModal,
+    showSettingsModal,
+    showResendConfirmModal,
+    showMainMenu,
+  ]);
+
   // Handle Mark Inactive on Audit Screen
   const handleMarkInactive = async (memberName: string) => {
+    setUpdatingMemberName(memberName);
     try {
-      await callGas("setMemberActiveStatus", memberName, false);
+      const updatedMembers = await callGas<Member[]>(
+        "setMemberActiveStatus",
+        memberName,
+        false,
+        masterSheetInput,
+        isDevMode
+      );
+      intakeCacheRef.current = {};
+      const newMembers =
+        Array.isArray(updatedMembers) && updatedMembers.length > 0
+          ? updatedMembers
+          : members.map((m) =>
+              m.name.toLowerCase() === memberName.toLowerCase() ? { ...m, active: false } : m
+            );
+
+      setMembers(newMembers);
       if (intakeData) {
         const updatedMissing = intakeData.audit.missingMembers.filter(
           (m) => m.name.toLowerCase() !== memberName.toLowerCase()
         );
-        const updatedMembers = members.map((m) =>
-          m.name.toLowerCase() === memberName.toLowerCase() ? { ...m, active: false } : m
-        );
         setIntakeData({
           ...intakeData,
-          audit: { ...intakeData.audit, missingMembers: updatedMissing },
-          members: updatedMembers,
+          audit: {
+            ...intakeData.audit,
+            missingMembers: updatedMissing,
+            totalActiveMembers: newMembers.filter((m) => m.active).length,
+          },
+          members: newMembers,
         });
-        setMembers(updatedMembers);
       }
       showToast(`Marked ${memberName} as inactive.`);
     } catch (err: any) {
       showToast(`Error: ${err.message}`, "error");
+    } finally {
+      setUpdatingMemberName(null);
     }
   };
 
   // Handle Member Toggle
   const handleToggleMember = async (name: string, currentActive: boolean) => {
+    setUpdatingMemberName(name);
     try {
-      await callGas("setMemberActiveStatus", name, !currentActive);
-      const updated = members.map((m) =>
-        m.name.toLowerCase() === name.toLowerCase() ? { ...m, active: !currentActive } : m
+      const updatedMembers = await callGas<Member[]>(
+        "setMemberActiveStatus",
+        name,
+        !currentActive,
+        masterSheetInput,
+        isDevMode
       );
-      setMembers(updated);
+      intakeCacheRef.current = {};
+      const newMembers =
+        Array.isArray(updatedMembers) && updatedMembers.length > 0
+          ? updatedMembers
+          : members.map((m) =>
+              m.name.toLowerCase() === name.toLowerCase() ? { ...m, active: !currentActive } : m
+            );
+
+      setMembers(newMembers);
+      if (intakeData) {
+        const updatedMissing = newMembers.filter(
+          (m) =>
+            m.active &&
+            !intakeData.responses.some((r) => r.name.toLowerCase() === m.name.toLowerCase())
+        );
+        setIntakeData({
+          ...intakeData,
+          audit: {
+            ...intakeData.audit,
+            missingMembers: updatedMissing,
+            totalActiveMembers: newMembers.filter((m) => m.active).length,
+          },
+          members: newMembers,
+        });
+      }
       showToast(`Updated ${name} status to ${!currentActive ? "Active" : "Inactive"}.`);
     } catch (err: any) {
       showToast(`Error: ${err.message}`, "error");
+    } finally {
+      setUpdatingMemberName(null);
     }
   };
 
   // Add Member
-  const handleAddMember = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMemberName.trim()) return;
+  const handleAddMember = async (
+    e?: React.FormEvent,
+    nameOverride?: string,
+    emailOverride?: string
+  ) => {
+    if (e) e.preventDefault();
+    const nameToAdd = (nameOverride || newMemberName).trim();
+    const emailToAdd = (emailOverride || newMemberEmail).trim();
+    if (!nameToAdd) return;
+    const parsedAliases = extractAliases(newMemberAliases);
     const newM: Member = {
-      name: newMemberName.trim(),
-      google_email: newMemberEmail.trim() || undefined,
+      name: nameToAdd,
+      google_email: emailToAdd || "",
       active: true,
       last_active_survey: new Date().toISOString().slice(0, 7),
+      aliases: parsedAliases.length > 0 ? parsedAliases : undefined,
     };
     try {
       const updated = await callGas<Member[]>(
         "addCommunityMember",
         newM,
-        masterSheetInput
+        masterSheetInput,
+        isDevMode
       );
-      setMembers(updated);
+      intakeCacheRef.current = {};
+      const newMembers =
+        Array.isArray(updated) && updated.length > 0 ? updated : [...members, newM];
+      setMembers(newMembers);
+      if (intakeData) {
+        const updatedUnrecognized = intakeData.audit.unrecognizedRespondents.filter(
+          (u) => u.toLowerCase() !== nameToAdd.toLowerCase()
+        );
+        setIntakeData({
+          ...intakeData,
+          members: newMembers,
+          audit: {
+            ...intakeData.audit,
+            unrecognizedRespondents: updatedUnrecognized,
+            totalActiveMembers: newMembers.filter((m) => m.active).length,
+          },
+        });
+      }
       setNewMemberName("");
       setNewMemberEmail("");
+      setNewMemberAliases("");
       showToast(`Added ${newM.name} to community registry.`);
     } catch (err: any) {
       showToast(`Failed to add member: ${err.message}`, "error");
+    }
+  };
+
+  // Save Edited Member
+  const handleSaveEditedMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMember || !editingMember.name.trim()) return;
+
+    setIsSavingMember(true);
+    try {
+      const parsedEmails = extractEmails(editingMember.emails);
+      const parsedAliases = extractAliases(editingMember.aliases);
+
+      const updatedM: Member = {
+        name: editingMember.name.trim(),
+        google_email: parsedEmails.join(", "),
+        active: editingMember.active,
+        aliases: parsedAliases.length > 0 ? parsedAliases : undefined,
+        alternate_emails: parsedEmails.length > 1 ? parsedEmails.slice(1) : undefined,
+      };
+
+      const updatedMembers = await callGas<Member[]>(
+        "updateCommunityMember",
+        editingMember.originalName,
+        updatedM,
+        masterSheetInput,
+        isDevMode
+      );
+      intakeCacheRef.current = {};
+      const newMembers =
+        Array.isArray(updatedMembers) && updatedMembers.length > 0
+          ? updatedMembers
+          : members.map((m) =>
+              m.name.toLowerCase() === editingMember.originalName.toLowerCase() ? updatedM : m
+            );
+
+      setMembers(newMembers);
+
+      if (intakeData) {
+        const updatedResponses = intakeData.responses.map((r) =>
+          r.name.toLowerCase() === editingMember.originalName.toLowerCase()
+            ? { ...r, name: updatedM.name }
+            : r
+        );
+        setIntakeData({
+          ...intakeData,
+          responses: updatedResponses,
+          members: newMembers,
+          audit: {
+            ...intakeData.audit,
+            totalActiveMembers: newMembers.filter((m) => m.active).length,
+          },
+        });
+      }
+
+      showToast(`✨ Updated profile for ${updatedM.name}.`);
+      setEditingMember(null);
+    } catch (err: any) {
+      showToast(`Failed to update member: ${err.message}`, "error");
+    } finally {
+      setIsSavingMember(false);
+    }
+  };
+
+  // Link Nickname / Alias to Existing Member
+  const handleLinkMemberAlias = async (
+    canonicalName: string,
+    aliasName: string,
+    aliasEmail?: string
+  ) => {
+    if (!canonicalName || !aliasName) return;
+    setLinkingAliasFor(aliasName);
+    try {
+      const updated = await callGas<Member[]>(
+        "linkMemberAlias",
+        canonicalName,
+        aliasName,
+        aliasEmail,
+        masterSheetInput,
+        isDevMode
+      );
+      intakeCacheRef.current = {};
+      const newMembers =
+        Array.isArray(updated) && updated.length > 0
+          ? updated
+          : members.map((m) => {
+              if (m.name.toLowerCase() === canonicalName.toLowerCase()) {
+                const currentAliases = m.aliases || [];
+                const updatedAliases = currentAliases.includes(aliasName)
+                  ? currentAliases
+                  : [...currentAliases, aliasName];
+                return { ...m, aliases: updatedAliases };
+              }
+              return m;
+            });
+
+      setMembers(newMembers);
+
+      if (intakeData) {
+        const updatedResponses = intakeData.responses.map((r) =>
+          r.name.toLowerCase() === aliasName.toLowerCase() ? { ...r, name: canonicalName } : r
+        );
+        const updatedUnrecognized = intakeData.audit.unrecognizedRespondents.filter(
+          (u) => u.toLowerCase() !== aliasName.toLowerCase()
+        );
+        setIntakeData({
+          ...intakeData,
+          responses: updatedResponses,
+          audit: {
+            ...intakeData.audit,
+            unrecognizedRespondents: updatedUnrecognized,
+          },
+          members: newMembers,
+        });
+      }
+
+      showToast(`✨ Linked "${aliasName}" as an alias for ${canonicalName}!`);
+    } catch (err: any) {
+      showToast(`Failed to link alias: ${err.message}`, "error");
+    } finally {
+      setLinkingAliasFor(null);
     }
   };
 
@@ -550,6 +1375,7 @@ function MainApp() {
       }
 
       await callGas("bulkSaveCommunityMembers", finalMembers, masterSheetInput, isDevMode);
+      intakeCacheRef.current = {};
       setMembers(finalMembers);
       if (intakeData) {
         setIntakeData({ ...intakeData, members: finalMembers });
@@ -586,10 +1412,22 @@ function MainApp() {
     };
 
     try {
-      const updated = await callGas<ExceptionRule[]>("saveExceptionRule", rule);
+      const updated = await callGas<ExceptionRule[]>(
+        "saveExceptionRule",
+        rule,
+        masterSheetInput,
+        isDevMode
+      );
+      intakeCacheRef.current = {};
       setExceptions(updated);
       setShowAddRuleModal(false);
-      setNewRule({ rule_type: "NOT_SAME_TEAM", is_hard_rule: true, person_a: "", person_b: "", notes: "" });
+      setNewRule({
+        rule_type: "NOT_SAME_TEAM",
+        is_hard_rule: true,
+        person_a: "",
+        person_b: "",
+        notes: "",
+      });
       setModalContextNote(null);
       showToast(isEdit ? "Exception rule updated!" : "Exception rule added!");
     } catch (err: any) {
@@ -706,15 +1544,19 @@ function MainApp() {
     }
 
     return Array.from(map.values()).sort((a, b) => {
-      if (a.specialInstructions && !b.specialInstructions) return -1;
-      if (!a.specialInstructions && b.specialInstructions) return 1;
-      return a.name.localeCompare(b.name);
+      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
     });
   }, [intakeData, exceptions]);
 
   const handleDeleteRule = async (id: string) => {
     try {
-      const updated = await callGas<ExceptionRule[]>("deleteExceptionRule", id);
+      const updated = await callGas<ExceptionRule[]>(
+        "deleteExceptionRule",
+        id,
+        masterSheetInput,
+        isDevMode
+      );
+      intakeCacheRef.current = {};
       setExceptions(updated);
       showToast("Rule removed.");
     } catch (err: any) {
@@ -762,21 +1604,62 @@ function MainApp() {
     if (!solverResult) return;
     const updatedSchedule = solverResult.schedule.map((day) => {
       if (day.dateKey === dateKey) {
-        if (role === "COOK") {
-          if (day.cooks.includes(memberName)) return day;
-          return {
-            ...day,
-            cooks: [...day.cooks, memberName],
-            unfilledCooks: Math.max(0, day.unfilledCooks - 1),
-          };
-        } else {
-          if (day.cleaners.includes(memberName)) return day;
-          return {
-            ...day,
-            cleaners: [...day.cleaners, memberName],
-            unfilledCleaners: Math.max(0, day.unfilledCleaners - 1),
-          };
+        const isBrunch = day.mealType === "BRUNCH";
+        let targetCooks = day.targetCookCount;
+        let targetCleaners = day.targetCleanCount;
+        let specialNote = day.specialNote;
+
+        // If this date had 0 target slots or was marked as NO COMMUNITY MEAL, activate the meal!
+        if (targetCooks === 0 && targetCleaners === 0) {
+          targetCooks = isBrunch ? 2 : 3;
+          targetCleaners = isBrunch ? 2 : 3;
+          if (specialNote === "NO COMMUNITY MEAL") {
+            specialNote = undefined;
+          }
         }
+
+        let newCooks = day.cooks;
+        let newCleaners = day.cleaners;
+
+        if (role === "COOK") {
+          if (!day.cooks.includes(memberName)) {
+            newCooks = [...day.cooks, memberName];
+          }
+        } else {
+          if (!day.cleaners.includes(memberName)) {
+            newCleaners = [...day.cleaners, memberName];
+          }
+        }
+
+        // Check if this is a 2-cook willing dinner
+        let isTwoPersonDinnerWilling = false;
+        if (!isBrunch && newCooks.length === 2) {
+          const allWilling = newCooks.every((cookName) => {
+            const r = intakeData?.responses.find(
+              (resp) => resp.name.toLowerCase() === cookName.toLowerCase()
+            );
+            return isWillingTwoPersonDinner(r?.cookTeamSizePref);
+          });
+          if (allWilling) {
+            targetCooks = 2;
+            isTwoPersonDinnerWilling = true;
+          }
+        }
+
+        const unfilledCooks = Math.max(0, targetCooks - newCooks.length);
+        const unfilledCleaners = Math.max(0, targetCleaners - newCleaners.length);
+
+        return {
+          ...day,
+          specialNote,
+          cooks: newCooks,
+          cleaners: newCleaners,
+          targetCookCount: targetCooks,
+          targetCleanCount: targetCleaners,
+          isTwoPersonDinnerWilling,
+          unfilledCooks,
+          unfilledCleaners,
+        };
       }
       return day;
     });
@@ -802,26 +1685,64 @@ function MainApp() {
       unfilledSlotsCount: newUnfilledCount,
     });
 
-    showToast(`Added ${memberName} as extra ${role === "COOK" ? "cook" : "cleaner"} on ${dateKey}!`);
+    showToast(
+      `Added ${memberName} as extra ${role === "COOK" ? "cook" : "cleaner"} on ${dateKey}!`
+    );
   };
 
   const handleRemoveShift = (dateKey: string, memberName: string, role: Role) => {
     if (!solverResult) return;
     const updatedSchedule = solverResult.schedule.map((day) => {
       if (day.dateKey === dateKey) {
-        if (role === "COOK") {
-          return {
-            ...day,
-            cooks: day.cooks.filter((c) => c !== memberName),
-            unfilledCooks: Math.max(0, day.targetCookCount - (day.cooks.length - 1)),
-          };
+        const isBrunch = day.mealType === "BRUNCH";
+        const newCooks = role === "COOK" ? day.cooks.filter((c) => c !== memberName) : day.cooks;
+        const newCleaners =
+          role === "CLEAN" ? day.cleaners.filter((c) => c !== memberName) : day.cleaners;
+
+        let targetCooks = day.targetCookCount;
+        let targetCleaners = day.targetCleanCount;
+        let isTwoPersonDinnerWilling = false;
+
+        if (
+          newCooks.length === 0 &&
+          newCleaners.length === 0 &&
+          day.specialNote === "NO COMMUNITY MEAL"
+        ) {
+          targetCooks = 0;
+          targetCleaners = 0;
         } else {
-          return {
-            ...day,
-            cleaners: day.cleaners.filter((c) => c !== memberName),
-            unfilledCleaners: Math.max(0, day.targetCleanCount - (day.cleaners.length - 1)),
-          };
+          if (!isBrunch && newCooks.length === 2) {
+            const allWilling = newCooks.every((cookName) => {
+              const r = intakeData?.responses.find(
+                (resp) => resp.name.toLowerCase() === cookName.toLowerCase()
+              );
+              return isWillingTwoPersonDinner(r?.cookTeamSizePref);
+            });
+            if (allWilling) {
+              targetCooks = 2;
+              isTwoPersonDinnerWilling = true;
+            } else {
+              targetCooks = 3;
+            }
+          } else {
+            targetCooks = isBrunch ? 2 : 3;
+          }
+          targetCleaners = isBrunch ? 2 : 3;
         }
+
+        const unfilledCooks = Math.max(0, targetCooks - newCooks.length);
+        const unfilledCleaners = Math.max(0, targetCleaners - newCleaners.length);
+
+        return {
+          ...day,
+          cooks: newCooks,
+          cleaners: newCleaners,
+          targetCookCount: targetCooks,
+          targetCleanCount: targetCleaners,
+          isTwoPersonDinnerWilling,
+          unfilledCooks,
+          unfilledCleaners,
+        };
       }
       return day;
     });
@@ -850,6 +1771,249 @@ function MainApp() {
     showToast(`Removed ${memberName} from ${dateKey}.`);
   };
 
+  const handleCancelMeal = (dateKey: string) => {
+    if (!solverResult) return;
+    const targetDay = solverResult.schedule.find((d) => d.dateKey === dateKey);
+    if (!targetDay) return;
+
+    // Release volunteers
+    const updatedStats = { ...solverResult.memberStats };
+    for (const cook of targetDay.cooks) {
+      if (updatedStats[cook]) {
+        const stat = { ...updatedStats[cook] };
+        stat.assignedCooks = Math.max(0, stat.assignedCooks - 1);
+        stat.totalAssigned = stat.assignedCooks + stat.assignedCleans;
+        updatedStats[cook] = stat;
+      }
+    }
+    for (const cleaner of targetDay.cleaners) {
+      if (updatedStats[cleaner]) {
+        const stat = { ...updatedStats[cleaner] };
+        stat.assignedCleans = Math.max(0, stat.assignedCleans - 1);
+        stat.totalAssigned = stat.assignedCooks + stat.assignedCleans;
+        updatedStats[cleaner] = stat;
+      }
+    }
+
+    const updatedSchedule = solverResult.schedule.map((day) => {
+      if (day.dateKey === dateKey) {
+        return {
+          ...day,
+          specialNote: "NO COMMUNITY MEAL",
+          cooks: [],
+          cleaners: [],
+          targetCookCount: 0,
+          targetCleanCount: 0,
+          isTwoPersonDinnerWilling: false,
+          unfilledCooks: 0,
+          unfilledCleaners: 0,
+        };
+      }
+      return day;
+    });
+
+    // Update intakeData.mealDates so re-running solver respects cancellation
+    if (intakeData) {
+      const updatedMealDates = intakeData.mealDates.map((md) => {
+        if (md.dateKey === dateKey || md.dateLabel === targetDay.dateLabel) {
+          return {
+            ...md,
+            targetCookCount: 0,
+            targetCleanCount: 0,
+            specialNote: "NO COMMUNITY MEAL",
+          };
+        }
+        return md;
+      });
+      setIntakeData({ ...intakeData, mealDates: updatedMealDates });
+    }
+
+    const newUnfilledCount = updatedSchedule.reduce(
+      (acc, d) => acc + d.unfilledCooks + d.unfilledCleaners,
+      0
+    );
+
+    setSolverResult({
+      ...solverResult,
+      schedule: updatedSchedule,
+      memberStats: updatedStats,
+      unfilledSlotsCount: newUnfilledCount,
+    });
+
+    showToast(`Cancelled meal on ${targetDay.dateLabel}. Volunteers released.`);
+  };
+
+  const handleRestoreMeal = (dateKey: string) => {
+    if (!solverResult) return;
+    const targetDay = solverResult.schedule.find((d) => d.dateKey === dateKey);
+    if (!targetDay) return;
+
+    const isBrunch = targetDay.mealType === "BRUNCH";
+    const targetCount = isBrunch ? 2 : 3;
+
+    const updatedSchedule = solverResult.schedule.map((day) => {
+      if (day.dateKey === dateKey) {
+        return {
+          ...day,
+          specialNote: undefined,
+          targetCookCount: targetCount,
+          targetCleanCount: targetCount,
+          unfilledCooks: Math.max(0, targetCount - day.cooks.length),
+          unfilledCleaners: Math.max(0, targetCount - day.cleaners.length),
+        };
+      }
+      return day;
+    });
+
+    // Update intakeData.mealDates so re-running solver schedules this date
+    if (intakeData) {
+      const updatedMealDates = intakeData.mealDates.map((md) => {
+        if (md.dateKey === dateKey || md.dateLabel === targetDay.dateLabel) {
+          return {
+            ...md,
+            targetCookCount: targetCount,
+            targetCleanCount: targetCount,
+            specialNote: undefined,
+          };
+        }
+        return md;
+      });
+      setIntakeData({ ...intakeData, mealDates: updatedMealDates });
+    }
+
+    const newUnfilledCount = updatedSchedule.reduce(
+      (acc, d) => acc + d.unfilledCooks + d.unfilledCleaners,
+      0
+    );
+
+    const updatedOpportunities = (solverResult.nearCompleteOpportunities || []).filter(
+      (o) => o.dateKey !== dateKey
+    );
+
+    setSolverResult({
+      ...solverResult,
+      schedule: updatedSchedule,
+      unfilledSlotsCount: newUnfilledCount,
+      nearCompleteOpportunities: updatedOpportunities,
+    });
+
+    showToast(`Restored ${targetDay.dateLabel} into active schedule.`);
+  };
+
+  const handleRestoreWithSelectedVolunteers = (
+    dateKey: string,
+    cooks: string[],
+    cleaners: string[]
+  ) => {
+    if (!solverResult) return;
+    const targetDay = solverResult.schedule.find((d) => d.dateKey === dateKey);
+    if (!targetDay) return;
+
+    const isBrunch = targetDay.mealType === "BRUNCH";
+    let targetCooks = isBrunch ? 2 : 3;
+    const targetCleaners = isBrunch ? 2 : 3;
+
+    // Check 2-cook willingness
+    let isTwoPersonDinnerWilling = false;
+    if (!isBrunch && cooks.length === 2) {
+      const allWilling = cooks.every((cookName) => {
+        const r = intakeData?.responses.find(
+          (resp) => resp.name.toLowerCase() === cookName.toLowerCase()
+        );
+        return isWillingTwoPersonDinner(r?.cookTeamSizePref);
+      });
+      if (allWilling) {
+        targetCooks = 2;
+        isTwoPersonDinnerWilling = true;
+      }
+    }
+
+    const unfilledCooks = Math.max(0, targetCooks - cooks.length);
+    const unfilledCleaners = Math.max(0, targetCleaners - cleaners.length);
+
+    const updatedSchedule = solverResult.schedule.map((day) => {
+      if (day.dateKey === dateKey) {
+        return {
+          ...day,
+          specialNote: undefined,
+          isCancelled: false,
+          cancellationReason: undefined,
+          cooks: [...cooks],
+          cleaners: [...cleaners],
+          targetCookCount: targetCooks,
+          targetCleanCount: targetCleaners,
+          isTwoPersonDinnerWilling,
+          unfilledCooks,
+          unfilledCleaners,
+        };
+      }
+      return day;
+    });
+
+    // Update stats for all assigned members
+    const updatedStats = { ...solverResult.memberStats };
+    cooks.forEach((c) => {
+      if (updatedStats[c]) {
+        updatedStats[c] = {
+          ...updatedStats[c],
+          assignedCooks: updatedStats[c].assignedCooks + 1,
+          totalAssigned: updatedStats[c].totalAssigned + 1,
+        };
+      }
+    });
+    cleaners.forEach((cl) => {
+      if (updatedStats[cl]) {
+        updatedStats[cl] = {
+          ...updatedStats[cl],
+          assignedCleans: updatedStats[cl].assignedCleans + 1,
+          totalAssigned: updatedStats[cl].totalAssigned + 1,
+        };
+      }
+    });
+
+    // Update intakeData.mealDates so re-running solver schedules this date
+    if (intakeData) {
+      const updatedMealDates = intakeData.mealDates.map((md) => {
+        if (md.dateKey === dateKey || md.dateLabel === targetDay.dateLabel) {
+          return {
+            ...md,
+            targetCookCount: targetCooks,
+            targetCleanCount: targetCleaners,
+            specialNote: undefined,
+          };
+        }
+        return md;
+      });
+      setIntakeData({ ...intakeData, mealDates: updatedMealDates });
+    }
+
+    const newUnfilledCount = updatedSchedule.reduce(
+      (acc, d) => acc + d.unfilledCooks + d.unfilledCleaners,
+      0
+    );
+
+    const updatedOpportunities = (solverResult.nearCompleteOpportunities || []).filter(
+      (o) => o.dateKey !== dateKey
+    );
+
+    setSolverResult({
+      ...solverResult,
+      schedule: updatedSchedule,
+      memberStats: updatedStats,
+      unfilledSlotsCount: newUnfilledCount,
+      nearCompleteOpportunities: updatedOpportunities,
+    });
+
+    const totalAssigned = cooks.length + cleaners.length;
+    if (totalAssigned > 0) {
+      showToast(
+        `Restored ${targetDay.dateLabel} with ${cooks.length} cook(s) & ${cleaners.length} cleaner(s) assigned!`
+      );
+    } else {
+      showToast(`Restored ${targetDay.dateLabel} into active schedule.`);
+    }
+  };
+
   // Run Solver
   const handleRunSolver = async (policyToUse?: CookTeamPolicy | any) => {
     if (!intakeData) return;
@@ -866,7 +2030,11 @@ function MainApp() {
         intakeData.mealDates,
         intakeData.responses,
         exceptions,
-        { cookPolicy: activePolicy, maxCleanPerMember: Number(defaultCleanQuota) || 1 }
+        {
+          cookPolicy: activePolicy,
+          maxCleanPerMember: Number(defaultCleanQuota) || 1,
+          autoCancelDeficitDates,
+        }
       );
       setSolverResult(res);
       goToStep(3);
@@ -888,9 +2056,21 @@ function MainApp() {
         sheetInput,
         intakeData?.existingScheduleTab?.name
       );
+
+      // Recompute member stats using real survey responses (availability & quotas) if available
+      if (intakeData?.responses && intakeData.responses.length > 0 && res.schedule) {
+        res.memberStats = computeMemberQuotaStats(res.schedule, intakeData.responses);
+      }
+
       setSolverResult(res);
+      isEmailSubjectDirty.current = false;
+      if (res.schedule) {
+        setEmailSubject(formatDefaultSubject(res.schedule));
+      }
       goToStep(3);
-      showToast(`Loaded saved schedule tab "${intakeData?.existingScheduleTab?.name || "Schedule"}"!`);
+      showToast(
+        `Loaded saved schedule tab "${intakeData?.existingScheduleTab?.name || "Schedule"}"!`
+      );
     } catch (err: any) {
       showToast(`Failed to load saved schedule: ${err.message}`, "error");
     } finally {
@@ -904,11 +2084,12 @@ function MainApp() {
     if (!activeResult) return;
     setLoading(true);
     try {
-      const res = await callGas<{ success: boolean; sheetName: string; url?: string; message: string }>(
-        "exportScheduleToSheet",
-        sheetInput,
-        activeResult
-      );
+      const res = await callGas<{
+        success: boolean;
+        sheetName: string;
+        url?: string;
+        message: string;
+      }>("exportScheduleToSheet", sheetInput, activeResult);
       setExportedResult(res);
       showToast(res.message);
     } catch (err: any) {
@@ -924,11 +2105,20 @@ function MainApp() {
     const lowerLabel = label.toLowerCase();
     const isBrunch = d.mealType === "BRUNCH" || lowerLabel.includes("brunch");
 
-    // Clean specialNote: discard if it's just "BRUNCH"/"DINNER" or already present in label
+    // Clean specialNote: discard if it's "BRUNCH"/"DINNER", "NO COMMUNITY MEAL", auto-cancel notes, or already present in label
     let note = d.specialNote?.trim();
     if (note) {
+      // Strip auto-cancelled/volunteer deficit and "no community meal" markers from the date header note
+      note = note
+        .replace(/\(?\s*auto-cancelled[^)]*\)?/gi, "")
+        .replace(/\(?\s*volunteer deficit[^)]*\)?/gi, "")
+        .replace(/\bno community meal\b/gi, "")
+        .replace(/^[\s\-–—:]+|[\s\-–—:]+$/g, "")
+        .trim();
+
       const lowerNote = note.toLowerCase();
       if (
+        !note ||
         lowerNote === "brunch" ||
         lowerNote === "dinner" ||
         lowerLabel.includes(lowerNote)
@@ -947,18 +2137,35 @@ function MainApp() {
       label = `${label} - ${note}`;
     }
 
-    return `📅 ${label}`;
+    return `${label}`;
   };
 
   // Generate Email Summary Text
   const generateEmailText = () => {
     if (customEmailBody !== null) return customEmailBody;
     if (!solverResult) return "";
-    let text = "Hi precious friends & neighbours,\n\nHere is the community cook and clean team schedule for next month:\n\n";
+    let text =
+      "Hi precious friends & neighbours,\n\nHere is the community cook and clean team schedule for next month:\n\n";
     for (const d of solverResult.schedule) {
+      const isNoMeal = Boolean(
+        d.isNoMeal ||
+        (d.targetCookCount === 0 &&
+          d.targetCleanCount === 0 &&
+          d.cooks.length === 0 &&
+          d.cleaners.length === 0) ||
+        (d.specialNote &&
+          /no community meal|no meal|auto-cancelled|volunteer deficit/i.test(d.specialNote) &&
+          d.cooks.length === 0 &&
+          d.cleaners.length === 0)
+      );
+
       text += `${formatEmailDateHeader(d)}\n`;
-      text += `  • Cooks: ${d.cooks.join(", ") || "(Need Volunteers)"}\n`;
-      text += `  • Cleaners: ${d.cleaners.join(", ") || "(Need Volunteers)"}\n\n`;
+      if (isNoMeal) {
+        text += `  NO COMMUNITY MEAL\n\n`;
+      } else {
+        text += `  • Cooks: ${d.cooks.join(", ") || "(Need Volunteers)"}\n`;
+        text += `  • Cleaners: ${d.cleaners.join(", ") || "(Need Volunteers)"}\n\n`;
+      }
     }
     text += "Thank you all for making our meals happen!\n\nBest,\nBrenda";
     return text;
@@ -971,7 +2178,7 @@ function MainApp() {
   };
 
   // Send or Draft Email via Gmail
-  const handleSendGmail = async (mode: "send" | "draft") => {
+  const handleSendGmail = async (mode: "send" | "draft", skipWarning = false) => {
     if (!solverResult) return;
     const bodyToSend = generateEmailText();
 
@@ -980,19 +2187,41 @@ function MainApp() {
       return;
     }
 
+    // If an email has already been sent for this schedule and this is a send action, ask for confirmation first
+    if (mode === "send" && emailDispatchInfo?.alreadySent && !skipWarning) {
+      setShowResendConfirmModal(true);
+      return;
+    }
+
+    setShowResendConfirmModal(false);
     setSendingEmail(true);
+
+    const targetMonthKey =
+      solverResult.schedule.length > 0 && solverResult.schedule[0].dateKey
+        ? solverResult.schedule[0].dateKey.slice(0, 7)
+        : undefined;
+
     try {
-      const res = await callGas<{
-        success: boolean;
-        mode: "send" | "draft";
-        message: string;
-        recipientCount: number;
-      }>("sendScheduleEmail", {
+      const res = await callGas<EmailResult>("sendScheduleEmail", {
         to: emailTo.trim(),
         subject: emailSubject.trim() || formatDefaultSubject(),
         body: bodyToSend,
         mode,
+        spreadsheetId: sheetInput,
+        monthKey: targetMonthKey,
       });
+
+      if (res.emailDispatchInfo) {
+        setEmailDispatchInfo(res.emailDispatchInfo);
+      } else if (mode === "send") {
+        setEmailDispatchInfo({
+          alreadySent: true,
+          sentAt: new Date().toISOString(),
+          to: emailTo.trim(),
+          subject: emailSubject.trim() || formatDefaultSubject(),
+          monthKey: targetMonthKey,
+        });
+      }
 
       setEmailDeliveryResult({
         success: res.success,
@@ -1059,35 +2288,168 @@ function MainApp() {
             </div>
           </div>
 
-          <div className="flex items-center space-x-2 sm:space-x-3">
+          {/* Hamburger Menu Navigation */}
+          <div className="relative" id="header-menu-container">
             <button
-              onClick={() => setShowMemberModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
-            >
-              <Users className="w-4 h-4 text-slate-500" />
-              <span className="hidden md:inline">Member Directory</span>
-              <span className="md:hidden">Directory</span> ({members.filter((m) => m.active).length})
-            </button>
-
-            <button
-              onClick={() => setShowSettingsModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
-              title="Global Application & Solver Settings"
-            >
-              <Settings className="w-4 h-4 text-slate-500" />
-              <span>Settings</span>
-            </button>
-
-            <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                inGas
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                  : "bg-amber-50 text-amber-700 border border-amber-200"
+              onClick={() => setShowMainMenu(!showMainMenu)}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer border shadow-2xs ${
+                showMainMenu
+                  ? "bg-slate-900 text-white border-slate-900 shadow-md"
+                  : "bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-950 border-slate-300"
               }`}
+              title="Menu Options & Community Tools"
+              aria-label="Open Navigation Menu"
+              aria-expanded={showMainMenu}
+              aria-haspopup="true"
             >
-              <span className={`w-2 h-2 rounded-full ${inGas ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
-              {inGas ? "GAS Host Live" : "Local Mock Mode"}
-            </span>
+              {showMainMenu ? (
+                <X className="w-5 h-5" />
+              ) : (
+                <Menu className="w-5 h-5 text-slate-800" />
+              )}
+              <span className="font-bold">Menu</span>
+            </button>
+
+            {/* Floating Dropdown Menu */}
+            {showMainMenu && (
+              <div
+                role="menu"
+                aria-label="Community Tools Menu"
+                className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+              >
+                <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                  <p className="text-xs font-extrabold text-slate-600 uppercase tracking-wider">
+                    Community Tools
+                  </p>
+                  <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                    {members.filter((m) => m.active).length} Active Members
+                  </span>
+                </div>
+
+                <div className="py-1">
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setShowMainMenu(false);
+                      initSurveyFormModal();
+                    }}
+                    className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-violet-50 text-left transition-colors group cursor-pointer"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-violet-950">
+                        Survey Form Generator
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        Brenda&apos;s Google Form builder
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setShowMainMenu(false);
+                      setShowMealSignupModal(true);
+                      initMealSignupModal();
+                    }}
+                    className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-emerald-50 text-left transition-colors group cursor-pointer"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <ClipboardList className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-emerald-950">
+                        Meal Sign-Up Generator
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        Rose&apos;s workbook publish tool
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setShowMainMenu(false);
+                      setShowReportsModal(true);
+                      scanReportMonths();
+                    }}
+                    className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-indigo-50 text-left transition-colors group cursor-pointer"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <BarChart3 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-indigo-950">
+                        Community Reports
+                      </div>
+                      <div className="text-xs text-slate-600">Multi-month equity & history</div>
+                    </div>
+                  </button>
+
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setShowMainMenu(false);
+                      setShowMemberModal(true);
+                    }}
+                    className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-sky-50 text-left transition-colors group cursor-pointer"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-sky-950 flex items-center justify-between">
+                        <span>Member Directory</span>
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        Registry & active resident roster
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setShowMainMenu(false);
+                      setShowSettingsModal(true);
+                    }}
+                    className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-amber-50 text-left transition-colors group cursor-pointer"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Settings className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-amber-950">
+                        Settings & Database
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        Solver policy & Google Drive links
+                      </div>
+                    </div>
+                  </button>
+                </div>
+
+                <div className="px-4 py-3 mt-1 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between text-xs text-slate-600">
+                  <span className="font-semibold text-slate-600">Environment</span>
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+                      inGas
+                        ? "bg-emerald-100 text-emerald-950 border border-emerald-300"
+                        : "bg-amber-100 text-amber-950 border border-amber-300"
+                    }`}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full ${inGas ? "bg-emerald-600 animate-pulse" : "bg-amber-600"}`}
+                    />
+                    {inGas ? "GAS Host Live" : "Local Mock Mode"}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -1095,23 +2457,29 @@ function MainApp() {
       {/* Toast Notification */}
       {notification && (
         <div
-          className={`fixed top-16 right-6 z-50 px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 text-xs font-medium text-white transition-all transform animate-in fade-in slide-in-from-top-4 ${
-            notification.type === "success" ? "bg-slate-900" : "bg-rose-600"
+          role="status"
+          aria-live="polite"
+          className={`fixed top-16 right-6 z-50 px-4 py-3 rounded-xl shadow-lg flex items-center gap-2.5 text-xs sm:text-sm font-bold text-white transition-all transform animate-in fade-in slide-in-from-top-4 ${
+            notification.type === "success" ? "bg-slate-900" : "bg-rose-700"
           }`}
         >
           {notification.type === "success" ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           ) : (
-            <AlertTriangle className="w-4 h-4 text-amber-300" />
+            <AlertTriangle className="w-5 h-5 text-amber-300 shrink-0" />
           )}
           <span>{notification.msg}</span>
         </div>
       )}
 
       {/* Step Wizard Navigation Bar */}
-      <div className="bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between gap-4">
-          <nav className="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto">
+      <div
+        className="bg-white border-b border-slate-200 shadow-sm"
+        role="navigation"
+        aria-label="Wizard Steps"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
+          <nav className="flex items-center gap-2 sm:gap-3 overflow-x-auto" aria-label="Progress">
             {[
               { step: 1, title: "Intake & Audit", icon: Users },
               { step: 2, title: "Notes & Rules", icon: Settings },
@@ -1125,32 +2493,34 @@ function MainApp() {
                 <React.Fragment key={item.step}>
                   <button
                     onClick={() => goToStep(item.step as any)}
-                    className={`h-9 inline-flex items-center gap-2 px-3.5 rounded-xl text-xs sm:text-sm font-semibold border transition-all shrink-0 select-none ${
+                    aria-current={isActive ? "step" : undefined}
+                    className={`min-h-[44px] inline-flex items-center gap-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold border transition-all shrink-0 select-none cursor-pointer ${
                       isActive
-                        ? "bg-orange-500 text-white border-orange-500 shadow-sm shadow-orange-500/25"
+                        ? "bg-orange-600 text-white border-orange-600 shadow-sm shadow-orange-600/25"
                         : isDone
-                        ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100/80"
-                        : "bg-transparent text-slate-500 border-transparent hover:text-slate-900 hover:bg-slate-100"
+                          ? "bg-emerald-50 text-emerald-900 border-emerald-300 hover:bg-emerald-100"
+                          : "bg-transparent text-slate-600 border-transparent hover:text-slate-950 hover:bg-slate-100"
                     }`}
                   >
                     <span
-                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 transition-colors ${
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
                         isActive
-                          ? "bg-white text-orange-600 shadow-xs"
+                          ? "bg-white text-orange-700 shadow-xs"
                           : isDone
-                          ? "bg-emerald-600 text-white"
-                          : "bg-slate-200 text-slate-600"
+                            ? "bg-emerald-700 text-white"
+                            : "bg-slate-200 text-slate-700"
                       }`}
                     >
-                      {isDone ? <CheckCircle2 className="w-3.5 h-3.5" /> : item.step}
+                      {isDone ? <CheckCircle2 className="w-4 h-4" /> : item.step}
                     </span>
                     <span>{item.title}</span>
                   </button>
 
                   {idx < arr.length - 1 && (
                     <ChevronRight
+                      aria-hidden="true"
                       className={`w-4 h-4 shrink-0 transition-colors ${
-                        currentStep > item.step ? "text-emerald-500" : "text-slate-300"
+                        currentStep > item.step ? "text-emerald-600" : "text-slate-300"
                       }`}
                     />
                   )}
@@ -1162,2082 +2532,285 @@ function MainApp() {
           <button
             onClick={() => fetchIntake()}
             disabled={loading}
-            className="h-9 inline-flex items-center gap-1.5 px-3 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg text-xs font-semibold shrink-0 transition-colors border border-transparent"
+            className="min-h-[44px] inline-flex items-center gap-2 px-3.5 text-slate-700 hover:text-slate-950 hover:bg-slate-100 rounded-xl text-xs sm:text-sm font-bold shrink-0 transition-colors border border-slate-200 cursor-pointer disabled:opacity-50"
             title="Refresh Survey Data"
+            aria-label="Refresh survey response data from Google Sheets"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Refresh</span>
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-orange-600" : ""}`} />
+            <span className="hidden sm:inline">Refresh Data</span>
           </button>
         </div>
       </div>
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full space-y-6">
-        {/* STEP 1: INTAKE & COMPLETENESS AUDIT */}
         {currentStep === 1 && (
-          <div className="space-y-6">
-            {/* Sheet Link & Dropdown Selector Card */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                    Survey Response Spreadsheet
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Select a monthly survey response sheet from Google Drive or choose a test scenario
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {sheetInput && (
-                    <a
-                      href={sheetInput.startsWith("http") ? sheetInput : `https://docs.google.com/spreadsheets/d/${sheetInput}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition-colors"
-                      title="Open spreadsheet in Google Sheets"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Open in Sheets</span>
-                    </a>
-                  )}
-                  <button
-                    onClick={() => fetchIntake(sheetInput)}
-                    disabled={loading || !sheetInput}
-                    className="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-                    <span>{loading ? "Loading..." : "Load Sheet"}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Sheet Dropdown Selector */}
-              <div className="space-y-2">
-                <select
-                  value={sheetSelectMode}
-                  onChange={(e) => handleSelectSheetOption(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 hover:bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 font-medium text-slate-800 transition-colors cursor-pointer"
-                >
-                  <option value="" disabled>
-                    {isDevMode
-                      ? "-- Select a Test Scenario to Begin --"
-                      : "-- Select a Monthly Survey to Begin --"}
-                  </option>
-                  {!isDevMode && liveSheetsList.length > 0 && (
-                    <optgroup label="📁 Monthly Surveys (01_Live_Production)">
-                      {liveSheetsList.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          📄 {s.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-
-                  {isDevMode && devSheetsList.length > 0 && (
-                    <optgroup label="🧪 Dev / Test Scenarios (02_Dev_and_Testing)">
-                      {devSheetsList.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          🧪 {s.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-
-                  <optgroup label="🔗 Custom Input">
-                    <option value="custom">✏️ Paste Custom Google Sheet URL or ID...</option>
-                  </optgroup>
-                </select>
-
-                {sheetSelectMode === "custom" && (
-                  <div className="pt-2">
-                    <input
-                      type="text"
-                      value={sheetInput}
-                      onChange={(e) => setSheetInput(e.target.value)}
-                      placeholder="Paste Google Sheet URL or ID..."
-                      className="w-full px-3 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
-                      autoFocus
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {!intakeData ? (
-              <div className="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center space-y-4 max-w-2xl mx-auto my-6">
-                <div className="w-14 h-14 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center mx-auto shadow-inner">
-                  <FileSpreadsheet className="w-7 h-7" />
-                </div>
-                <div className="space-y-1.5">
-                  <h3 className="text-base font-bold text-slate-900">
-                    Select a Survey to Begin Scheduling
-                  </h3>
-                  <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-                    Choose a monthly Google Form response sheet from your Google Drive above, or pick a test scenario to load volunteer availability and start matching cook and clean teams.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Existing Schedule Tab Alert Banner */}
-                {intakeData.existingScheduleTab?.exists && (
-                  <div className="p-4.5 bg-gradient-to-r from-amber-50 to-orange-50/70 border border-amber-300/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-amber-100/80 text-amber-700 border border-amber-300/80 flex items-center justify-center shrink-0">
-                        <Calendar className="w-5 h-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-xs sm:text-sm font-bold text-amber-950 flex items-center gap-2 flex-wrap">
-                          <span>Finalized Schedule Tab Found:</span>
-                          <code className="bg-amber-100/90 border border-amber-300/70 px-2 py-0.5 rounded-lg font-mono text-xs text-amber-900 font-bold">
-                            {intakeData.existingScheduleTab.name}
-                          </code>
-                        </h4>
-                        <p className="text-xs text-amber-800/90 mt-0.5">
-                          A completed schedule already exists for this survey in your Google Sheet. You can load it to resume review, or continue below to re-solve.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={handleLoadExistingSchedule}
-                        disabled={loading}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-xl text-xs font-bold shadow-sm transition-colors disabled:opacity-50"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        <span>Load Saved Schedule & Edit in Step 3</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Quick Metrics */}
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                <span className="text-xs font-medium text-slate-500">Scheduled Meals</span>
-                <p className="text-2xl font-bold text-slate-900 mt-1">{intakeData.mealDates.length}</p>
-                <p className="text-xs text-slate-400 mt-0.5">October 2026</p>
-              </div>
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                <span className="text-xs font-medium text-slate-500">Survey Responses</span>
-                <p className="text-2xl font-bold text-slate-900 mt-1">{intakeData.responses.length}</p>
-                <p className="text-xs text-emerald-600 mt-0.5">Responses parsed</p>
-              </div>
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                <span className="text-xs font-medium text-slate-500">Active Member Registry</span>
-                <p className="text-2xl font-bold text-slate-900 mt-1">{intakeData.audit.totalActiveMembers}</p>
-                <p className="text-xs text-slate-400 mt-0.5">Total eligible cooks</p>
-              </div>
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                <span className="text-xs font-medium text-slate-500">Missing Active Members</span>
-                <p className={`text-2xl font-bold mt-1 ${intakeData.audit.missingMembers.length > 0 ? "text-amber-600" : "text-emerald-600"}`}>
-                  {intakeData.audit.missingMembers.length}
-                </p>
-                <p className="text-xs text-slate-400 mt-0.5">Needs follow-up</p>
-              </div>
-            </div>
-
-            {/* Auto-Reactivated Badges Banner */}
-            {intakeData.audit.reactivatedMembers.length > 0 && (
-              <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex items-start gap-3">
-                <Sparkles className="w-5 h-5 text-emerald-600 mt-0.5" />
-                <div>
-                  <h3 className="text-xs font-bold text-emerald-900">
-                    Auto-Reactivated Returning Members ({intakeData.audit.reactivatedMembers.length})
-                  </h3>
-                  <p className="text-xs text-emerald-700 mt-0.5">
-                    The following members were previously inactive but submitted survey responses. Their status was automatically updated to <strong>Active</strong>:
-                  </p>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {intakeData.audit.reactivatedMembers.map((m) => (
-                      <span key={m.name} className="px-2.5 py-1 bg-white border border-emerald-300 rounded-lg text-xs font-semibold text-emerald-800">
-                        ✨ {m.name} ({m.google_email || "No email"})
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Unrecognized Respondents Alert */}
-            {intakeData.audit.unrecognizedRespondents.length > 0 && (
-              <div className="bg-blue-50 border border-blue-200 p-4 rounded-2xl flex items-start gap-3">
-                <Info className="w-5 h-5 text-blue-600 mt-0.5" />
-                <div>
-                  <h3 className="text-xs font-bold text-blue-900">
-                    New / Unrecognized Respondents ({intakeData.audit.unrecognizedRespondents.length})
-                  </h3>
-                  <p className="text-xs text-blue-700 mt-0.5">
-                    Submitted a survey response but not found in the master Member registry:
-                  </p>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {intakeData.audit.unrecognizedRespondents.map((name) => (
-                      <span key={name} className="px-2.5 py-1 bg-white border border-blue-300 rounded-lg text-xs font-semibold text-blue-800">
-                        👤 {name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Completeness Audit (Nag Screen Section) */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    Completeness Audit (Missing Active Community Members)
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Active members who have not yet submitted their availability survey.
-                  </p>
-                </div>
-                {intakeData.audit.missingMembers.length === 0 && (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> All Active Members Responded!
-                  </span>
-                )}
-              </div>
-
-              {intakeData.audit.missingMembers.length > 0 ? (
-                <div className="divide-y divide-slate-100">
-                  {intakeData.audit.missingMembers.map((m) => (
-                    <div key={m.name} className="p-4 flex items-center justify-between hover:bg-slate-50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 font-bold flex items-center justify-center text-xs">
-                          {m.name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="text-xs sm:text-sm font-bold text-slate-800">{m.name}</p>
-                          <p className="text-xs text-slate-400">
-                            {m.google_email || "No email"} • Last active: {m.last_active_survey || "Never"}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleMarkInactive(m.name)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-600 rounded-lg text-xs font-semibold border border-slate-200 transition-colors"
-                          title="Mark inactive and skip from future nag screens"
-                        >
-                          <UserX className="w-3.5 h-3.5 text-slate-500" />
-                          Mark as Inactive
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-8 text-center text-slate-400 text-xs">
-                  ✨ Excellent! Every active community member has submitted their survey.
-                </div>
-              )}
-            </div>
-
-            {/* Next Step Button */}
-            <div className="flex justify-end">
-              <button
-                onClick={() => goToStep(2)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-colors"
-              >
-                Proceed to Notes & Exception Rules <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </>
+          <Step1IntakeAudit
+            sheetInput={sheetInput}
+            setSheetInput={setSheetInput}
+            sheetSelectMode={sheetSelectMode}
+            handleSelectSheetOption={handleSelectSheetOption}
+            fetchIntake={fetchIntake}
+            loading={loading}
+            isDevMode={isDevMode}
+            liveSheetsList={liveSheetsList}
+            devSheetsList={devSheetsList}
+            intakeData={intakeData}
+            members={members}
+            handleLoadExistingSchedule={handleLoadExistingSchedule}
+            linkingAliasFor={linkingAliasFor}
+            selectedCanonicalLinkMap={selectedCanonicalLinkMap}
+            setSelectedCanonicalLinkMap={setSelectedCanonicalLinkMap}
+            handleLinkMemberAlias={handleLinkMemberAlias}
+            handleAddMember={handleAddMember}
+            updatingMemberName={updatingMemberName}
+            handleMarkInactive={handleMarkInactive}
+            goToStep={goToStep}
+          />
         )}
-      </div>
-    )}
 
-        {/* STEP 2: MEMBER NOTES & EXCEPTION RULES (UNIFIED PER-MEMBER VIEW) */}
         {currentStep === 2 && intakeData && (
-          <div className="space-y-6">
-            {/* Header & Quick Action */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">
-                  Member Notes & Exception Rules ({membersRequiringAttention.length} Members with Notes or Rules)
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Review respondent special instructions and verify or configure exception rules for each member.
-                </p>
-              </div>
-              <button
-                onClick={handleOpenAddGenericRule}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors"
-              >
-                <Plus className="w-4 h-4" /> Add General Rule
-              </button>
-            </div>
-
-            {/* Per-Member Cards */}
-            <div className="space-y-4">
-              {membersRequiringAttention.length > 0 ? (
-                membersRequiringAttention.map((item) => (
-                  <div
-                    key={item.name}
-                    className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3 hover:border-orange-200 transition-colors"
-                  >
-                    {/* Member Header Row */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-800 font-bold flex items-center justify-center text-sm shadow-sm">
-                          {item.name.charAt(0)}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-bold text-slate-900">{item.name}</h3>
-                            <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md font-medium">
-                              Cook Quota: {item.cookQuota}
-                            </span>
-                            {item.canCookCleanSameDay && (
-                              <span className="text-xs px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-semibold border border-emerald-200">
-                                ✨ Can Cook & Clean Same Day
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => handleOpenAddRuleForMember(item.name, item.specialInstructions)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-lg text-xs font-bold transition-colors self-start sm:self-auto"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Encode Rule for {item.name}
-                      </button>
-                    </div>
-
-                    {/* Member Survey Note (if present) */}
-                    {item.specialInstructions && (
-                      <div className="bg-amber-50/80 border border-amber-200/90 rounded-xl p-3 flex items-start gap-2.5">
-                        <MessageSquare className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
-                        <div>
-                          <span className="text-xs font-bold text-amber-900">Survey Note from {item.name}:</span>
-                          <p className="text-xs text-amber-800 mt-0.5 font-medium italic">
-                            "{item.specialInstructions}"
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Associated Active Exception Rules */}
-                    <div>
-                      <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">
-                        Configured Exception Rules ({item.rules.length})
-                      </span>
-
-                      {item.rules.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {item.rules.map((rule) => (
-                            <div
-                              key={rule.id}
-                              className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between"
-                            >
-                              <div className="flex items-start gap-2">
-                                <span
-                                  className={`text-xs px-1.5 py-0.5 rounded font-bold uppercase ${
-                                    rule.is_hard_rule
-                                      ? "bg-rose-100 text-rose-800"
-                                      : "bg-blue-100 text-blue-800"
-                                  }`}
-                                >
-                                  {rule.is_hard_rule ? "Hard" : "Soft"}
-                                </span>
-                                <div>
-                                  <p className="text-xs font-bold text-slate-800">
-                                    <span className="text-orange-700 font-mono">{rule.rule_type}</span>
-                                    {rule.person_b && ` ↔ ${rule.person_a === item.name ? rule.person_b : rule.person_a}`}
-                                  </p>
-                                  {rule.notes && (
-                                    <p className="text-xs text-slate-500 truncate max-w-[200px]">{rule.notes}</p>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => handleOpenEditRule(rule)}
-                                  className="p-1.5 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                                  title="Edit Rule"
-                                >
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteRule(rule.id)}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                  title="Delete Rule"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-slate-400 italic">
-                          No exception rule created for this note yet. Click "Encode Rule for {item.name}" above to add one.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="bg-white p-8 rounded-2xl border border-slate-200 text-center text-slate-400 text-xs">
-                  No special notes or active rules for this month. You can proceed directly to solving or click "Add General Rule".
-                </div>
-              )}
-            </div>
-
-            {/* Navigation Buttons */}
-            <div className="flex justify-between items-center">
-              <button
-                onClick={() => goToStep(1)}
-                className="px-4 py-2 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900"
-              >
-                Back to Intake
-              </button>
-              <button
-                onClick={() => handleRunSolver()}
-                disabled={loading}
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-orange-500/20 transition-all"
-              >
-                <Sparkles className="w-4 h-4" /> Run Matchmaker Solver
-              </button>
-            </div>
-          </div>
+          <Step2NotesRules
+            membersRequiringAttention={membersRequiringAttention}
+            handleOpenAddGenericRule={handleOpenAddGenericRule}
+            handleOpenAddRuleForMember={handleOpenAddRuleForMember}
+            handleOpenEditRule={handleOpenEditRule}
+            handleDeleteRule={handleDeleteRule}
+            goToStep={goToStep}
+            handleRunSolver={handleRunSolver}
+            loading={loading}
+          />
         )}
 
-        {/* STEP 3: SOLVE & REVIEW SCHEDULE */}
         {currentStep === 3 && (
-          <div className="space-y-6">
-            {/* Unified Step 3 Header & Completeness Bar */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5">
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
-                    !solverResult
-                      ? "bg-orange-50 text-orange-600 border border-orange-200"
-                      : solverResult.unfilledSlotsCount === 0
-                      ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-                      : "bg-amber-50 text-amber-600 border border-amber-200"
-                  }`}
-                >
-                  {!solverResult ? (
-                    <Calendar className="w-5 h-5" />
-                  ) : solverResult.unfilledSlotsCount === 0 ? (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                  ) : (
-                    <AlertTriangle className="w-5 h-5 text-amber-600" />
-                  )}
-                </div>
-
-                <div>
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <h2 className="text-sm font-bold text-slate-900">
-                      {!solverResult
-                        ? "Schedule Review"
-                        : solverResult.unfilledSlotsCount === 0
-                        ? `All ${solverResult.schedule.length} Monthly Meals Fully Staffed!`
-                        : `${solverResult.schedule.filter((d) => d.unfilledCooks > 0 || d.unfilledCleaners > 0).length} of ${solverResult.schedule.length} Meals Need Attention`}
-                    </h2>
-                    {solverResult && (
-                      <span
-                        className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                          solverResult.unfilledSlotsCount === 0
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-amber-100 text-amber-800"
-                        }`}
-                      >
-                        {solverResult.schedule.filter((d) => d.unfilledCooks === 0 && d.unfilledCleaners === 0).length} / {solverResult.schedule.length} Confirmed
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {!solverResult
-                      ? "Review meal assignments, fill open shifts, and inspect volunteer quotas."
-                      : solverResult.unfilledSlotsCount === 0
-                      ? "Every dinner and brunch has a complete cook and clean team assigned."
-                      : `${solverResult.unfilledSlotsCount} open shift(s) remaining. Click [+ Fill Slot] on any date card to resolve.`}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => handleRunSolver()}
-                  disabled={loading}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-                  <span>Re-Run Solver</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Empty State when solverResult has not run yet */}
-            {!solverResult && !loading && (
-              <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-4 shadow-sm">
-                <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center mx-auto shadow-inner">
-                  <Sparkles className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Ready to Match Teams</h3>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-                    Click the button below to generate optimal, constraint-satisfying cook and clean rosters for all monthly meals.
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleRunSolver()}
-                  disabled={loading}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-orange-500/20 transition-all"
-                >
-                  <Sparkles className="w-4 h-4" /> Run Matchmaker Solver
-                </button>
-              </div>
-            )}
-
-            {/* Constraint Violations (if any) */}
-            {solverResult && solverResult.violations.length > 0 && (
-              <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl space-y-2">
-                <div className="flex items-center gap-2 text-amber-800 text-xs font-bold">
-                  <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  <span>Soft Preference Violations ({solverResult.violations.length})</span>
-                </div>
-                <div className="space-y-1">
-                  {solverResult.violations.map((v, i) => (
-                    <p key={i} className="text-xs text-amber-700">
-                      • {v.description}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Visual Schedule Cards */}
-            {solverResult && (
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-slate-900">Generated Monthly Shift Roster (13 Meals)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {solverResult.schedule.map((day) => {
-                    const hasCookShortage = day.unfilledCooks > 0;
-                    const hasCleanShortage = day.unfilledCleaners > 0;
-                    const isFullyStaffed = !hasCookShortage && !hasCleanShortage;
-
-                    return (
-                      <div
-                        key={day.dateKey}
-                        className={`rounded-2xl border transition-all flex flex-col justify-between p-4 ${
-                          hasCookShortage
-                            ? "bg-rose-50/90 border-rose-300 ring-2 ring-rose-400/30 shadow-md shadow-rose-100"
-                            : hasCleanShortage
-                            ? "bg-amber-50/80 border-amber-300 ring-2 ring-amber-400/30 shadow-sm"
-                            : "bg-white border-slate-200/90 shadow-sm hover:shadow-md"
-                        }`}
-                      >
-                        <div>
-                          {/* Card Header */}
-                          <div className="flex items-start justify-between pb-3 border-b border-slate-200/60">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-slate-900">{day.dateLabel}</span>
-                                {hasCookShortage && hasCleanShortage ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-rose-600 text-white rounded-full font-bold shadow-sm">
-                                    <AlertTriangle className="w-3 h-3" /> Short {day.unfilledCooks}C & {day.unfilledCleaners}Cl
-                                  </span>
-                                ) : hasCookShortage ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-rose-600 text-white rounded-full font-bold shadow-sm">
-                                    <AlertTriangle className="w-3 h-3" /> Short {day.unfilledCooks} Cook{day.unfilledCooks > 1 ? "s" : ""}
-                                  </span>
-                                ) : hasCleanShortage ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-amber-600 text-white rounded-full font-bold shadow-sm">
-                                    <AlertTriangle className="w-3 h-3" /> Needs {day.unfilledCleaners} Cleaner{day.unfilledCleaners > 1 ? "s" : ""}
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-bold">
-                                    ✅ Fully Staffed
-                                  </span>
-                                )}
-                              </div>
-                              {day.specialNote && (
-                                <p className="text-xs text-amber-700 font-semibold mt-0.5">{day.specialNote}</p>
-                              )}
-                            </div>
-                            <span
-                              className={`text-xs px-2 py-0.5 rounded-md font-bold uppercase ${
-                                day.mealType === "BRUNCH"
-                                  ? "bg-amber-100 text-amber-800"
-                                  : "bg-indigo-50 text-indigo-700"
-                              }`}
-                            >
-                              {day.mealType}
-                            </span>
-                          </div>
-
-                          {/* Cook Team */}
-                          <div className={`mt-3 ${hasCookShortage ? "bg-rose-100/60 border border-rose-200 p-2.5 rounded-xl" : ""}`}>
-                            <div className="flex items-center justify-between text-xs mb-1">
-                              <span className="font-bold text-orange-800 flex items-center gap-1">
-                                🍳 Cooks ({day.cooks.length})
-                              </span>
-                              {day.isTwoPersonDinnerWilling && (
-                                <span className="text-[11px] px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full font-bold">
-                                  👥 2-Cook Team (Willing)
-                                </span>
-                              )}
-                              {hasCookShortage && (
-                                <span className="text-xs text-rose-700 font-bold">
-                                  ⚠️ {day.unfilledCooks} needed
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap gap-1.5 mt-1">
-                              {day.cooks.map((name) => (
-                                <span
-                                  key={name}
-                                  className="px-2 py-1 bg-white text-orange-900 border border-orange-200 rounded-lg text-xs font-semibold shadow-xs"
-                                >
-                                  {name}
-                                </span>
-                              ))}
-                              {Array.from({ length: day.unfilledCooks }).map((_, i) => (
-                                <button
-                                  key={`empty-cook-${i}`}
-                                  onClick={() =>
-                                    setSelectedSlotToFill({
-                                      dateKey: day.dateKey,
-                                      dateLabel: day.dateLabel,
-                                      role: "COOK",
-                                    })
-                                  }
-                                  className="px-2 py-1 bg-white hover:bg-rose-50 border-2 border-dashed border-rose-300 hover:border-rose-400 text-rose-600 hover:text-rose-700 rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs transition-all cursor-pointer group"
-                                  title="Click to fill missing cook slot"
-                                >
-                                  <Plus className="w-3.5 h-3.5 text-rose-500 group-hover:scale-110 transition-transform" />
-                                  Fill Missing Cook Slot
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Clean Team */}
-                          <div className={`mt-3 ${hasCleanShortage ? "bg-amber-100/60 border border-amber-200 p-2.5 rounded-xl" : ""}`}>
-                            <div className="flex items-center justify-between text-xs mb-1">
-                              <span className="font-bold text-sky-800 flex items-center gap-1">
-                                🧼 Cleaners ({day.cleaners.length})
-                              </span>
-                              {hasCleanShortage && (
-                                <span className="text-xs text-amber-800 font-bold">
-                                  ⚠️ {day.unfilledCleaners} needed
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap gap-1.5 mt-1">
-                              {day.cleaners.map((name) => (
-                                <span
-                                  key={name}
-                                  className="px-2 py-1 bg-white text-sky-900 border border-sky-200 rounded-lg text-xs font-semibold shadow-xs"
-                                >
-                                  {name}
-                                </span>
-                              ))}
-                              {Array.from({ length: day.unfilledCleaners }).map((_, i) => (
-                                <button
-                                  key={`empty-clean-${i}`}
-                                  onClick={() =>
-                                    setSelectedSlotToFill({
-                                      dateKey: day.dateKey,
-                                      dateLabel: day.dateLabel,
-                                      role: "CLEAN",
-                                    })
-                                  }
-                                  className="px-2 py-1 bg-white hover:bg-amber-50 border-2 border-dashed border-amber-300 hover:border-amber-400 text-amber-700 hover:text-amber-800 rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs transition-all cursor-pointer group"
-                                  title="Click to fill missing cleaner slot"
-                                >
-                                  <Plus className="w-3.5 h-3.5 text-amber-600 group-hover:scale-110 transition-transform" />
-                                  Fill Missing Cleaner Slot
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Member Shift Quota Balance Table */}
-            {solverResult && (
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">Member Quota & Shift Distribution Summary</h3>
-                    <p className="text-xs text-slate-500">
-                      Verify that every community member's requested cook quota is fulfilled and shifts are on complete meals.
-                    </p>
-                  </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 text-slate-500 uppercase font-semibold border-b border-slate-200">
-                      <tr>
-                        <th className="px-4 py-2.5">Member</th>
-                        <th className="px-4 py-2.5">Available Cook Days</th>
-                        <th className="px-4 py-2.5">Requested Cooks</th>
-                        <th className="px-4 py-2.5">Assigned Cooks</th>
-                        <th className="px-4 py-2.5">Available Clean Days</th>
-                        <th className="px-4 py-2.5">Requested Cleans</th>
-                        <th className="px-4 py-2.5">Assigned Cleans</th>
-                        <th className="px-4 py-2.5">Total Shifts</th>
-                        <th className="px-4 py-2.5">Fulfillment Status</th>
-                        <th className="px-4 py-2.5 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {Object.values(solverResult.memberStats).map((stat) => {
-                        const isCookShort = stat.assignedCooks < stat.requestedCookQuota;
-                        const reqCleans = stat.requestedCleanQuota ?? 1;
-                        const isCleanShort = stat.assignedCleans < reqCleans;
-                        const isShort = isCookShort || isCleanShort;
-                        const totalMealCount = intakeData?.mealDates.length || 13;
-
-                        // Check if any of their assigned shifts are on dates with missing cleaners/cooks
-                        const assignedDays = solverResult.schedule.filter(
-                          (d) => d.cooks.includes(stat.name) || d.cleaners.includes(stat.name)
-                        );
-                        const incompleteAssignedDays = assignedDays.filter(
-                          (d) => d.unfilledCooks > 0 || d.unfilledCleaners > 0
-                        );
-                        const hasPendingIncomplete = incompleteAssignedDays.length > 0;
-                        const isOversubscribed =
-                          stat.assignedCleans > reqCleans ||
-                          stat.assignedCooks > stat.requestedCookQuota;
-
-                        return (
-                          <tr key={stat.name} className="hover:bg-slate-50">
-                            <td className="px-4 py-2 font-bold text-slate-800">{stat.name}</td>
-                            <td className="px-4 py-2 font-medium text-slate-700">
-                              {stat.availableCookDays}{" "}
-                              <span className="text-slate-400 font-normal text-[11px]">
-                                / {totalMealCount}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2 text-slate-600">{stat.requestedCookQuota}</td>
-                            <td className="px-4 py-2 font-semibold text-orange-600">{stat.assignedCooks}</td>
-                            <td className="px-4 py-2 font-medium text-slate-700">
-                              {stat.availableCleanDays}{" "}
-                              <span className="text-slate-400 font-normal text-[11px]">
-                                / {totalMealCount}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2 text-slate-600">{reqCleans}</td>
-                            <td className="px-4 py-2 font-semibold text-sky-600">{stat.assignedCleans}</td>
-                            <td className="px-4 py-2 font-bold text-slate-900">{stat.totalAssigned}</td>
-                            <td className="px-4 py-2">
-                              {isOversubscribed ? (
-                                <div className="space-y-0.5">
-                                  <span className="text-purple-800 bg-purple-50 border border-purple-300 px-2 py-0.5 rounded font-bold inline-block">
-                                    ⭐ Oversubscribed ({stat.assignedCooks > stat.requestedCookQuota ? `${stat.assignedCooks}/${stat.requestedCookQuota} Cooks` : ""}{stat.assignedCooks > stat.requestedCookQuota && stat.assignedCleans > reqCleans ? ", " : ""}{stat.assignedCleans > reqCleans ? `${stat.assignedCleans}/${reqCleans} Cleans` : ""})
-                                  </span>
-                                  {hasPendingIncomplete && (
-                                    <p className="text-[10px] text-amber-700 font-medium">
-                                      ⚠️ {incompleteAssignedDays.length} shift on incomplete meal
-                                    </p>
-                                  )}
-                                </div>
-                              ) : isShort ? (
-                                <div className="space-y-0.5">
-                                  <span className="text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-bold inline-block">
-                                    Short ({isCookShort ? `${stat.assignedCooks}/${stat.requestedCookQuota} Cooks` : ""}{isCookShort && isCleanShort ? ", " : ""}{isCleanShort ? `${stat.assignedCleans}/${reqCleans} Cleans` : ""})
-                                  </span>
-                                  {hasPendingIncomplete && (
-                                    <p className="text-[10px] text-amber-700 font-medium">
-                                      ⚠️ {incompleteAssignedDays.length} shift on incomplete meal
-                                    </p>
-                                  )}
-                                </div>
-                              ) : hasPendingIncomplete ? (
-                                <div className="space-y-0.5">
-                                  <span className="text-amber-800 bg-amber-50 border border-amber-300 px-2 py-0.5 rounded font-bold inline-block">
-                                    ⚠️ Pending ({incompleteAssignedDays.length} on Incomplete Meal{incompleteAssignedDays.length > 1 ? "s" : ""})
-                                  </span>
-                                  <p className="text-[10px] text-amber-600">
-                                    Meal missing cleaner/cook team
-                                  </p>
-                                </div>
-                              ) : (
-                                <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-bold inline-block">
-                                  ✅ Confirmed Fulfilled
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-4 py-2 text-right">
-                              <button
-                                onClick={() => setSelectedQuotaMember(stat.name)}
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
-                                  isShort || hasPendingIncomplete
-                                    ? "bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
-                                    : "bg-slate-100 hover:bg-slate-200 text-slate-600"
-                                }`}
-                              >
-                                <Search className="w-3 h-3" /> {isShort || hasPendingIncomplete ? "Find Dates & Add Extra" : "View Dates"}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Navigation Buttons */}
-            <div className="flex justify-between items-center">
-              <button
-                onClick={() => goToStep(2)}
-                className="px-4 py-2 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900"
-              >
-                Back to Notes & Rules
-              </button>
-              <button
-                onClick={() => goToStep(4)}
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-orange-500/20 transition-all"
-              >
-                Proceed to Export & Email <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <Step3SolveReview
+            solverResult={solverResult}
+            loading={loading}
+            intakeData={intakeData}
+            showNonParticipatingQuota={showNonParticipatingQuota}
+            setShowNonParticipatingQuota={setShowNonParticipatingQuota}
+            handleRunSolver={handleRunSolver}
+            handleCancelMeal={handleCancelMeal}
+            handleRestoreMeal={handleRestoreMeal}
+            setSelectedNearCompleteDateKey={setSelectedNearCompleteDateKey}
+            setSelectedQuotaMember={setSelectedQuotaMember}
+            setSelectedQuotaFocusDateKey={setSelectedQuotaFocusDateKey}
+            setSelectedSlotToFill={setSelectedSlotToFill}
+            goToStep={goToStep}
+          />
         )}
 
-        {/* STEP 4: EXPORT & PUBLISH */}
         {currentStep === 4 && solverResult && (
-          <div className="space-y-6">
-            {/* Full-width Horizontal Auto-Publish Status Banner */}
-            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-sm font-bold text-slate-900">
-                      Schedule Published to Google Sheets
-                    </h3>
-                    <span className="text-[11px] font-mono font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-                      {exportedResult?.sheetName || "Schedule_2026-10"}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    All {solverResult.schedule.length} monthly meal shifts have been automatically published to your spreadsheet tab.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                {exportedResult?.url ? (
-                  <a
-                    href={exportedResult.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Open Tab in Sheets</span>
-                  </a>
-                ) : sheetInput ? (
-                  <a
-                    href={sheetInput.startsWith("http") ? sheetInput : `https://docs.google.com/spreadsheets/d/${sheetInput}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Open in Sheets</span>
-                  </a>
-                ) : null}
-                <button
-                  onClick={() => handleExportSheet(solverResult)}
-                  disabled={loading}
-                  className="inline-flex items-center gap-1 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
-                  title="Re-write spreadsheet tab"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-                  <span>Update Tab</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Full-width Community Announcement & Gmail Dispatch Card */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center shrink-0">
-                    <Mail className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">
-                      Community Announcement & Gmail Dispatch
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Send directly through your connected Gmail account, create a draft in Gmail, or copy formatted text
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    onClick={handleCopyEmail}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
-                  >
-                    <Copy className="w-3.5 h-3.5" /> Copy Text
-                  </button>
-                  <button
-                    onClick={() => handleSendGmail("draft")}
-                    disabled={sendingEmail}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>Create Gmail Draft</span>
-                  </button>
-                  <button
-                    onClick={() => handleSendGmail("send")}
-                    disabled={sendingEmail}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors disabled:opacity-50"
-                  >
-                    <Send className={`w-3.5 h-3.5 ${sendingEmail ? "animate-spin" : ""}`} />
-                    <span>Send via Gmail</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Delivery Result Alert Banner */}
-              {emailDeliveryResult && (
-                <div
-                  className={`p-4 rounded-xl border flex items-center justify-between gap-3 animate-fade-in ${
-                    emailDeliveryResult.mode === "send"
-                      ? "bg-emerald-50 border-emerald-200 text-emerald-950"
-                      : "bg-blue-50 border-blue-200 text-blue-950"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 text-xs font-medium min-w-0">
-                    <CheckCircle2
-                      className={`w-4 h-4 shrink-0 ${
-                        emailDeliveryResult.mode === "send" ? "text-emerald-600" : "text-blue-600"
-                      }`}
-                    />
-                    <span className="truncate">{emailDeliveryResult.message}</span>
-                  </div>
-                  <a
-                    href="https://mail.google.com"
-                    target="_blank"
-                    rel="noreferrer"
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 shrink-0 ${
-                      emailDeliveryResult.mode === "send"
-                        ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                        : "bg-blue-600 hover:bg-blue-700 text-white"
-                    }`}
-                  >
-                    Open Gmail <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              )}
-
-              {/* Email Header Fields */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between flex-wrap gap-1">
-                    <label className="text-xs font-bold text-slate-700">Recipients / Listserv (To:)</label>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setEmailTo(LIVE_LISTSERV_EMAIL)}
-                        className={`text-[10px] px-2 py-0.5 rounded-md font-semibold transition-colors ${
-                          emailTo === LIVE_LISTSERV_EMAIL
-                            ? "bg-blue-100 text-blue-800 border border-blue-200"
-                            : "text-slate-500 hover:text-blue-700 bg-slate-100"
-                        }`}
-                      >
-                        Vancouver Cohousing Listserv
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEmailTo(DEV_TEST_EMAIL)}
-                        className={`text-[10px] px-2 py-0.5 rounded-md font-semibold transition-colors ${
-                          emailTo === DEV_TEST_EMAIL
-                            ? "bg-amber-100 text-amber-800 border border-amber-200"
-                            : "text-slate-500 hover:text-amber-700 bg-slate-100"
-                        }`}
-                      >
-                        Dev / Test (Tyler)
-                      </button>
-                    </div>
-                  </div>
-                  <input
-                    type="text"
-                    value={emailTo}
-                    onChange={(e) => setEmailTo(e.target.value)}
-                    placeholder="e.g. Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>"
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">Subject Line</label>
-                  <input
-                    type="text"
-                    value={emailSubject}
-                    onChange={(e) => setEmailSubject(e.target.value)}
-                    placeholder="Subject line..."
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white font-medium"
-                  />
-                </div>
-              </div>
-
-              {/* Email Body Editor */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700">Email Announcement Body</label>
-                  {customEmailBody !== null && (
-                    <button
-                      onClick={() => setCustomEmailBody(null)}
-                      className="text-[11px] text-orange-600 hover:text-orange-700 font-medium"
-                    >
-                      Reset to Default Template
-                    </button>
-                  )}
-                </div>
-                <textarea
-                  value={generateEmailText()}
-                  onChange={(e) => setCustomEmailBody(e.target.value)}
-                  rows={12}
-                  className="w-full p-4 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 leading-relaxed resize-y select-all"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-start">
-              <button
-                onClick={() => goToStep(3)}
-                className="px-4 py-2 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900"
-              >
-                Back to Schedule View
-              </button>
-            </div>
-          </div>
+          <Step4PublishEmail
+            solverResult={solverResult}
+            exportedResult={exportedResult}
+            sheetInput={sheetInput}
+            loading={loading}
+            handleExportSheet={handleExportSheet}
+            handleCopyEmail={handleCopyEmail}
+            handleSendGmail={handleSendGmail}
+            sendingEmail={sendingEmail}
+            emailDispatchInfo={emailDispatchInfo}
+            emailDeliveryResult={emailDeliveryResult}
+            emailTo={emailTo}
+            setEmailTo={setEmailTo}
+            LIVE_LISTSERV_EMAIL={LIVE_LISTSERV_EMAIL}
+            DEV_TEST_EMAIL={DEV_TEST_EMAIL}
+            emailSubject={emailSubject}
+            setEmailSubject={setEmailSubject}
+            isEmailSubjectDirty={isEmailSubjectDirty}
+            customEmailBody={customEmailBody}
+            setCustomEmailBody={setCustomEmailBody}
+            generateEmailText={generateEmailText}
+            goToStep={goToStep}
+            parseDateFromLabelOrKey={parseDateFromLabelOrKey}
+          />
         )}
       </main>
 
-      {/* MODAL 1: MEMBER DIRECTORY & MAINTENANCE */}
-      {showMemberModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] shadow-2xl flex flex-col overflow-hidden">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Community Member Directory</h3>
-                <p className="text-xs text-slate-500">Manage active vs inactive members and roster information</p>
-              </div>
-              <button
-                onClick={() => setShowMemberModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
-              >
-                ✕
-              </button>
-            </div>
+      {/* Modals */}
+      <MemberDirectoryModal
+        show={showMemberModal}
+        onClose={() => setShowMemberModal(false)}
+        members={members}
+        showBulkImport={showBulkImport}
+        setShowBulkImport={setShowBulkImport}
+        bulkImportText={bulkImportText}
+        setBulkImportText={setBulkImportText}
+        parsedBulkMembers={parsedBulkMembers}
+        bulkImportSaving={bulkImportSaving}
+        handleBulkImportSave={handleBulkImportSave}
+        newMemberName={newMemberName}
+        setNewMemberName={setNewMemberName}
+        newMemberEmail={newMemberEmail}
+        setNewMemberEmail={setNewMemberEmail}
+        newMemberAliases={newMemberAliases}
+        setNewMemberAliases={setNewMemberAliases}
+        handleAddMember={handleAddMember}
+        memberFilter={memberFilter}
+        setMemberFilter={setMemberFilter}
+        memberSearchQuery={memberSearchQuery}
+        setMemberSearchQuery={setMemberSearchQuery}
+        updatingMemberName={updatingMemberName}
+        editingMember={editingMember}
+        setEditingMember={setEditingMember}
+        handleSaveEditedMember={handleSaveEditedMember}
+        isSavingMember={isSavingMember}
+        handleToggleMember={handleToggleMember}
+      />
 
-            {/* Toolbar: Quick Add + Import from Google Group Toggle */}
-            <div className="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => setShowBulkImport(!showBulkImport)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm ${
-                  showBulkImport
-                    ? "bg-indigo-700 text-white"
-                    : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200"
-                }`}
-              >
-                <Users className="w-3.5 h-3.5" />
-                {showBulkImport ? "Hide Google Group Importer" : "📋 Import from Google Group (vancoho-residents)"}
-              </button>
+      <RuleConfigModal
+        show={showAddRuleModal}
+        onClose={() => setShowAddRuleModal(false)}
+        newRule={newRule}
+        setNewRule={setNewRule}
+        modalContextNote={modalContextNote}
+        members={members}
+        handleSaveRule={handleSaveRule}
+      />
 
-              <span className="text-[11px] text-slate-500 font-semibold">
-                {members.length} members ({members.filter((m) => m.active).length} active)
-              </span>
-            </div>
+      <MemberCalendarInspectorModal
+        selectedQuotaMember={selectedQuotaMember}
+        onClose={() => setSelectedQuotaMember(null)}
+        solverResult={solverResult}
+        intakeData={intakeData}
+        selectedQuotaFocusDateKey={selectedQuotaFocusDateKey}
+        checkAssignmentConflict={checkAssignmentConflict}
+        handleAddExtraShift={handleAddExtraShift}
+        handleRemoveShift={handleRemoveShift}
+      />
 
-            {/* Bulk Import Drawer */}
-            {showBulkImport && (
-              <div className="p-4 bg-indigo-50/70 border-b border-indigo-200 space-y-3">
-                <div>
-                  <h4 className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-indigo-600" />
-                    Import Roster from Google Group (Vancouver Cohousing Residents)
-                  </h4>
-                  <p className="text-[11px] text-slate-600 mt-0.5">
-                    Paste member names, emails, or rows copied directly from Google Groups (<code className="bg-indigo-100 px-1 rounded text-indigo-900">vancoho-residents@googlegroups.com</code>). Names will be formatted as <strong>First Names</strong>, and duplicates are automatically disambiguated with <strong>Last Initials</strong> (e.g. <em>Sarah C.</em> and <em>Sarah M.</em>).
-                  </p>
-                </div>
+      <FillMissingSlotModal
+        selectedSlotToFill={selectedSlotToFill}
+        onClose={() => setSelectedSlotToFill(null)}
+        solverResult={solverResult}
+        intakeData={intakeData}
+        checkAssignmentConflict={checkAssignmentConflict}
+        handleAddExtraShift={handleAddExtraShift}
+      />
 
-                <textarea
-                  value={bulkImportText}
-                  onChange={(e) => setBulkImportText(e.target.value)}
-                  placeholder={`Example lines to paste from Google Groups:\nTyler Price <tylerxprice@gmail.com>\nBrenda Coordinator <brenda@vancoho.com>\nSarah Chen <sarah.c@gmail.com>\nSarah Miller <sarah.m@gmail.com>\nMaya Patel`}
-                  rows={5}
-                  className="w-full p-2.5 bg-white border border-indigo-200 rounded-xl text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                />
+      <GlobalSettingsModal
+        show={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        cookPolicy={cookPolicy}
+        setCookPolicy={setCookPolicy}
+        defaultCleanQuota={defaultCleanQuota}
+        setDefaultCleanQuota={setDefaultCleanQuota}
+        autoCancelDeficitDates={autoCancelDeficitDates}
+        setAutoCancelDeficitDates={setAutoCancelDeficitDates}
+        masterSheetInput={masterSheetInput}
+        setMasterSheetInput={setMasterSheetInput}
+        driveFolderId={driveFolderId}
+        setDriveFolderId={setDriveFolderId}
+        handleCreateLaunchers={handleCreateLaunchers}
+        handleProvisionDrive={handleProvisionDrive}
+        provisioning={provisioning}
+        provisionResult={provisionResult}
+        onSaveAndRecalculate={() => {
+          setShowSettingsModal(false);
+          handleRunSolver();
+        }}
+      />
 
-                {parsedBulkMembers.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-[11px] font-bold text-indigo-900">
-                      <span>✓ Detected {parsedBulkMembers.length} Members:</span>
-                      <span className="text-slate-500 font-normal">Auto-formatted (First Name / Initial)</span>
-                    </div>
+      <SwapShiftsModal
+        swapModal={swapModal}
+        onClose={() => setSwapModal(null)}
+        solverResult={solverResult}
+        intakeData={intakeData}
+        swapSearchText={swapSearchText}
+        setSwapSearchText={setSwapSearchText}
+        handleExecuteSwap={handleExecuteSwap}
+      />
 
-                    <div className="max-h-32 overflow-y-auto p-2 bg-white rounded-lg border border-indigo-100 divide-y divide-slate-100 text-xs">
-                      {parsedBulkMembers.map((p, idx) => (
-                        <div key={idx} className="py-1 flex items-center justify-between">
-                          <span className="font-bold text-slate-800">{p.name}</span>
-                          <span className="text-[11px] text-slate-400 font-mono">{p.google_email || "no email"}</span>
-                        </div>
-                      ))}
-                    </div>
+      <CommunityReportsModal
+        show={showReportsModal}
+        onClose={() => setShowReportsModal(false)}
+        availableReportMonths={availableReportMonths}
+        selectedReportMonths={selectedReportMonths}
+        setSelectedReportMonths={setSelectedReportMonths}
+        loadingReport={loadingReport}
+        communityReport={communityReport}
+        reportSearch={reportSearch}
+        setReportSearch={setReportSearch}
+        reportSort={reportSort}
+        setReportSort={setReportSort}
+        fetchCommunityReports={fetchCommunityReports}
+      />
 
-                    <div className="flex items-center gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => handleBulkImportSave("replace")}
-                        disabled={bulkImportSaving}
-                        className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 shadow-sm"
-                      >
-                        {bulkImportSaving ? "Saving..." : `Replace Master Registry (${parsedBulkMembers.length} Members)`}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleBulkImportSave("merge")}
-                        disabled={bulkImportSaving}
-                        className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
-                      >
-                        Merge with Existing
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+      <MealSignupGeneratorModal
+        show={showMealSignupModal}
+        onClose={() => setShowMealSignupModal(false)}
+        mealSignupModalBodyRef={mealSignupModalBodyRef}
+        mealSignupExportResult={mealSignupExportResult}
+        mealSignupSchedule={mealSignupSchedule}
+        mealSignupSourceSheet={mealSignupSourceSheet}
+        setMealSignupSourceSheet={setMealSignupSourceSheet}
+        initMealSignupModal={initMealSignupModal}
+        solverResult={solverResult}
+        liveSheetsList={liveSheetsList}
+        devSheetsList={devSheetsList}
+        mealSignupTargetWorkbookId={mealSignupTargetWorkbookId}
+        setMealSignupTargetWorkbookId={setMealSignupTargetWorkbookId}
+        checkTargetWorkbook={checkTargetWorkbook}
+        mealSignupWorkbookError={mealSignupWorkbookError}
+        mealSignupWorkbookInfo={mealSignupWorkbookInfo}
+        mealSignupLoadingWorkbook={mealSignupLoadingWorkbook}
+        mealSignupTargetTabName={mealSignupTargetTabName}
+        setMealSignupTargetTabName={setMealSignupTargetTabName}
+        mealSignupBackupExisting={mealSignupBackupExisting}
+        setMealSignupBackupExisting={setMealSignupBackupExisting}
+        mealSignupHideOlder={mealSignupHideOlder}
+        setMealSignupHideOlder={setMealSignupHideOlder}
+        mealSignupLoadingInfo={mealSignupLoadingInfo}
+        mealSignupCustomDeadlines={mealSignupCustomDeadlines}
+        setMealSignupCustomDeadlines={setMealSignupCustomDeadlines}
+        mealSignupCustomDayLabels={mealSignupCustomDayLabels}
+        setMealSignupCustomDayLabels={setMealSignupCustomDayLabels}
+        handleExecuteMealSignupExport={handleExecuteMealSignupExport}
+        mealSignupLoadingExport={mealSignupLoadingExport}
+      />
 
-            {/* Quick Add Single Member Form */}
-            <form onSubmit={handleAddMember} className="p-3 bg-slate-50 border-b border-slate-200 flex gap-2">
-              <input
-                type="text"
-                value={newMemberName}
-                onChange={(e) => setNewMemberName(e.target.value)}
-                placeholder="Quick add single member (e.g. Maya)"
-                className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg flex-1 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-              />
-              <input
-                type="email"
-                value={newMemberEmail}
-                onChange={(e) => setNewMemberEmail(e.target.value)}
-                placeholder="Google account email (optional)"
-                className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg flex-1 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-              />
-              <button
-                type="submit"
-                className="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shrink-0"
-              >
-                + Add
-              </button>
-            </form>
+      <SurveyFormGeneratorModal
+        show={showSurveyFormModal}
+        onClose={() => setShowSurveyFormModal(false)}
+        surveyFormModalBodyRef={surveyFormModalBodyRef}
+        surveyFormMonthKey={surveyFormMonthKey}
+        setSurveyFormMonthKey={setSurveyFormMonthKey}
+        loadSurveyFormDatesPreview={loadSurveyFormDatesPreview}
+        surveyFormTitle={surveyFormTitle}
+        setSurveyFormTitle={setSurveyFormTitle}
+        surveyFormFolderId={surveyFormFolderId}
+        setSurveyFormFolderId={setSurveyFormFolderId}
+        surveyFormDates={surveyFormDates}
+        setSurveyFormDates={setSurveyFormDates}
+        surveyFormLoadingDates={surveyFormLoadingDates}
+        surveyFormLoadingCreate={surveyFormLoadingCreate}
+        surveyFormResult={surveyFormResult}
+        surveyFormCopiedLink={surveyFormCopiedLink}
+        handleCopySurveyLink={handleCopySurveyLink}
+        handleAddCustomSurveyDate={handleAddCustomSurveyDate}
+        handleExecuteCreateSurveyForm={handleExecuteCreateSurveyForm}
+      />
 
-            {/* Filter Tabs */}
-            <div className="px-5 py-2 border-b border-slate-100 flex gap-2 text-xs">
-              <button
-                onClick={() => setMemberFilter("all")}
-                className={`px-3 py-1 rounded-lg font-bold ${memberFilter === "all" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}
-              >
-                All ({members.length})
-              </button>
-              <button
-                onClick={() => setMemberFilter("active")}
-                className={`px-3 py-1 rounded-lg font-bold ${memberFilter === "active" ? "bg-emerald-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}
-              >
-                Active ({members.filter((m) => m.active).length})
-              </button>
-              <button
-                onClick={() => setMemberFilter("inactive")}
-                className={`px-3 py-1 rounded-lg font-bold ${memberFilter === "inactive" ? "bg-slate-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}
-              >
-                Inactive ({members.filter((m) => !m.active).length})
-              </button>
-            </div>
+      <NearCompleteOpportunityModal
+        selectedNearCompleteDateKey={selectedNearCompleteDateKey}
+        onClose={() => setSelectedNearCompleteDateKey(null)}
+        solverResult={solverResult}
+        recoverySelectedCooks={recoverySelectedCooks}
+        setRecoverySelectedCooks={setRecoverySelectedCooks}
+        recoverySelectedCleaners={recoverySelectedCleaners}
+        setRecoverySelectedCleaners={setRecoverySelectedCleaners}
+        handleRestoreWithSelectedVolunteers={handleRestoreWithSelectedVolunteers}
+      />
 
-            {/* Member List */}
-            <div className="divide-y divide-slate-100 overflow-y-auto flex-1 p-2">
-              {members
-                .filter((m) => {
-                  if (memberFilter === "active") return m.active;
-                  if (memberFilter === "inactive") return !m.active;
-                  return true;
-                })
-                .map((m) => (
-                  <div key={m.name} className="p-3 flex items-center justify-between hover:bg-slate-50 rounded-xl">
-                    <div>
-                      <p className="text-xs sm:text-sm font-bold text-slate-800">{m.name}</p>
-                      <p className="text-xs text-slate-400">
-                        {m.google_email || "No email"} • Last active: {m.last_active_survey || "Never"}
-                      </p>
-                    </div>
+      <ResendConfirmModal
+        show={showResendConfirmModal}
+        onClose={() => setShowResendConfirmModal(false)}
+        onConfirm={() => handleSendGmail("send", true)}
+        emailDispatchInfo={emailDispatchInfo}
+        emailTo={emailTo}
+      />
 
-                    <button
-                      onClick={() => handleToggleMember(m.name, m.active)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
-                        m.active
-                          ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      {m.active ? "Active" : "Inactive (Dormant)"}
-                    </button>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: ADD EXCEPTION RULE */}
-      {showAddRuleModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900">
-                {newRule.id ? "Edit Exception Rule" : "Add Exception Rule"}
-              </h3>
-              <button
-                onClick={() => setShowAddRuleModal(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Display Special Note Context if available */}
-            {modalContextNote && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
-                <MessageSquare className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
-                <div>
-                  <span className="text-xs font-bold text-amber-900">
-                    Survey Request from {newRule.person_a}:
-                  </span>
-                  <p className="text-xs text-amber-800 mt-0.5 font-medium italic">
-                    "{modalContextNote}"
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <form onSubmit={handleSaveRule} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Rule Type</label>
-                <select
-                  value={newRule.rule_type}
-                  onChange={(e) => setNewRule({ ...newRule, rule_type: e.target.value as RuleType })}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-                >
-                  <option value="NOT_SAME_TEAM">NOT_SAME_TEAM (Cannot be in same team)</option>
-                  <option value="NOT_SAME_DAY">NOT_SAME_DAY (Cannot be scheduled on same date)</option>
-                  <option value="SAME_DAY_DIFF_TEAM">SAME_DAY_DIFF_TEAM (Same date, different team)</option>
-                  <option value="PAIR_WITH_ROLE">PAIR_WITH_ROLE (Assign together for role)</option>
-                  <option value="PREF_SAME_DAY">PREF_SAME_DAY (Allow Cook & Clean on same date)</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Person A</label>
-                  <select
-                    value={newRule.person_a}
-                    onChange={(e) => setNewRule({ ...newRule, person_a: e.target.value })}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-                  >
-                    <option value="">Select Member...</option>
-                    {members.map((m) => (
-                      <option key={m.name} value={m.name}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Person B (Optional)</label>
-                  <select
-                    value={newRule.person_b || ""}
-                    onChange={(e) => setNewRule({ ...newRule, person_b: e.target.value })}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-                  >
-                    <option value="">Select Member (if paired)...</option>
-                    {members.map((m) => (
-                      <option key={m.name} value={m.name}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Constraint Strictness</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="strictness"
-                      checked={newRule.is_hard_rule === true}
-                      onChange={() => setNewRule({ ...newRule, is_hard_rule: true })}
-                    />
-                    Hard Rule (Strictly enforced)
-                  </label>
-                  <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="strictness"
-                      checked={newRule.is_hard_rule === false}
-                      onChange={() => setNewRule({ ...newRule, is_hard_rule: false })}
-                    />
-                    Soft Preference (Best effort)
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Rationale / Notes</label>
-                <input
-                  type="text"
-                  value={newRule.notes || ""}
-                  onChange={(e) => setNewRule({ ...newRule, notes: e.target.value })}
-                  placeholder="e.g. Roommates, Childcare conflict..."
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowAddRuleModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-sm"
-                >
-                  {newRule.id ? "Update Rule" : "Save Rule"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 3: VIEW DATES & ASSIGN EXTRA SHIFT */}
-      {selectedQuotaMember && solverResult && intakeData && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl p-6 space-y-4 max-h-[90vh] flex flex-col">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <UserPlus className="w-5 h-5 text-orange-600" />
-                  Available Dates & Extra Shift Assignment: {selectedQuotaMember}
-                </h3>
-                {solverResult.memberStats[selectedQuotaMember] && (
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Requested Quota:{" "}
-                    <strong>{solverResult.memberStats[selectedQuotaMember].requestedCookQuota}</strong> cooks,{" "}
-                    <strong>{solverResult.memberStats[selectedQuotaMember].requestedCleanQuota ?? 1}</strong> cleans •
-                    Currently Assigned:{" "}
-                    <strong>{solverResult.memberStats[selectedQuotaMember].assignedCooks}</strong> cooks,{" "}
-                    <strong>{solverResult.memberStats[selectedQuotaMember].assignedCleans}</strong> cleans (
-                    {solverResult.memberStats[selectedQuotaMember].totalAssigned} total shifts)
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={() => setSelectedQuotaMember(null)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Special Instructions Context if any */}
-            {(() => {
-              const resp = intakeData.responses.find(
-                (r) => r.name.toLowerCase() === selectedQuotaMember.toLowerCase()
-              );
-              if (!resp?.specialInstructions) return null;
-              return (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5">
-                  <MessageSquare className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
-                  <div>
-                    <span className="text-xs font-bold text-amber-900">
-                      Survey Request from {selectedQuotaMember}:
-                    </span>
-                    <p className="text-xs text-amber-800 mt-0.5 font-medium italic">
-                      "{resp.specialInstructions}"
-                    </p>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Dates List */}
-            <div className="overflow-y-auto flex-1 divide-y divide-slate-100 pr-1 space-y-2">
-              {solverResult.schedule.map((day) => {
-                const resp = intakeData.responses.find(
-                  (r) => r.name.toLowerCase() === selectedQuotaMember.toLowerCase()
-                );
-                const avail = resp?.availability[day.dateLabel] || "UNAVAILABLE";
-                const isCook = day.cooks.includes(selectedQuotaMember);
-                const isClean = day.cleaners.includes(selectedQuotaMember);
-
-                const cookConflict = !isCook
-                  ? checkAssignmentConflict(selectedQuotaMember, "COOK", day)
-                  : null;
-                const cleanConflict = !isClean
-                  ? checkAssignmentConflict(selectedQuotaMember, "CLEAN", day)
-                  : null;
-
-                const canCook = avail === "AVAILABLE" || avail === "COOK_ONLY";
-                const canClean = avail === "AVAILABLE" || avail === "CLEAN_ONLY";
-
-                return (
-                  <div
-                    key={day.dateKey}
-                    className={`p-3 rounded-xl border transition-colors ${
-                      isCook || isClean
-                        ? "bg-orange-50/40 border-orange-200"
-                        : canCook || canClean
-                        ? "bg-white border-slate-200 hover:border-slate-300"
-                        : "bg-slate-50/50 border-slate-100 opacity-60"
-                    }`}
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      {/* Left: Date info & Current roster */}
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-900">{day.dateLabel}</span>
-                          <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase ${
-                              day.mealType === "BRUNCH"
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-indigo-50 text-indigo-700"
-                            }`}
-                          >
-                            {day.mealType}
-                          </span>
-                          <span
-                            className={`text-[10px] px-2 py-0.2 rounded-full font-bold ${
-                              avail === "AVAILABLE"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : avail === "COOK_ONLY"
-                                ? "bg-orange-100 text-orange-800"
-                                : avail === "CLEAN_ONLY"
-                                ? "bg-sky-100 text-sky-800"
-                                : "bg-slate-100 text-slate-500"
-                            }`}
-                          >
-                            Survey: {avail.replace("_", " ")}
-                          </span>
-                        </div>
-
-                        {/* Current Assigned Roster */}
-                        <div className="text-[11px] text-slate-600 mt-1 space-y-0.5">
-                          <p>
-                            <span className="font-semibold text-orange-800">🍳 Cooks ({day.cooks.length}):</span>{" "}
-                            {day.cooks.join(", ") || "None"}
-                          </p>
-                          <p>
-                            <span className="font-semibold text-sky-800">🧼 Cleaners ({day.cleaners.length}):</span>{" "}
-                            {day.cleaners.join(", ") || "None"}
-                          </p>
-                        </div>
-
-                        {/* Conflict Warnings */}
-                        {cookConflict && (
-                          <p className="text-[11px] text-rose-600 font-semibold mt-1">
-                            ⚠️ Cook Conflict: {cookConflict}
-                          </p>
-                        )}
-                        {cleanConflict && (
-                          <p className="text-[11px] text-rose-600 font-semibold mt-1">
-                            ⚠️ Clean Conflict: {cleanConflict}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Right: Actions */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {isCook ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-1 rounded-lg">
-                              ✅ Assigned Cook
-                            </span>
-                            <button
-                              onClick={() => handleRemoveShift(day.dateKey, selectedQuotaMember, "COOK")}
-                              className="p-1 text-slate-400 hover:text-rose-600 rounded"
-                              title="Remove cook shift"
-                            >
-                              <XCircle className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ) : canCook && !cookConflict ? (
-                          <button
-                            onClick={() => handleAddExtraShift(day.dateKey, selectedQuotaMember, "COOK")}
-                            className="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors"
-                          >
-                            + Add as Cook ({getOrdinal(day.cooks.length + 1)})
-                          </button>
-                        ) : null}
-
-                        {isClean ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-sky-700 bg-sky-100 px-2 py-1 rounded-lg">
-                              ✅ Assigned Cleaner
-                            </span>
-                            <button
-                              onClick={() => handleRemoveShift(day.dateKey, selectedQuotaMember, "CLEAN")}
-                              className="p-1 text-slate-400 hover:text-rose-600 rounded"
-                              title="Remove clean shift"
-                            >
-                              <XCircle className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ) : canClean && !cleanConflict && !isCook ? (
-                          <button
-                            onClick={() => handleAddExtraShift(day.dateKey, selectedQuotaMember, "CLEAN")}
-                            className="px-2.5 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors"
-                          >
-                            + Add as Cleaner ({getOrdinal(day.cleaners.length + 1)})
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="flex justify-end pt-3 border-t border-slate-100">
-              <button
-                onClick={() => setSelectedQuotaMember(null)}
-                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 4: FILL MISSING SLOT (OVERRIDE / OVERSUBSCRIBE) */}
-      {selectedSlotToFill && solverResult && intakeData && (() => {
-        const targetDay = solverResult.schedule.find((d) => d.dateKey === selectedSlotToFill.dateKey);
-        if (!targetDay) return null;
-        const role = selectedSlotToFill.role;
-        const isCookRole = role === "COOK";
-
-        // Sort candidates: Available first, then by non-oversubscribed, then lowest total assigned shifts
-        const candidateList = intakeData.responses
-          .map((resp) => {
-            const avail = resp.availability[selectedSlotToFill.dateLabel] || "UNAVAILABLE";
-            const stat = solverResult.memberStats[resp.name];
-            const isAlreadyCook = targetDay.cooks.includes(resp.name);
-            const isAlreadyClean = targetDay.cleaners.includes(resp.name);
-            const conflict = checkAssignmentConflict(resp.name, role, targetDay);
-
-            const isAvailableForRole = isCookRole
-              ? avail === "AVAILABLE" || avail === "COOK_ONLY"
-              : avail === "AVAILABLE" || avail === "CLEAN_ONLY";
-
-            const assignedCount = isCookRole ? stat?.assignedCooks || 0 : stat?.assignedCleans || 0;
-            const quota = isCookRole
-              ? stat?.requestedCookQuota || 1
-              : stat?.requestedCleanQuota ?? 1;
-            const isOversubscribed = assignedCount >= quota;
-
-            return {
-              resp,
-              stat,
-              avail,
-              isAvailableForRole,
-              isAlreadyCook,
-              isAlreadyClean,
-              conflict,
-              assignedCount,
-              quota,
-              isOversubscribed,
-            };
-          })
-          .sort((a, b) => {
-            // Available first
-            if (a.isAvailableForRole && !b.isAvailableForRole) return -1;
-            if (!a.isAvailableForRole && b.isAvailableForRole) return 1;
-            // Non-oversubscribed first
-            if (!a.isOversubscribed && b.isOversubscribed) return -1;
-            if (a.isOversubscribed && !b.isOversubscribed) return 1;
-            return (a.stat?.totalAssigned || 0) - (b.stat?.totalAssigned || 0);
-          });
-
-        return (
-          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl p-6 space-y-4 max-h-[90vh] flex flex-col">
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <UserPlus className={`w-5 h-5 ${isCookRole ? "text-orange-600" : "text-sky-600"}`} />
-                    Fill Missing {isCookRole ? "Cook" : "Cleaner"} Slot
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    <strong>{selectedSlotToFill.dateLabel}</strong> ({targetDay.mealType}) • Current Team:{" "}
-                    {isCookRole
-                      ? `Cooks: ${targetDay.cooks.join(", ") || "None"}`
-                      : `Cleaners: ${targetDay.cleaners.join(", ") || "None"}`}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setSelectedSlotToFill(null)}
-                  className="text-slate-400 hover:text-slate-600 text-lg font-bold"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Informational Callout */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600">
-                💡 Select a community member below to fill this slot. Members who have already fulfilled their requested quota will be marked as <strong>Oversubscribed</strong> in the distribution summary.
-              </div>
-
-              {/* Candidate List */}
-              <div className="overflow-y-auto flex-1 divide-y divide-slate-100 pr-1 space-y-2">
-                {candidateList.map((item) => {
-                  const {
-                    resp,
-                    stat,
-                    avail,
-                    isAvailableForRole,
-                    isAlreadyCook,
-                    isAlreadyClean,
-                    conflict,
-                    assignedCount,
-                    quota,
-                    isOversubscribed,
-                  } = item;
-                  const alreadyAssignedOnRole = isCookRole ? isAlreadyCook : isAlreadyClean;
-
-                  return (
-                    <div
-                      key={resp.name}
-                      className={`p-3 rounded-xl border transition-colors ${
-                        alreadyAssignedOnRole
-                          ? "bg-slate-50 border-slate-200 opacity-60"
-                          : isAvailableForRole && !conflict
-                          ? "bg-white border-slate-200 hover:border-slate-300"
-                          : "bg-slate-50/50 border-slate-100 opacity-60"
-                      }`}
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        {/* Left: Member info */}
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-900">{resp.name}</span>
-                            <span
-                              className={`text-[10px] px-2 py-0.2 rounded-full font-bold ${
-                                avail === "AVAILABLE"
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : avail === "COOK_ONLY"
-                                  ? "bg-orange-100 text-orange-800"
-                                  : avail === "CLEAN_ONLY"
-                                  ? "bg-sky-100 text-sky-800"
-                                  : "bg-slate-100 text-slate-500"
-                              }`}
-                            >
-                              Survey: {avail.replace("_", " ")}
-                            </span>
-                            {isOversubscribed ? (
-                              <span className="text-[10px] px-2 py-0.2 rounded-full font-bold bg-purple-100 text-purple-800 border border-purple-200">
-                                ⚠️ Oversubscribes ({assignedCount}/{quota} shifts)
-                              </span>
-                            ) : (
-                              <span className="text-[10px] px-2 py-0.2 rounded-full font-bold bg-blue-50 text-blue-700">
-                                Has Quota ({assignedCount}/{quota})
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-3">
-                            <span>
-                              Total shifts: <strong>{stat?.totalAssigned || 0}</strong>
-                            </span>
-                            <span>
-                              Cooks: <strong>{stat?.assignedCooks || 0}</strong>
-                            </span>
-                            <span>
-                              Cleans: <strong>{stat?.assignedCleans || 0}</strong>
-                            </span>
-                            {resp.canCookCleanSameDay && (
-                              <span className="text-emerald-600 font-semibold">✓ Same-day willing</span>
-                            )}
-                          </div>
-
-                          {resp.specialInstructions && (
-                            <p className="text-[11px] text-amber-700 italic mt-0.5">
-                              "{resp.specialInstructions}"
-                            </p>
-                          )}
-
-                          {conflict && (
-                            <p className="text-[11px] text-rose-600 font-semibold mt-1">
-                              ⚠️ Conflict: {conflict}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Right: Action */}
-                        <div className="shrink-0">
-                          {alreadyAssignedOnRole ? (
-                            <span className="text-xs text-slate-400 font-semibold">
-                              Already Assigned
-                            </span>
-                          ) : conflict ? (
-                            <span className="text-xs text-rose-500 font-semibold">
-                              Blocked by Rule
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                handleAddExtraShift(selectedSlotToFill.dateKey, resp.name, role);
-                                setSelectedSlotToFill(null);
-                              }}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors ${
-                                isCookRole
-                                  ? "bg-orange-600 hover:bg-orange-700 text-white"
-                                  : "bg-sky-600 hover:bg-sky-700 text-white"
-                              }`}
-                            >
-                              + Assign {resp.name}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Footer */}
-              <div className="flex justify-end pt-3 border-t border-slate-100">
-                <button
-                  onClick={() => setSelectedSlotToFill(null)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* MODAL 5: GLOBAL APPLICATION & SOLVER SETTINGS */}
-      {showSettingsModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] shadow-2xl flex flex-col overflow-hidden">
-            {/* Header */}
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center">
-                  <Settings className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Global Application & Solver Settings</h3>
-                  <p className="text-xs text-slate-500">Configure sizing policies, default quotas, and solver behavior</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowSettingsModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Settings Form Body */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
-              {/* 1. Cook Team Sizing Policy */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Utensils className="w-3.5 h-3.5 text-orange-600" />
-                  Cook Team Sizing Policy
-                </label>
-                <p className="text-slate-500 text-[11px]">
-                  Controls target cook team sizes and dynamic flexibility on tight dates.
-                </p>
-
-                <div className="space-y-2 pt-1">
-                  {[
-                    {
-                      id: "ADAPTIVE_3_OR_2",
-                      title: "Adaptive Sizing (Recommended / Default)",
-                      desc: "Target 3 cooks on Dinners & 2 on Brunches. Dynamically accepts 2 cooks on Dinner without errors if all assigned cooks agreed to 2 in the survey.",
-                      badge: "Default",
-                    },
-                    {
-                      id: "DINNER_3_BRUNCH_2",
-                      title: "Strict 3 Dinner / 2 Brunch",
-                      desc: "Strictly requires 3 cooks on every Dinner and 2 on every Brunch, flagging unfilled slots if 3 cooks cannot be scheduled.",
-                    },
-                    {
-                      id: "TWO_REGARDLESS",
-                      title: "Strict 2 Cooks Regardless",
-                      desc: "Always schedules exactly 2 cooks for all Dinners and Brunches.",
-                    },
-                  ].map((opt) => (
-                    <label
-                      key={opt.id}
-                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
-                        cookPolicy === opt.id
-                          ? "bg-orange-50/70 border-orange-300 ring-1 ring-orange-400/40"
-                          : "bg-white border-slate-200 hover:border-slate-300"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="cookPolicy"
-                        value={opt.id}
-                        checked={cookPolicy === opt.id}
-                        onChange={() => setCookPolicy(opt.id as CookTeamPolicy)}
-                        className="mt-0.5 text-orange-600 focus:ring-orange-500"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900">{opt.title}</span>
-                          {opt.badge && (
-                            <span className="text-[10px] bg-orange-100 text-orange-800 font-bold px-2 py-0.2 rounded-full">
-                              {opt.badge}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-slate-500 text-[11px] mt-0.5">{opt.desc}</p>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* 2. Default Clean Shift Quota */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-sky-600" />
-                  Default Cleaning Shifts per Member (Fallback)
-                </label>
-                <p className="text-slate-500 text-[11px]">
-                  Default monthly cleaning shifts assigned per person when not specified in survey or for legacy responses.
-                </p>
-
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  {[
-                    { val: 1, label: "1 Shift (Default)" },
-                    { val: 2, label: "2 Shifts" },
-                    { val: 0, label: "0 (Exempt)" },
-                  ].map((item) => (
-                    <button
-                      key={item.val}
-                      type="button"
-                      onClick={() => setDefaultCleanQuota(item.val)}
-                      className={`py-2 px-3 rounded-xl border text-center font-bold transition-all ${
-                        defaultCleanQuota === item.val
-                          ? "bg-sky-50 border-sky-300 text-sky-900 ring-1 ring-sky-400/40"
-                          : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 3. Team Sizing Targets Summary */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-indigo-600" />
-                  Standard Meal Staffing Targets
-                </label>
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <span className="font-bold text-indigo-900 block text-xs">Dinner Shifts</span>
-                    <p className="text-slate-600 text-[11px] mt-0.5">🍳 3 Cooks (or 2 adaptive) • 🧼 3 Cleaners</p>
-                  </div>
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <span className="font-bold text-amber-900 block text-xs">Brunch Shifts</span>
-                    <p className="text-slate-600 text-[11px] mt-0.5">🍳 2 Cooks • 🧼 2 Cleaners</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* 4. Google Drive Workspace & Master Community Registry */}
-              <div className="space-y-3 pt-2 border-t border-slate-100">
-                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Folder className="w-3.5 h-3.5 text-emerald-600" />
-                  Google Drive Workspace & Master Registry
-                </label>
-                <p className="text-slate-500 text-[11px]">
-                  Link the canonical community roster spreadsheet and provision test spreadsheets in your Drive folder.
-                </p>
-
-                <div className="space-y-2">
-                  <div>
-                    <span className="text-[11px] font-bold text-slate-700 block mb-1">
-                      Master Registry Sheet URL or ID:
-                    </span>
-                    <input
-                      type="text"
-                      value={masterSheetInput}
-                      onChange={(e) => setMasterSheetInput(e.target.value)}
-                      placeholder="Leave blank to use default Script Property or paste Sheet URL..."
-                      className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
-                    />
-                  </div>
-
-                  <div>
-                    <span className="text-[11px] font-bold text-slate-700 block mb-1">
-                      Target Google Drive Root Folder ID:
-                    </span>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <input
-                        type="text"
-                        value={driveFolderId}
-                        onChange={(e) => setDriveFolderId(e.target.value)}
-                        placeholder="Google Drive Folder ID (e.g. 1U0cJqnxCgWn...)"
-                        className="flex-1 px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={handleCreateLaunchers}
-                          disabled={provisioning}
-                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 shrink-0 flex items-center gap-1.5 shadow-sm"
-                          title="Generates direct 1-click launcher documents and HTML shortcuts in Google Drive"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          <span>Create Drive Shortcuts</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleProvisionDrive}
-                          disabled={provisioning}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50 shrink-0 flex items-center gap-1.5 shadow-sm"
-                        >
-                          <RefreshCw className={`w-3.5 h-3.5 ${provisioning ? "animate-spin" : ""}`} />
-                          <span>{provisioning ? "Provisioning..." : "Re-Provision Folders"}</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {provisionResult && (
-                    <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl space-y-2 text-[11px]">
-                      <div className="flex items-center gap-1.5 text-emerald-800 font-bold">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        Drive Workspace Ready!
-                      </div>
-                      <div className="space-y-1 text-slate-700">
-                        <p>
-                          <strong>Live Master Registry:</strong>{" "}
-                          <a
-                            href={provisionResult.liveMasterSheetUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-emerald-700 hover:underline inline-flex items-center gap-0.5 font-semibold"
-                          >
-                            Open Live Sheet <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </p>
-                        <p>
-                          <strong>Dev/Test Master Registry:</strong>{" "}
-                          <a
-                            href={provisionResult.devMasterSheetUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-emerald-700 hover:underline inline-flex items-center gap-0.5 font-semibold"
-                          >
-                            Open Dev Sheet <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </p>
-                        {provisionResult.testSheets && (
-                          <div className="pt-1 border-t border-emerald-200/60">
-                            <span className="font-bold text-slate-800 block mb-0.5">
-                              Generated Test Scenario Sheets ({provisionResult.testSheets.length}):
-                            </span>
-                            <ul className="list-disc pl-4 space-y-0.5 text-slate-600">
-                              {provisionResult.testSheets.map((ts: any) => (
-                                <li key={ts.key}>
-                                  <a
-                                    href={ts.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-indigo-600 hover:underline inline-flex items-center gap-0.5"
-                                  >
-                                    {ts.name} <ExternalLink className="w-2.5 h-2.5" />
-                                  </a>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-              <button
-                onClick={() => setShowSettingsModal(false)}
-                className="px-4 py-2 text-slate-600 hover:text-slate-900 font-semibold text-xs rounded-xl"
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={async () => {
-                  setShowSettingsModal(false);
-                  if (intakeData) {
-                    await handleRunSolver(cookPolicy);
-                    showToast("Settings applied & schedule recalculated!");
-                  } else {
-                    showToast("Settings saved!");
-                  }
-                }}
-                className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs rounded-xl shadow-sm transition-colors flex items-center gap-1.5"
-              >
-                <Sparkles className="w-3.5 h-3.5" /> Save & Re-Calculate Schedule
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-3.5 text-center text-xs text-slate-400">
         Community Cook Team App • Built for Community Meal Coordinators • Google Apps Script & React
       </footer>

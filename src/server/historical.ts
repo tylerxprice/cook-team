@@ -4,7 +4,8 @@
  * and parses historical email schedule announcements for solver comparison.
  */
 
-import { MealDate, MealType, SurveyResponse, AvailabilityStatus, DaySchedule, ScheduleOutput } from "./types";
+import { MealDate, MealType, SurveyResponse, AvailabilityStatus, DaySchedule } from "./types";
+import { formatScheduleDateLabel, parseDateFromLabelOrKey } from "./scheduleParser";
 
 export interface HistoricalFolderInventory {
   folderId: string;
@@ -24,6 +25,29 @@ export interface LegacySheetParseResult {
   mealDates: MealDate[];
   responses: SurveyResponse[];
   rawRowsCount: number;
+}
+
+/**
+ * Normalizes member names from historical sheets and email schedules:
+ * - Drops trailing period on last initials ("Mark L." -> "Mark L")
+ * - Corrects typos and aliases: "Sage" -> "Saje", "Mark B" -> "Marko", "Cyrena" -> "Cy", "Becca" -> "Ash", "Ian B" -> "Ian"
+ */
+export function normalizeHistoricalMemberName(rawName?: string): string {
+  if (!rawName) return "";
+  let name = String(rawName).replace(/[#*]+/g, "").trim();
+
+  // Strip trailing period on last initial or name
+  name = name.replace(/\.$/, "").trim();
+
+  // Specific alias & typo map
+  const lower = name.toLowerCase().trim();
+  if (lower === "sage") return "Saje";
+  if (lower === "mark b") return "Marko";
+  if (lower === "cyrena") return "Cy";
+  if (lower === "becca") return "Ash";
+  if (lower === "ian b") return "Ian";
+
+  return name;
 }
 
 /**
@@ -66,7 +90,11 @@ export function scanHistoricalDriveFolder(
         } catch (e: any) {
           item.snippet = `Error reading doc: ${e.message}`;
         }
-      } else if (mime === MimeType.PLAIN_TEXT || f.getName().endsWith(".txt") || f.getName().endsWith(".eml")) {
+      } else if (
+        mime === MimeType.PLAIN_TEXT ||
+        f.getName().endsWith(".txt") ||
+        f.getName().endsWith(".eml")
+      ) {
         try {
           const content = f.getBlob().getDataAsString();
           item.snippet = content.slice(0, 300) + (content.length > 300 ? "..." : "");
@@ -94,67 +122,95 @@ export function scanHistoricalDriveFolder(
  */
 export function parseLegacyMonthlySignupTab(
   sheet: GoogleAppsScript.Spreadsheet.Sheet,
-  year = 2026
+  _year = 2026
 ): LegacySheetParseResult {
   const data = sheet.getDataRange().getValues();
-  if (data.length < 2) {
+  if (data.length < 4) {
     throw new Error(`Tab "${sheet.getName()}" does not have enough rows.`);
   }
 
-  // Row 0 or 1 contains date headers
-  let headerRowIdx = 0;
-  for (let r = 0; r < Math.min(5, data.length); r++) {
-    const row = data[r];
-    const nonBlankCount = row.filter((c: any) => String(c || "").trim() !== "").length;
-    // If multiple columns have date-like strings
-    if (nonBlankCount >= 3 && (String(row[2] || "").match(/\d|mon|tue|wed|thu|fri|sat|sun|dinner|brunch/i))) {
-      headerRowIdx = r;
-      break;
-    }
-  }
+  // Row 0: Day of week (Monday, Thursday, Sunday)
+  // Row 1: Meal type / Note (Dinner, Brunch, Holiday)
+  // Row 2: Date (Date object or serial date number or string)
+  const row0 = data[0] || [];
+  const row1 = data[1] || [];
+  const row2 = data[2] || [];
 
-  const headerRow = data[headerRowIdx];
   const dateColumns: { colIdx: number; mealDate: MealDate }[] = [];
 
-  // Parse date headers starting from column index 2 (Col C)
-  for (let c = 2; c < headerRow.length; c++) {
-    const cell = String(headerRow[c] || "").trim();
-    if (!cell || /total|sum|count|note/i.test(cell)) {
-      continue;
+  for (let c = 2; c < row2.length; c++) {
+    const dayName = String(row0[c] || "").trim();
+    const typeOrNote = String(row1[c] || "").trim();
+    const dateVal = row2[c];
+
+    if (dateVal === null || dateVal === undefined || dateVal === "") continue;
+
+    let dateIso = "";
+    let dateShort = "";
+
+    if (dateVal instanceof Date) {
+      const yr = dateVal.getFullYear();
+      const mo = String(dateVal.getMonth() + 1).padStart(2, "0");
+      const da = String(dateVal.getDate()).padStart(2, "0");
+      dateIso = `${yr}-${mo}-${da}`;
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+      dateShort = `${months[dateVal.getMonth()]} ${dateVal.getDate()}`;
+    } else if (typeof dateVal === "number" || !isNaN(Number(dateVal))) {
+      // Excel serial date
+      const num = Number(dateVal);
+      if (num > 30000 && num < 60000) {
+        const d = new Date(Math.round((num - 25569) * 86400 * 1000));
+        const yr = d.getUTCFullYear();
+        const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
+        const da = String(d.getUTCDate()).padStart(2, "0");
+        dateIso = `${yr}-${mo}-${da}`;
+        const months = [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dec",
+        ];
+        dateShort = `${months[d.getUTCMonth()]} ${d.getUTCDate()}`;
+      }
     }
 
-    const isBrunch = /brunch/i.test(cell);
-    const dayOfWeek = /mon/i.test(cell)
-      ? "Monday"
-      : /tue/i.test(cell)
-      ? "Tuesday"
-      : /wed/i.test(cell)
-      ? "Wednesday"
-      : /thu/i.test(cell)
-      ? "Thursday"
-      : /fri/i.test(cell)
-      ? "Friday"
-      : /sat/i.test(cell)
-      ? "Saturday"
-      : /sun/i.test(cell)
-      ? "Sunday"
-      : "Other";
+    if (!dateIso) continue;
 
-    let specialNote: string | undefined = undefined;
-    if (cell.includes("-")) {
-      specialNote = cell.split("-").slice(1).join("-").trim();
-    }
-
-    const dateKey = `${year}-${String(dateColumns.length + 1).padStart(2, "0")}`;
+    const isBrunch = /brunch/i.test(typeOrNote) || /brunch/i.test(dayName);
+    const mealType: MealType = isBrunch ? "BRUNCH" : "DINNER";
+    const cleanDayName = dayName ? dayName.slice(0, 3) : "Day";
+    const dateLabel = `${dateShort} (${cleanDayName}${isBrunch ? ", Brunch" : ""})`;
+    const specialNote = typeOrNote && !/dinner|brunch/i.test(typeOrNote) ? typeOrNote : undefined;
 
     dateColumns.push({
       colIdx: c,
       mealDate: {
         id: `MEAL-${dateColumns.length + 1}`,
-        dateKey,
-        dateLabel: cell,
-        dayOfWeek,
-        mealType: isBrunch ? "BRUNCH" : "DINNER",
+        dateKey: dateIso,
+        dateLabel,
+        dayOfWeek: dayName || "Other",
+        mealType,
         specialNote,
         targetCookCount: isBrunch ? 2 : 3,
         targetCleanCount: isBrunch ? 2 : 3,
@@ -164,18 +220,19 @@ export function parseLegacyMonthlySignupTab(
 
   const responses: SurveyResponse[] = [];
 
-  // Parse respondent rows
-  for (let r = headerRowIdx + 1; r < data.length; r++) {
+  // Parse respondent rows starting from Row 3 (Row 4 in 1-based index)
+  for (let r = 3; r < data.length; r++) {
     const row = data[r];
     const rawName = String(row[0] || "").trim();
     if (!rawName || /total|sum|count|average|notes|legend/i.test(rawName)) {
       continue;
     }
 
+    // Clean name: normalize typos, drop trailing periods on last initials, strip # and * suffixes
+    const cleanName = normalizeHistoricalMemberName(rawName);
     const specialInstructions = String(row[1] || "").trim();
-
-    // Check special instructions for preferences
     const lowerNotes = specialInstructions.toLowerCase();
+
     const canCookCleanSameDay =
       lowerNotes.includes("same day") ||
       lowerNotes.includes("cook & clean") ||
@@ -186,27 +243,78 @@ export function parseLegacyMonthlySignupTab(
       lowerNotes.includes("2-person") ||
       lowerNotes.includes("2 cooks") ||
       lowerNotes.includes("two cooks") ||
-      lowerNotes.includes("2 regardless");
+      lowerNotes.includes("2 regardless") ||
+      lowerNotes.includes("2 for cooking") ||
+      lowerNotes.includes("2 for cook") ||
+      lowerNotes.includes("2 for either") ||
+      lowerNotes.includes("2 for dinners") ||
+      lowerNotes.includes("2 on dinners") ||
+      lowerNotes.includes("2 either");
 
-    // Check for explicit cook quota in notes
     let cookQuota = 1;
     let cleanQuota = 1;
-    if (lowerNotes.includes("2 cook") || lowerNotes.includes("cook 2") || lowerNotes.includes("cook twice")) {
+    if (
+      lowerNotes.includes("unable to participate") ||
+      lowerNotes.includes("out of town") ||
+      lowerNotes.includes("away") ||
+      lowerNotes.includes("busy month") ||
+      lowerNotes.includes("no meals")
+    ) {
+      cookQuota = 0;
+      cleanQuota = 0;
+    }
+    if (
+      lowerNotes.includes("cook twice") ||
+      lowerNotes.includes("cook 2 meals") ||
+      lowerNotes.includes("cook 2x") ||
+      lowerNotes.includes("2 cooking shifts") ||
+      lowerNotes.includes("two cooking shifts")
+    ) {
       cookQuota = 2;
-    } else if (lowerNotes.includes("0 cook") || lowerNotes.includes("no cook") || lowerNotes.includes("clean only")) {
+    }
+    if (
+      lowerNotes.includes("cook 3x") ||
+      lowerNotes.includes("cook 3 meals") ||
+      lowerNotes.includes("3 cooking shifts")
+    ) {
+      cookQuota = 3;
+    }
+    if (
+      lowerNotes.includes("clean only") ||
+      lowerNotes.includes("0 cook") ||
+      lowerNotes.includes("no cook")
+    ) {
       cookQuota = 0;
     }
-
-    if (lowerNotes.includes("2 clean") || lowerNotes.includes("clean 2") || lowerNotes.includes("clean twice")) {
+    if (
+      lowerNotes.includes("clean twice") ||
+      lowerNotes.includes("clean 2 meals") ||
+      lowerNotes.includes("clean 2x") ||
+      lowerNotes.includes("2 cleaning shifts") ||
+      lowerNotes.includes("two cleaning shifts")
+    ) {
       cleanQuota = 2;
-    } else if (lowerNotes.includes("0 clean") || lowerNotes.includes("no clean") || lowerNotes.includes("cook only")) {
+    }
+    if (
+      lowerNotes.includes("cook only") ||
+      lowerNotes.includes("0 clean") ||
+      lowerNotes.includes("no clean")
+    ) {
       cleanQuota = 0;
     }
 
     const availability: Record<string, AvailabilityStatus> = {};
     for (const dc of dateColumns) {
-      const cellVal = String(row[dc.colIdx] || "").trim().toLowerCase();
-      if (cellVal === "y" || cellVal === "yes" || cellVal === "available" || cellVal === "both" || cellVal === "1") {
+      const cellVal = String(row[dc.colIdx] || "")
+        .trim()
+        .toLowerCase();
+      if (
+        cellVal === "y" ||
+        cellVal === "yes" ||
+        cellVal === "available" ||
+        cellVal === "both" ||
+        cellVal === "1"
+      ) {
         availability[dc.mealDate.dateLabel] = "AVAILABLE";
       } else if (cellVal.includes("cook")) {
         availability[dc.mealDate.dateLabel] = "COOK_ONLY";
@@ -219,10 +327,10 @@ export function parseLegacyMonthlySignupTab(
 
     responses.push({
       timestamp: new Date().toISOString(),
-      email: "",
-      name: rawName,
+      email: `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, "")}@example.com`,
+      name: cleanName,
       availability,
-      cookTeamSizePref: willing2PersonDinner ? "2 regardless of meal type" : "Dinner = 3, Brunch = 2",
+      cookTeamSizePref: willing2PersonDinner ? "2 for either" : "Dinner = 3, Brunch = 2",
       canCookCleanSameDay,
       cookQuota,
       cleanQuota,
@@ -238,86 +346,198 @@ export function parseLegacyMonthlySignupTab(
   };
 }
 
+export function cleanEmailText(raw: string): string {
+  let text = raw;
+  // Strip soft line breaks and decode quoted-printable
+  text = text.replace(/=\r?\n/g, "");
+  text = text.replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  // If HTML, convert breaks and strip tags
+  if (text.includes("<") && text.includes(">")) {
+    text = text
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n\n")
+      .replace(/<\/div>/gi, "\n");
+    text = text.replace(/<[^>]+>/g, "");
+  }
+  return text;
+}
+
+export function extractMonthKey(str: string): string | null {
+  const s = str.toLowerCase();
+  if (s.includes("jan")) return "01";
+  if (s.includes("feb")) return "02";
+  if (s.includes("mar")) return "03";
+  if (s.includes("apr")) return "04";
+  if (s.includes("may")) return "05";
+  if (s.includes("jun")) return "06";
+  if (s.includes("jul")) return "07";
+  if (s.includes("aug")) return "08";
+  if (s.includes("sep")) return "09";
+  if (s.includes("oct")) return "10";
+  if (s.includes("nov")) return "11";
+  if (s.includes("dec")) return "12";
+  return null;
+}
+
+export function formatHistoricalSheetTitle(tabName: string): string {
+  const clean = tabName.trim().toUpperCase();
+  // Match month name and year with any separator (slash, space, dash, underscore, or none)
+  // e.g. "MAY/26", "JUNE 2026", "AUG26", "SEPT-26", "DEC/24", "2026 JUNE"
+  const m = clean.match(/([A-Z]{3,})[^0-9A-Z]*(\d{2,4})/);
+  if (m) {
+    const monthStr = m[1];
+    const yearStr = m[2];
+    const monthKey = extractMonthKey(monthStr) || "01";
+    const month3 = monthStr.slice(0, 3);
+    const yr2 = yearStr.length === 4 ? yearStr.slice(2) : yearStr;
+    return `Historical - ${yr2}-${monthKey} ${month3} Cook Team Survey (Responses)`;
+  }
+
+  const mRev = clean.match(/(\d{2,4})[^0-9A-Z]*([A-Z]{3,})/);
+  if (mRev) {
+    const yearStr = mRev[1];
+    const monthStr = mRev[2];
+    const monthKey = extractMonthKey(monthStr) || "01";
+    const month3 = monthStr.slice(0, 3);
+    const yr2 = yearStr.length === 4 ? yearStr.slice(2) : yearStr;
+    return `Historical - ${yr2}-${monthKey} ${month3} Cook Team Survey (Responses)`;
+  }
+
+  return `Historical - ${tabName} Cook Team Survey (Responses)`;
+}
+
 /**
  * Parses Brenda's email schedule announcement into a ground-truth DaySchedule[]
  */
-export function parseEmailScheduleAnnouncement(emailText: string): DaySchedule[] {
+export function parseEmailScheduleAnnouncement(rawEmailText: string): DaySchedule[] {
+  let emailText = cleanEmailText(rawEmailText);
+  // Strip email signature and footers
+  emailText = emailText.replace(/--\s*\n[\s\S]*/g, "");
+  // Unquote reply lines if whole email was a thread reply
+  emailText = emailText.replace(/^>\s?/gm, "");
+
   const lines = emailText.split(/\r?\n/).map((l) => l.trim());
   const schedule: DaySchedule[] = [];
 
-  let currentDay: Partial<DaySchedule> | null = null;
+  let currentDay: {
+    dateLabel: string;
+    mealType: MealType;
+    cooks: string[];
+    cleaners: string[];
+    isNoMeal: boolean;
+  } | null = null;
+
+  let collectingRole: "COOKS" | "CLEANERS" | null = null;
+
+  const dateRegex =
+    /^(?:\*\s*)?(?:Mon|Tue|Wed|Thu|Thur|Thurs|Fri|Sat|Sun)(?:\s*-\s*|\s+)(?:Jan|Feb|Mar|Apr|May|Jun|June|Jul|July|Aug|August|Sep|Sept|September|Oct|Nov|Dec)\s+\d+.*/i;
+
+  const pushDay = (dayObj: {
+    dateLabel: string;
+    mealType: MealType;
+    cooks: string[];
+    cleaners: string[];
+    isNoMeal: boolean;
+  }) => {
+    const isNoMeal = dayObj.isNoMeal || /no community meal|no meal/i.test(dayObj.dateLabel);
+    const targetCooks = isNoMeal ? 0 : dayObj.mealType === "BRUNCH" ? 2 : 3;
+    const targetCleaners = isNoMeal ? 0 : dayObj.mealType === "BRUNCH" ? 2 : 3;
+    const cooks = isNoMeal ? [] : dayObj.cooks;
+    const cleaners = isNoMeal ? [] : dayObj.cleaners;
+    const cleanLabel = formatScheduleDateLabel(dayObj.dateLabel, dayObj.mealType);
+    const dateObj = parseDateFromLabelOrKey(cleanLabel, dayObj.dateLabel);
+    const dateKey = dateObj ? dateObj.toISOString().slice(0, 10) : `DATE-${schedule.length + 1}`;
+
+    schedule.push({
+      dateKey,
+      dateLabel: cleanLabel,
+      mealType: dayObj.mealType,
+      specialNote: isNoMeal ? "NO COMMUNITY MEAL" : undefined,
+      cooks,
+      cleaners,
+      targetCookCount: targetCooks,
+      targetCleanCount: targetCleaners,
+      unfilledCooks: isNoMeal ? 0 : Math.max(0, targetCooks - cooks.length),
+      unfilledCleaners: isNoMeal ? 0 : Math.max(0, targetCleaners - cleaners.length),
+    });
+  };
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (!line) continue;
 
-    // Detect date header line (e.g. "📅 Oct 1 (Thur)" or "Oct 1 (Thur) - DINNER" or "Thursday, Oct 1")
-    if (
-      line.startsWith("📅") ||
-      line.match(/^(?:📅\s*)?(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|\d{1,2}\/\d{1,2})/i)
-    ) {
-      if (currentDay && currentDay.dateLabel && currentDay.cooks && currentDay.cleaners) {
-        schedule.push({
-          dateKey: currentDay.dateKey || `DATE-${schedule.length + 1}`,
-          dateLabel: currentDay.dateLabel,
-          mealType: currentDay.mealType || "DINNER",
-          cooks: currentDay.cooks,
-          cleaners: currentDay.cleaners,
-          targetCookCount: currentDay.mealType === "BRUNCH" ? 2 : 3,
-          targetCleanCount: currentDay.mealType === "BRUNCH" ? 2 : 3,
-          unfilledCooks: Math.max(0, (currentDay.mealType === "BRUNCH" ? 2 : 3) - currentDay.cooks.length),
-          unfilledCleaners: Math.max(0, (currentDay.mealType === "BRUNCH" ? 2 : 3) - currentDay.cleaners.length),
-        });
+    // Clean markdown asterisks/underscores
+    const clean = line.replace(/[*#_]+/g, "").trim();
+    if (!clean) continue;
+
+    // Check if line is a date header
+    if (dateRegex.test(clean) && !clean.toLowerCase().startsWith("meal prep")) {
+      if (currentDay) {
+        pushDay(currentDay);
       }
 
-      const cleanLabel = line.replace(/^[📅\s*#*-]+/, "").trim();
-      const isBrunch = /brunch/i.test(cleanLabel);
+      const isBrunch = /brunch/i.test(clean);
       currentDay = {
-        dateKey: `DATE-${schedule.length + 1}`,
-        dateLabel: cleanLabel,
+        dateLabel: clean,
         mealType: isBrunch ? "BRUNCH" : "DINNER",
         cooks: [],
         cleaners: [],
+        isNoMeal: false,
       };
+      collectingRole = "COOKS";
       continue;
     }
 
-    // Detect Cooks line
-    if (currentDay && /^Cooks?:\s*/i.test(line)) {
-      const namesStr = line.replace(/^Cooks?:\s*/i, "").trim();
-      const names = namesStr
-        .split(/[,;&+]/)
-        .map((n) => n.trim().replace(/^and\s+/i, ""))
-        .filter(Boolean);
-      currentDay.cooks = names;
+    if (!currentDay) continue;
+
+    if (/no community meal/i.test(clean)) {
+      currentDay.isNoMeal = true;
+      collectingRole = null;
       continue;
     }
 
-    // Detect Cleaners line
-    if (currentDay && /^Cleaners?:\s*/i.test(line)) {
-      const namesStr = line.replace(/^Cleaners?:\s*/i, "").trim();
-      const names = namesStr
+    if (/^Cleaning:\s*/i.test(clean)) {
+      collectingRole = "CLEANERS";
+      const namesPart = clean.replace(/^Cleaning:\s*/i, "").trim();
+      if (namesPart) {
+        const names = namesPart
+          .split(/[,;&+]/)
+          .map((n) => normalizeHistoricalMemberName(n.trim().replace(/^and\s+/i, "")))
+          .filter(Boolean);
+        currentDay.cleaners.push(...names);
+      }
+      continue;
+    }
+
+    if (collectingRole === "COOKS") {
+      if (
+        clean.toLowerCase().startsWith("hi ") ||
+        clean.toLowerCase().includes("schedule for") ||
+        clean.toLowerCase().startsWith("on ")
+      ) {
+        continue;
+      }
+      const names = clean
         .split(/[,;&+]/)
-        .map((n) => n.trim().replace(/^and\s+/i, ""))
-        .filter(Boolean);
-      currentDay.cleaners = names;
+        .map((n) => normalizeHistoricalMemberName(n.trim().replace(/^and\s+/i, "")))
+        .filter((n) => n && !/^(?:http|>|for critical|you received)/i.test(n));
+      currentDay.cooks.push(...names);
+      continue;
+    }
+
+    if (collectingRole === "CLEANERS") {
+      const names = clean
+        .split(/[,;&+]/)
+        .map((n) => normalizeHistoricalMemberName(n.trim().replace(/^and\s+/i, "")))
+        .filter((n) => n && !/^(?:http|>|for critical|you received)/i.test(n));
+      currentDay.cleaners.push(...names);
       continue;
     }
   }
 
   // Push final day
-  if (currentDay && currentDay.dateLabel && currentDay.cooks && currentDay.cleaners) {
-    schedule.push({
-      dateKey: currentDay.dateKey || `DATE-${schedule.length + 1}`,
-      dateLabel: currentDay.dateLabel,
-      mealType: currentDay.mealType || "DINNER",
-      cooks: currentDay.cooks,
-      cleaners: currentDay.cleaners,
-      targetCookCount: currentDay.mealType === "BRUNCH" ? 2 : 3,
-      targetCleanCount: currentDay.mealType === "BRUNCH" ? 2 : 3,
-      unfilledCooks: Math.max(0, (currentDay.mealType === "BRUNCH" ? 2 : 3) - currentDay.cooks.length),
-      unfilledCleaners: Math.max(0, (currentDay.mealType === "BRUNCH" ? 2 : 3) - currentDay.cleaners.length),
-    });
+  if (currentDay) {
+    pushDay(currentDay);
   }
 
   return schedule;
@@ -347,7 +567,9 @@ export function importHistoricalMonthsToEnvironment(
     const devFolders = rootFolder.getFoldersByName("02_Dev_and_Testing");
     const baseDev = devFolders.hasNext() ? devFolders.next() : rootFolder;
     const histFolders = baseDev.getFoldersByName("03_Historical_Validation");
-    destinationFolder = histFolders.hasNext() ? histFolders.next() : baseDev.createFolder("03_Historical_Validation");
+    destinationFolder = histFolders.hasNext()
+      ? histFolders.next()
+      : baseDev.createFolder("03_Historical_Validation");
   }
 
   // 1. Scan email announcement files
@@ -365,7 +587,11 @@ export function importHistoricalMonthsToEnvironment(
       const text = doc.getBody().getText();
       const sched = parseEmailScheduleAnnouncement(text);
       emailAnnouncements.push({ name: f.getName(), text, schedule: sched });
-    } else if (mime === MimeType.PLAIN_TEXT || f.getName().endsWith(".txt") || f.getName().endsWith(".eml")) {
+    } else if (
+      mime === MimeType.PLAIN_TEXT ||
+      f.getName().endsWith(".txt") ||
+      f.getName().endsWith(".eml")
+    ) {
       const text = f.getBlob().getDataAsString();
       const sched = parseEmailScheduleAnnouncement(text);
       emailAnnouncements.push({ name: f.getName(), text, schedule: sched });
@@ -395,7 +621,21 @@ export function importHistoricalMonthsToEnvironment(
       const parsed = parseLegacyMonthlySignupTab(tab, year);
       if (parsed.responses.length === 0 || parsed.mealDates.length === 0) continue;
 
-      const title = `Historical - ${tabName} Cook Team Survey (Responses)`;
+      const title = formatHistoricalSheetTitle(tabName);
+
+      // Automatically rename any old format files to the new alphabetical title
+      const oldTitles = [
+        `Historical - ${tabName} Cook Team Survey (Responses)`,
+        `Historical - ${tabName.replace(/[^A-Za-z0-9]/g, "")} Cook Team Survey (Responses)`,
+      ];
+      for (const ot of oldTitles) {
+        if (ot !== title) {
+          const oldFiles = destinationFolder.getFilesByName(ot);
+          while (oldFiles.hasNext()) {
+            oldFiles.next().setName(title);
+          }
+        }
+      }
 
       // Check if existing file in destination folder
       const existing = destinationFolder.getFilesByName(title);
@@ -406,6 +646,94 @@ export function importHistoricalMonthsToEnvironment(
         newSS = SpreadsheetApp.create(title);
         const f = DriveApp.getFileById(newSS.getId());
         f.moveTo(destinationFolder);
+      }
+
+      // Match corresponding email announcement if any
+      const tabMonthKey = extractMonthKey(tabName);
+      const matchingEmail = emailAnnouncements.find((ea) => {
+        const eaMonthKey = extractMonthKey(ea.name);
+        if (tabMonthKey && eaMonthKey && tabMonthKey === eaMonthKey) return true;
+        return (
+          ea.name.toLowerCase().includes(tabName.toLowerCase()) ||
+          tabName.toLowerCase().includes(ea.name.toLowerCase().replace(/[^a-z0-9]/g, ""))
+        );
+      });
+
+      // Post-process historical survey sign-ups based on Brenda's actual handcrafted schedule
+      if (matchingEmail && matchingEmail.schedule.length > 0) {
+        const scheduledCookCounts = new Map<string, number>();
+        const scheduledCleanCounts = new Map<string, number>();
+
+        for (const day of matchingEmail.schedule) {
+          for (const cook of day.cooks) {
+            const norm = normalizeHistoricalMemberName(cook);
+            if (norm) {
+              scheduledCookCounts.set(norm, (scheduledCookCounts.get(norm) || 0) + 1);
+            }
+          }
+          for (const cleaner of day.cleaners) {
+            const norm = normalizeHistoricalMemberName(cleaner);
+            if (norm) {
+              scheduledCleanCounts.set(norm, (scheduledCleanCounts.get(norm) || 0) + 1);
+            }
+          }
+        }
+
+        // 1. If Brenda scheduled a 2-person dinner cook team, mark those cooks as willing 2-person dinner
+        for (const day of matchingEmail.schedule) {
+          const isNoMeal =
+            /no community meal|no meal/i.test(day.specialNote || "") ||
+            /no community meal|no meal/i.test(day.dateLabel);
+          if (!isNoMeal && day.mealType === "DINNER" && day.cooks.length === 2) {
+            for (const cook of day.cooks) {
+              const norm = normalizeHistoricalMemberName(cook);
+              const resp = parsed.responses.find(
+                (r) => normalizeHistoricalMemberName(r.name).toLowerCase() === norm.toLowerCase()
+              );
+              if (resp) {
+                resp.cookTeamSizePref = "2 for either";
+              }
+            }
+          }
+        }
+
+        // 2. If they are scheduled for multiple meals (or more than initial sign-up), update sign-up quotas
+        for (const resp of parsed.responses) {
+          const norm = normalizeHistoricalMemberName(resp.name);
+          const actualCooks = scheduledCookCounts.get(norm) || 0;
+          const actualCleans = scheduledCleanCounts.get(norm) || 0;
+          if (actualCooks > 0) {
+            resp.cookQuota = Math.max(resp.cookQuota, actualCooks);
+          }
+          if (actualCleans > 0) {
+            resp.cleanQuota = Math.max(resp.cleanQuota, actualCleans);
+          }
+        }
+
+        // 3. For any volunteer scheduled in email who wasn't in legacy signup sheet, add them
+        for (const [name, cookCount] of scheduledCookCounts.entries()) {
+          const exists = parsed.responses.some(
+            (r) => normalizeHistoricalMemberName(r.name).toLowerCase() === name.toLowerCase()
+          );
+          if (!exists && name) {
+            const cleanCount = scheduledCleanCounts.get(name) || 0;
+            const avail: Record<string, AvailabilityStatus> = {};
+            for (const d of parsed.mealDates) {
+              avail[d.dateLabel] = "AVAILABLE";
+            }
+            parsed.responses.push({
+              timestamp: new Date().toISOString(),
+              email: `${name.toLowerCase().replace(/[^a-z0-9]/g, "")}@example.com`,
+              name,
+              cookQuota: cookCount,
+              cleanQuota: cleanCount || 1,
+              availability: avail,
+              cookTeamSizePref: "Dinner = 3, Brunch = 2",
+              canCookCleanSameDay: true,
+              specialInstructions: "Added from handcrafted schedule",
+            });
+          }
+        }
       }
 
       // Write 'Form Responses 1'
@@ -429,15 +757,18 @@ export function importHistoricalMonthsToEnvironment(
 
       const rows: any[][] = [headers];
       for (const r of parsed.responses) {
-        const row: any[] = [
-          r.timestamp,
-          r.name,
-          r.cookQuota,
-          r.cleanQuota,
-        ];
+        const row: any[] = [r.timestamp, r.name, r.cookQuota, r.cleanQuota];
         for (const d of parsed.mealDates) {
           const avail = r.availability[d.dateLabel] || "Unavailable";
-          row.push(avail === "AVAILABLE" ? "Available" : avail === "COOK_ONLY" ? "Cook Only" : avail === "CLEAN_ONLY" ? "Clean Only" : "Unavailable");
+          row.push(
+            avail === "AVAILABLE"
+              ? "Available"
+              : avail === "COOK_ONLY"
+                ? "Cook Only"
+                : avail === "CLEAN_ONLY"
+                  ? "Clean Only"
+                  : "Unavailable"
+          );
         }
         row.push(r.cookTeamSizePref || "Dinner = 3, Brunch = 2");
         row.push(r.canCookCleanSameDay ? "Yes" : "No");
@@ -447,36 +778,65 @@ export function importHistoricalMonthsToEnvironment(
 
       formTab.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
 
-      // Match corresponding email announcement if any
-      const matchingEmail = emailAnnouncements.find((ea) =>
-        ea.name.toLowerCase().includes(tabName.toLowerCase()) ||
-        tabName.toLowerCase().includes(ea.name.toLowerCase().replace(/[^a-z0-9]/g, ""))
-      );
-
       if (matchingEmail && matchingEmail.schedule.length > 0) {
-        const schedTabName = `Schedule_${tabName.replace(/\s+/g, "_")}`;
+        // Determine canonical Schedule_YYYY-MM tab name matching the app
+        let monthSuffix = "";
+        if (matchingEmail.schedule.length > 0 && matchingEmail.schedule[0].dateKey) {
+          monthSuffix = matchingEmail.schedule[0].dateKey.slice(0, 7);
+        } else {
+          const m =
+            tabName.match(/([A-Z]{3,})[^0-9A-Z]*(\d{2,4})/i) ||
+            tabName.match(/(\d{2,4})[^0-9A-Z]*([A-Z]{3,})/i);
+          if (m) {
+            const mStr = isNaN(Number(m[1])) ? m[1] : m[2];
+            const yStr = isNaN(Number(m[1])) ? m[2] : m[1];
+            const mKey = extractMonthKey(mStr) || "01";
+            const yFull = yStr.length === 2 ? `20${yStr}` : yStr;
+            monthSuffix = `${yFull}-${mKey}`;
+          }
+        }
+        if (!monthSuffix) {
+          monthSuffix = tabName.replace(/[/\s]+/g, "-");
+        }
+        const schedTabName = `Schedule_${monthSuffix}`;
         let schedTab = newSS.getSheetByName(schedTabName);
         if (!schedTab) schedTab = newSS.insertSheet(schedTabName);
         schedTab.clear();
 
-        const schedRows: any[][] = [
-          ["Meal Date", "Meal Type", "Cook 1", "Cook 2", "Cook 3", "Clean 1", "Clean 2", "Clean 3", "Notes"]
-        ];
+        // Calculate max cooks and cleaners for this month (minimum 3 each)
+        let maxCooks = 3;
+        let maxCleans = 3;
+        for (const day of matchingEmail.schedule) {
+          if (day.cooks.length > maxCooks) maxCooks = day.cooks.length;
+          if (day.cleaners.length > maxCleans) maxCleans = day.cleaners.length;
+        }
+
+        const headers = ["Date", "Meal Type", "Special Note"];
+        for (let i = 1; i <= maxCooks; i++) headers.push(`Cook ${i}`);
+        for (let i = 1; i <= maxCleans; i++) headers.push(`Clean ${i}`);
+        headers.push("Status / Notes");
+
+        const schedRows: any[][] = [headers];
 
         for (const day of matchingEmail.schedule) {
-          schedRows.push([
-            day.dateLabel,
-            day.mealType,
-            day.cooks[0] || "",
-            day.cooks[1] || "",
-            day.cooks[2] || "",
-            day.cleaners[0] || "",
-            day.cleaners[1] || "",
-            day.cleaners[2] || "",
-            "Handcrafted Team by Brenda",
-          ]);
+          const dateObj = parseDateFromLabelOrKey(day.dateLabel, day.dateKey);
+          const dateVal = dateObj || day.dateLabel;
+          const row: any[] = [dateVal, day.mealType, day.specialNote || ""];
+          for (let i = 0; i < maxCooks; i++) {
+            row.push(day.cooks[i] || "");
+          }
+          for (let i = 0; i < maxCleans; i++) {
+            row.push(day.cleaners[i] || "");
+          }
+          row.push("Handcrafted Team by Brenda");
+          schedRows.push(row);
         }
         schedTab.getRange(1, 1, schedRows.length, schedRows[0].length).setValues(schedRows);
+
+        // Format Date column with real Google Sheets Date format
+        if (schedRows.length > 1) {
+          schedTab.getRange(2, 1, schedRows.length - 1, 1).setNumberFormat("ddd, mmm d, yyyy");
+        }
       }
 
       createdSheets.push({
@@ -488,6 +848,27 @@ export function importHistoricalMonthsToEnvironment(
     } catch (tabErr) {
       console.warn(`Error converting tab "${tabName}":`, tabErr);
     }
+  }
+
+  // Save full raw dump JSON in rootFolder so local scripts can download it
+  try {
+    const rawDump: any = {
+      spreadsheetTitle: legacySpreadsheet.getName(),
+      tabs: legacySpreadsheet.getSheets().map((s) => ({
+        name: s.getName(),
+        values: s.getDataRange().getValues(),
+      })),
+      emails: emailAnnouncements,
+    };
+    const dumpContent = JSON.stringify(rawDump, null, 2);
+    const existingDump = rootFolder.getFilesByName("historical_raw_dump.json");
+    if (existingDump.hasNext()) {
+      existingDump.next().setContent(dumpContent);
+    } else {
+      rootFolder.createFile("historical_raw_dump.json", dumpContent, MimeType.PLAIN_TEXT);
+    }
+  } catch (dumpErr) {
+    console.warn("Could not write historical_raw_dump.json:", dumpErr);
   }
 
   return {

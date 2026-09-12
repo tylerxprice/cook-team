@@ -94,6 +94,10 @@ RUN echo 'export PS1="\[\033[01;32m\]\u@devcontainer\[\033[00m\]:\[\033[01;34m\]
     echo 'alias gs="git status"' >> /home/$USERNAME/.bashrc && \
     echo 'alias gp="git push"' >> /home/$USERNAME/.bashrc && \
     echo 'alias md="glow"' >> /home/$USERNAME/.bashrc && \
+    echo 'alias check="npm test"' >> /home/$USERNAME/.bashrc && \
+    echo 'alias lint="npm run lint"' >> /home/$USERNAME/.bashrc && \
+    echo 'alias format="npm run format"' >> /home/$USERNAME/.bashrc && \
+    echo 'alias typecheck="npm run typecheck"' >> /home/$USERNAME/.bashrc && \
     echo 'set number\nsyntax on\nset expandtab\nset shiftwidth=2\nset tabstop=2\nset autoindent' > /home/$USERNAME/.vimrc && \
     echo 'set -g mouse on\nset -g default-terminal "xterm-256color"\nset -g history-limit 10000' > /home/$USERNAME/.tmux.conf
 

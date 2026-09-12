@@ -9,12 +9,20 @@
     "build:server": "tsc -p tsconfig.server.json --noEmit && esbuild src/server/Code.ts --bundle --outfile=dist/Code.js --target=es2022",
     "build": "npm run build:client && npm run build:server && node scripts/copy-manifest.js",
     "push": "clasp push -f",
-    "deploy": "npm run build && clasp push -f",
+    "deploy": "npm run build && clasp push -f && clasp deploy -i AKfycbwFUo53qovtiFScRr8UufB62fdjjZiCQINHbkpj0U0nuJ6drjxkrJMj7LbJAPPQYN-8lQ -d 'Production Web App'",
     "pull": "clasp pull",
     "logs": "clasp logs",
     "open": "clasp open",
     "preview": "vite preview",
-    "test:e2e": "node scripts/test-e2e.mjs"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write 'src/**/*.{ts,tsx,css,html}' 'test/**/*.{js,mjs}'",
+    "format:check": "prettier --check 'src/**/*.{ts,tsx,css,html}' 'test/**/*.{js,mjs}'",
+    "check": "npm run typecheck && npm run lint && npm run format:check",
+    "test:unit": "npx tsx --test test/*.test.mjs",
+    "test:e2e": "node scripts/test-e2e.mjs",
+    "test": "npm run typecheck && npm run test:unit && npm run test:e2e"
   },
   "dependencies": {
     "devcontainer": "^0.3.0",
@@ -23,6 +31,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@google/clasp": "^2.4.2",
     "@types/google-apps-script": "^1.0.89",
     "@types/node": "^22.10.2",
@@ -30,10 +39,18 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "esbuild": "^0.28.2",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "knip": "^5.88.1",
     "playwright": "^1.62.1",
     "postcss": "^8.4.49",
+    "prettier": "^3.9.6",
     "tailwindcss": "^3.4.16",
+    "tsx": "^4.23.13",
     "typescript": "^5.7.2",
+    "typescript-eslint": "^8.70.0",
     "vite": "^6.0.3",
     "vite-plugin-singlefile": "^2.1.0"
   }

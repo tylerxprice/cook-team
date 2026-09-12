@@ -1,0 +1,15 @@
+{
+  "$schema": "https://unpkg.com/knip@5/overview/configuration-schema.json",
+  "entry": [
+    "src/client/main.tsx",
+    "src/server/Code.ts",
+    "src/server/mockData.ts",
+    "test/*.test.mjs"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "test/**/*.test.mjs"
+  ],
+  "ignoreBinaries": ["esbuild", "tsx"],
+  "ignoreDependencies": ["devcontainer"]
+}

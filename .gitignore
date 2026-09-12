@@ -22,3 +22,8 @@ dist/
 
 # Antigravity / Gemini CLI session state
 .gemini/
+
+# Python cache
+__pycache__/
+*.pyc
+

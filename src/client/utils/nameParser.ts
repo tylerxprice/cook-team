@@ -10,12 +10,13 @@ export interface ParsedRosterMember {
   rawInput: string;
 }
 
-export function parseAndDisambiguateGoogleGroupRoster(
-  rawText: string
-): ParsedRosterMember[] {
+export function parseAndDisambiguateGoogleGroupRoster(rawText: string): ParsedRosterMember[] {
   if (!rawText || rawText.trim() === "") return [];
 
-  const rawLines = rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const rawLines = rawText
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
   const intermediate: {
     raw: string;
     rawName: string;
@@ -31,7 +32,10 @@ export function parseAndDisambiguateGoogleGroupRoster(
 
     // 1. Check for tab-separated (e.g. copied directly from Google Groups web table)
     if (line.includes("\t")) {
-      const parts = line.split("\t").map((s) => s.trim()).filter(Boolean);
+      const parts = line
+        .split("\t")
+        .map((s) => s.trim())
+        .filter(Boolean);
       const emailPart = parts.find((p) => p.includes("@") && p.includes("."));
       const namePart = parts.find(
         (p) =>
@@ -57,7 +61,10 @@ export function parseAndDisambiguateGoogleGroupRoster(
       const emailMatch = line.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
       if (emailMatch) {
         email = emailMatch[1];
-        rawName = line.replace(email, "").replace(/[<>(),]/g, "").trim();
+        rawName = line
+          .replace(email, "")
+          .replace(/[<>(),]/g, "")
+          .trim();
       } else {
         rawName = line.replace(/[<>(),]/g, "").trim();
       }
@@ -84,9 +91,7 @@ export function parseAndDisambiguateGoogleGroupRoster(
       ? tokens[0].charAt(0).toUpperCase() + tokens[0].slice(1).toLowerCase()
       : "Member";
     const lastName = tokens.length > 1 ? tokens[tokens.length - 1] : "";
-    const lastInitial = lastName
-      ? lastName.charAt(0).toUpperCase()
-      : "";
+    const lastInitial = lastName ? lastName.charAt(0).toUpperCase() : "";
 
     intermediate.push({
       raw: line,

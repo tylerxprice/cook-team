@@ -3,11 +3,7 @@
  * Sets up folder hierarchy, Master Community Registry, and Test Scenario Spreadsheets.
  */
 
-import {
-  MOCK_MEMBERS,
-  MOCK_EXCEPTIONS,
-  MOCK_PRESETS,
-} from "./mockData";
+import { MOCK_MEMBERS, MOCK_EXCEPTIONS, MOCK_PRESETS } from "./mockData";
 import { MealDate, SurveyResponse } from "./types";
 
 export interface ProvisionResult {
@@ -40,7 +36,11 @@ function getOrCreateSubfolder(
 /**
  * Formats a header row with background, bold text, and frozen header
  */
-function formatHeader(sheet: GoogleAppsScript.Spreadsheet.Sheet, numColumns: number, bgColor = "#f1f5f9") {
+function formatHeader(
+  sheet: GoogleAppsScript.Spreadsheet.Sheet,
+  numColumns: number,
+  bgColor = "#f1f5f9"
+) {
   const headerRange = sheet.getRange(1, 1, 1, numColumns);
   headerRange.setFontWeight("bold");
   headerRange.setBackground(bgColor);
@@ -75,9 +75,7 @@ function createMasterRegistrySheet(
   }
   membersSheet.clear();
 
-  const memberRows: any[][] = [
-    ["Name", "Google Email", "Active", "Last Active Survey"],
-  ];
+  const memberRows: any[][] = [["Name", "Google Email", "Active", "Last Active Survey"]];
   for (const m of MOCK_MEMBERS) {
     memberRows.push([m.name, m.google_email, m.active, m.last_active_survey || "2026-08"]);
   }
@@ -92,7 +90,15 @@ function createMasterRegistrySheet(
   exceptionsSheet.clear();
 
   const exceptionRows: any[][] = [
-    ["Person A", "Person B", "Rule Type", "Target Role A", "Target Role B", "Is Hard Rule", "Notes"],
+    [
+      "Person A",
+      "Person B",
+      "Rule Type",
+      "Target Role A",
+      "Target Role B",
+      "Is Hard Rule",
+      "Notes",
+    ],
   ];
   for (const e of MOCK_EXCEPTIONS) {
     exceptionRows.push([
@@ -105,7 +111,9 @@ function createMasterRegistrySheet(
       e.notes || "",
     ]);
   }
-  exceptionsSheet.getRange(1, 1, exceptionRows.length, exceptionRows[0].length).setValues(exceptionRows);
+  exceptionsSheet
+    .getRange(1, 1, exceptionRows.length, exceptionRows[0].length)
+    .setValues(exceptionRows);
   formatHeader(exceptionsSheet, 7, "#fef3c7"); // soft amber
 
   // 3. Settings Tab
@@ -117,7 +125,11 @@ function createMasterRegistrySheet(
 
   const settingRows: any[][] = [
     ["Key", "Value", "Description"],
-    ["cook_policy", "ADAPTIVE_3_OR_2", "Adaptive cook sizing (Target 3 for dinner, accept 2 if agreed)"],
+    [
+      "cook_policy",
+      "ADAPTIVE_3_OR_2",
+      "Adaptive cook sizing (Target 3 for dinner, accept 2 if agreed)",
+    ],
     ["default_clean_quota", "1", "Default clean shifts per member when not specified"],
     ["community_name", "Cohousing Community", "Community organization name"],
   ];
@@ -171,9 +183,7 @@ function createSurveyResponsesSheet(
 
   for (const d of mealDates) {
     const notePart = d.specialNote ? ` - ${d.specialNote}` : "";
-    headers.push(
-      `Select your available dates [${d.dateLabel} (${d.mealType}${notePart})]`
-    );
+    headers.push(`Select your available dates [${d.dateLabel} (${d.mealType}${notePart})]`);
   }
 
   headers.push("Would you be open to a 2-person cook team on dinners if needed?");
@@ -186,12 +196,7 @@ function createSurveyResponsesSheet(
   for (let i = 0; i < responses.length; i++) {
     const r = responses[i];
     const timestamp = new Date(now.getTime() - (responses.length - i) * 3600000).toLocaleString();
-    const row: any[] = [
-      timestamp,
-      r.name,
-      r.cookQuota,
-      r.cleanQuota ?? 1,
-    ];
+    const row: any[] = [timestamp, r.name, r.cookQuota, r.cleanQuota ?? 1];
 
     for (const d of mealDates) {
       const avail = r.availability[d.dateLabel] || "Unavailable";
@@ -200,10 +205,10 @@ function createSurveyResponsesSheet(
         avail === "AVAILABLE"
           ? "Available"
           : avail === "COOK_ONLY"
-          ? "Cook Only"
-          : avail === "CLEAN_ONLY"
-          ? "Clean Only"
-          : "Unavailable";
+            ? "Cook Only"
+            : avail === "CLEAN_ONLY"
+              ? "Clean Only"
+              : "Unavailable";
       row.push(humanAvail);
     }
 
@@ -237,14 +242,11 @@ export function setupCommunityDriveWorkspace(
   // 1. Create Subfolders
   const liveFolder = getOrCreateSubfolder(rootFolder, "01_Live_Production");
   const devFolder = getOrCreateSubfolder(rootFolder, "02_Dev_and_Testing");
-  const monthlyFolder = getOrCreateSubfolder(liveFolder, "Monthly_Surveys");
+  const _monthlyFolder = getOrCreateSubfolder(liveFolder, "Monthly_Surveys");
 
   // 2. Provision Live Master Registry
   console.log("Creating Live Master Community Registry...");
-  const liveMasterSheet = createMasterRegistrySheet(
-    liveFolder,
-    "Master Community Registry (Live)"
-  );
+  const liveMasterSheet = createMasterRegistrySheet(liveFolder, "Master Community Registry (Live)");
 
   // 3. Provision Dev Master Registry
   console.log("Creating Dev/Test Master Community Registry...");
@@ -263,7 +265,7 @@ export function setupCommunityDriveWorkspace(
       "DEV_MASTER_REGISTRY_SHEET_ID",
       devMasterSheet.getId()
     );
-  } catch (e) {
+  } catch {
     console.log("Could not set Script Properties (running in test mode).");
   }
 
@@ -314,8 +316,10 @@ export function setupCommunityDriveWorkspace(
   };
 }
 
-const PROD_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwFUo53qovtiFScRr8UufB62fdjjZiCQINHbkpj0U0nuJ6drjxkrJMj7LbJAPPQYN-8lQ/exec";
-const DEV_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw9ebwRim3jjSVaN6Pm6QeOvNmujB1nnc2MCkBhM7qs/dev";
+const PROD_WEB_APP_URL =
+  "https://script.google.com/macros/s/AKfycbwFUo53qovtiFScRr8UufB62fdjjZiCQINHbkpj0U0nuJ6drjxkrJMj7LbJAPPQYN-8lQ/exec";
+const DEV_WEB_APP_URL =
+  "https://script.google.com/macros/s/AKfycbw9ebwRim3jjSVaN6Pm6QeOvNmujB1nnc2MCkBhM7qs/dev";
 
 /**
  * Creates rich Google Doc launch shortcuts in Drive folders and cleans up unnecessary HTML files
@@ -435,9 +439,7 @@ export interface DriveSheetItem {
 /**
  * Lists available survey spreadsheets across Google Drive workspace
  */
-export function listDriveSpreadsheets(
-  parentFolderId = DEFAULT_DRIVE_FOLDER_ID
-): DriveSheetItem[] {
+export function listDriveSpreadsheets(parentFolderId = DEFAULT_DRIVE_FOLDER_ID): DriveSheetItem[] {
   const items: DriveSheetItem[] = [];
 
   try {
@@ -472,8 +474,8 @@ export function listDriveSpreadsheets(
           subName.includes("Live") || folderCategory === "live"
             ? "live"
             : subName.includes("Dev") || folderCategory === "dev"
-            ? "dev"
-            : "other";
+              ? "dev"
+              : "other";
         scanFolder(sub, subCat);
       }
     };
@@ -486,8 +488,8 @@ export function listDriveSpreadsheets(
       const cat: "live" | "dev" | "other" = subName.includes("Live")
         ? "live"
         : subName.includes("Dev")
-        ? "dev"
-        : "other";
+          ? "dev"
+          : "other";
       scanFolder(sub, cat);
     }
 
@@ -518,4 +520,3 @@ export function listDriveSpreadsheets(
 
   return items;
 }
-
