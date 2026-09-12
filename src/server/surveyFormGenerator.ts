@@ -156,6 +156,48 @@ export function executeCreateSurveyForm(payload: CreateSurveyFormPayload): Creat
       console.warn("Could not setCollectEmail on form:", e);
     }
 
+    // Explicitly set emailCollectionType to VERIFIED (1-click account consent) via Google Forms REST API v1
+    try {
+      const token = ScriptApp.getOAuthToken();
+      if (token) {
+        const formId = form.getId();
+        const apiUrl = `https://forms.googleapis.com/v1/forms/${formId}:batchUpdate`;
+        const updatePayload = {
+          includeFormInResponse: false,
+          requests: [
+            {
+              updateSettings: {
+                settings: {
+                  emailCollectionType: "VERIFIED",
+                },
+                updateMask: "emailCollectionType",
+              },
+            },
+          ],
+        };
+        const response = UrlFetchApp.fetch(apiUrl, {
+          method: "post",
+          contentType: "application/json",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          payload: JSON.stringify(updatePayload),
+          muteHttpExceptions: true,
+        });
+        const code = response.getResponseCode();
+        if (code >= 200 && code < 300) {
+          console.info(`Form ${formId} emailCollectionType successfully updated to VERIFIED`);
+        } else {
+          console.warn(
+            `Google Forms REST API updateSettings returned status ${code}:`,
+            response.getContentText()
+          );
+        }
+      }
+    } catch (apiErr) {
+      console.warn("Could not invoke Forms REST API for VERIFIED mode:", apiErr);
+    }
+
     // 2. Question 1: Name (Short Answer)
     form
       .addTextItem()
