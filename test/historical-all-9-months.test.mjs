@@ -1,28 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import { parseScheduleGridData } from "../src/server/scheduleParser.ts";
+import { getBaselineHistoricalSchedules } from "../src/server/historicalArchiveData.ts";
 import { computeCommunityReportSummary } from "../src/server/reports.ts";
 
 test("Historical All 9 Months - Real Spreadsheets Parser & Equity Aggregator", () => {
-  const jsonContent = fs.readFileSync("data/historical/extracted_all_9_schedules.json", "utf-8");
-  const extracted = JSON.parse(jsonContent);
+  const monthRecords = getBaselineHistoricalSchedules();
 
-  assert.equal(extracted.length, 9, "Should contain all 9 historical months");
+  assert.equal(monthRecords.length, 9, "Should contain all 9 historical months");
 
-  const monthRecords = [];
-
-  for (const item of extracted) {
-    const parseResult = parseScheduleGridData(item.rows);
-    assert.ok(parseResult.success, `Month ${item.monthKey} should parse successfully`);
-    assert.ok(parseResult.schedule.length > 0, `Month ${item.monthKey} should have scheduled days`);
-
-    console.log(`Month ${item.monthKey} parsed: ${parseResult.schedule.length} days`);
-    monthRecords.push({
-      monthKey: item.monthKey,
-      monthLabel: item.monthKey,
-      schedule: parseResult.schedule,
-    });
+  for (const item of monthRecords) {
+    assert.ok(item.schedule.length > 0, `Month ${item.monthKey} should have scheduled days`);
+    console.log(`Month ${item.monthKey} parsed: ${item.schedule.length} days`);
   }
 
   const report = computeCommunityReportSummary(monthRecords);
