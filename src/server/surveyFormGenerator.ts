@@ -143,11 +143,15 @@ export function executeCreateSurveyForm(payload: CreateSurveyFormPayload): Creat
     const form = FormApp.create(title);
     const formDescription =
       payload.description ||
-      "Vancouver Cohousing Community Meal Team Survey\nPlease indicate your availability and shift preferences for this month's meals.";
+      "Community Meal Team Survey\nPlease indicate your availability and shift preferences for this month's meals.";
     form.setDescription(formDescription);
 
     try {
       form.setCollectEmail(true);
+      form.setAllowResponseEdits(true);
+      try {
+        form.setRequireLogin(false);
+      } catch {}
     } catch (e) {
       console.warn("Could not setCollectEmail on form:", e);
     }

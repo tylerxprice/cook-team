@@ -164,4 +164,4 @@ A: If a coordinator manually assigns an extra shift to fill a shortage on a diff
 
 ---
 
-*CookTeamTool is maintained for Vancouver Cohousing Community Meal Planning.*
+*CookTeamTool is maintained for Community Meal Planning.*

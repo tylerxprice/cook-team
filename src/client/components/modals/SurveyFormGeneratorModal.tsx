@@ -272,12 +272,12 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
                 <span>Standard 8-Question Suite Included</span>
               </div>
               <span className="text-xs font-bold text-violet-900 bg-violet-100 border border-violet-200 px-3 py-1 rounded-full">
-                Vancouver Cohousing Standard
+                Community Standard
               </span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-700 pt-1">
               <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                1. Email Collection
+                1. Verified Email (1-Click Consent)
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
                 2. Member Name (Text)

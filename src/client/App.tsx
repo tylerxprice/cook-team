@@ -2250,9 +2250,7 @@ function MainApp() {
           </div>
 
           <div className="space-y-1.5">
-            <h1 className="text-xl font-extrabold text-white tracking-tight">
-              Vancouver Cohousing
-            </h1>
+            <h1 className="text-xl font-extrabold text-white tracking-tight">Community Meals</h1>
             <p className="text-xs text-orange-400 font-semibold tracking-wider uppercase">
               Cook Team Planning Tool
             </p>

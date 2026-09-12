@@ -416,7 +416,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         files: [
           {
             id: "hist-sheet-1",
-            name: "Vancouver Cohousing Cook & Clean Teams (Legacy Signup)",
+            name: "Community Cook & Clean Teams (Legacy Signup)",
             mimeType: "application/vnd.google-apps.spreadsheet",
             url: "https://docs.google.com/spreadsheets/d/hist-sheet-1",
             tabs: ["Aug 2026", "Jul 2026", "Jun 2026", "May 2026", "Apr 2026"],
@@ -615,7 +615,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
       if (clean.includes("Test") || clean.includes("Dev")) {
         name = "Dev Test - Common Meal Sign Up Workbook";
       } else if (clean.length > 20 && !clean.startsWith("sample")) {
-        name = "Common Meal Sign Up - Vancouver Cohousing";
+        name = "Common Meal Sign Up - Community";
       }
 
       return {

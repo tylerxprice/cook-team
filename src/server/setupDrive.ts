@@ -421,7 +421,7 @@ export function populateUserGuideDocBody(
   titlePara.setHeading(DocumentApp.ParagraphHeading.HEADING1);
 
   const sub = body.appendParagraph(
-    "Comprehensive manual and quick launcher for community meal planning, survey auditing, matchmaker scheduling, and listserv announcements at Vancouver Cohousing."
+    "Comprehensive manual and quick launcher for community meal planning, survey auditing, matchmaker scheduling, and listserv announcements."
   );
   sub.editAsText().setItalic(true);
 
@@ -596,9 +596,7 @@ export function populateUserGuideDocBody(
   body.appendHorizontalRule();
 
   // Footer
-  const footer = body.appendParagraph(
-    "CookTeamTool — Developed for Vancouver Cohousing Community Meal Planning"
-  );
+  const footer = body.appendParagraph("CookTeamTool — Developed for Community Meal Planning");
   footer.editAsText().setItalic(true);
 }
 

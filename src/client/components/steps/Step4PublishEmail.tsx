@@ -297,7 +297,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                       : "text-slate-700 hover:text-blue-900 bg-slate-100 border border-slate-200"
                   }`}
                 >
-                  Vancouver Cohousing Listserv
+                  Community Listserv
                 </button>
                 <button
                   type="button"
