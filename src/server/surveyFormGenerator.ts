@@ -282,12 +282,13 @@ export function executeCreateSurveyForm(payload: CreateSurveyFormPayload): Creat
         const code = response.getResponseCode();
         if (code >= 200 && code < 300) {
           console.info(`Form ${formId} emailCollectionType successfully updated to VERIFIED`);
+          emailStatus = "Verified email mode enabled (1-click consent)";
         } else {
           console.warn(
             `Google Forms REST API updateSettings returned status ${code}:`,
             response.getContentText()
           );
-          emailStatus = `API status ${code}`;
+          emailStatus = `API status ${code}: ${response.getContentText()}`;
         }
       }
     } catch (apiErr: any) {
