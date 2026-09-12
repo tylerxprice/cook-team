@@ -60,6 +60,7 @@ function getSurveyFormDatesPreview(monthKey) { return globalThis.getSurveyFormDa
 function createMonthlySurveyForm(payload) { return globalThis.createMonthlySurveyForm ? globalThis.createMonthlySurveyForm(payload) : null; }
 function runHistoricalImportOnce() { return globalThis.runHistoricalImportOnce ? globalThis.runHistoricalImportOnce() : null; }
 function dumpHistoricalRawDataOnly() { return globalThis.dumpHistoricalRawDataOnly ? globalThis.dumpHistoricalRawDataOnly() : null; }
+function updateUserGuideDoc(docId) { return globalThis.updateUserGuideDoc ? globalThis.updateUserGuideDoc(docId) : null; }
 `;
   fs.appendFileSync(codeDest, gasStubs, "utf8");
   console.log("✓ Appended top-level GAS entrypoint functions to dist/Code.js");

@@ -26,6 +26,7 @@ import {
   setupCommunityDriveWorkspace,
   createDriveWebAppLinkLaunchers,
   listDriveSpreadsheets,
+  updateUserGuideDoc,
   ProvisionResult,
   DriveSheetItem,
 } from "./setupDrive";
@@ -1950,3 +1951,4 @@ g.exportToMealSignupWorkbook = exportToMealSignupWorkbook;
 g.getSurveyFormDatesPreview = getSurveyFormDatesPreview;
 g.createMonthlySurveyForm = createMonthlySurveyForm;
 g.authorizeAppScopes = authorizeAppScopes;
+g.updateUserGuideDoc = updateUserGuideDoc;

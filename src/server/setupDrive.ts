@@ -344,7 +344,7 @@ export function createDriveWebAppLinkLaunchers(parentFolderId = DEFAULT_DRIVE_FO
     folder: GoogleAppsScript.Drive.Folder,
     docTitle: string,
     appUrl: string,
-    description: string,
+    _description: string,
     isProd: boolean
   ) => {
     const existing = folder.getFilesByName(docTitle);
@@ -353,33 +353,9 @@ export function createDriveWebAppLinkLaunchers(parentFolderId = DEFAULT_DRIVE_FO
     }
 
     const doc = DocumentApp.create(docTitle);
-    const body = doc.getBody();
-    body.clear();
-
-    const titlePara = body.appendParagraph(docTitle);
-    titlePara.setHeading(DocumentApp.ParagraphHeading.HEADING1);
-
-    const descPara = body.appendParagraph(description);
-    descPara.editAsText().setItalic(true);
-
-    body.appendParagraph("\n");
-
-    const linkPara = body.appendParagraph("👉 Click Here to Open Web App in Browser:\n" + appUrl);
-    linkPara.setHeading(DocumentApp.ParagraphHeading.HEADING2);
-    linkPara.setLinkUrl(appUrl);
-
-    body.appendParagraph("\n\n" + "─".repeat(40) + "\n");
-    if (isProd) {
-      body.appendParagraph(
-        "📌 Production Environment Notes:\n• Scoped to 01_Live_Production folder\n• Reads live Master Community Registry\n• Final schedule auto-exports to new tab in Survey Sheet\n• Default Announcement Recipient: Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>"
-      );
-    } else {
-      body.appendParagraph(
-        "📌 Developer / Test Environment Notes:\n• Scoped to 02_Dev_and_Testing folder\n• Reads 30 synthetic members & 6 scenario presets\n• Default Announcement Recipient: tylerxprice@gmail.com"
-      );
-    }
-
+    populateUserGuideDocBody(doc.getBody(), isProd, appUrl);
     doc.saveAndClose();
+
     const file = DriveApp.getFileById(doc.getId());
     file.moveTo(folder);
     return file;
@@ -424,6 +400,231 @@ export function createDriveWebAppLinkLaunchers(parentFolderId = DEFAULT_DRIVE_FO
     message: "Launcher documents created and HTML preview files removed.",
     prodUrl: PROD_WEB_APP_URL,
     devUrl: DEV_WEB_APP_URL,
+  };
+}
+
+/**
+ * Populates a Google Document with the full user guide and coordinator manual.
+ */
+export function populateUserGuideDocBody(
+  body: GoogleAppsScript.Document.Body,
+  isProd: boolean,
+  appUrl: string
+): void {
+  body.clear();
+
+  // Title
+  const title = isProd
+    ? "🍳 CookTeamTool — User Guide & Coordinator Manual"
+    : "🧪 CookTeamTool — Developer & Testing Guide";
+  const titlePara = body.appendParagraph(title);
+  titlePara.setHeading(DocumentApp.ParagraphHeading.HEADING1);
+
+  const sub = body.appendParagraph(
+    "Comprehensive manual and quick launcher for community meal planning, survey auditing, matchmaker scheduling, and listserv announcements at Vancouver Cohousing."
+  );
+  sub.editAsText().setItalic(true);
+
+  body.appendHorizontalRule();
+
+  // Web App Link Banner
+  const linkHeading = body.appendParagraph("🚀 Launch Web Application");
+  linkHeading.setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+  const linkPara = body.appendParagraph("👉 Click Here to Open CookTeamTool:\n" + appUrl);
+  linkPara.setLinkUrl(appUrl);
+  linkPara.editAsText().setBold(true);
+
+  body.appendParagraph(
+    isProd
+      ? "📌 Production Environment: Scoped to 01_Live_Production folder | Reads Master Community Registry | Default Announcement: Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>"
+      : "📌 Dev / Test Environment: Scoped to 02_Dev_and_Testing folder | Reads 30 synthetic members & 6 scenario presets | Default Announcement: tylerxprice@gmail.com"
+  );
+
+  body.appendHorizontalRule();
+
+  // Section 1: Monthly Workflow Overview
+  const sec1 = body.appendParagraph("1. Monthly Coordinator Workflow (Overview)");
+  sec1.setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+  body.appendParagraph(
+    "CookTeamTool streamlines the entire monthly meal coordination process across 6 interconnected phases:"
+  );
+  body.appendListItem(
+    "Phase 1: Survey Generation — Auto-create next month's Google Form survey and linked spreadsheet."
+  );
+  body.appendListItem(
+    "Phase 2: Step 1 (Intake & Audit) — Load responses, identify missing active members, and update directory."
+  );
+  body.appendListItem(
+    "Phase 3: Step 2 (Notes & Rules) — Review childcare constraints, kitchen prefs, and configure pairing rules."
+  );
+  body.appendListItem(
+    "Phase 4: Step 3 (Solve & Review) — Run the CSP matchmaker solver, review the interactive roster, fill shortages, and verify quota equity."
+  );
+  body.appendListItem(
+    "Phase 5: Step 4 (Publish & Email) — Export the finalized schedule tab to Google Sheets, create a Gmail draft, and dispatch the listserv announcement."
+  );
+  body.appendListItem(
+    "Phase 6: Sign-Up Workbook Generator — Generate the monthly diner sign-up sheet for Rose and community members."
+  );
+
+  body.appendHorizontalRule();
+
+  // Section 2: Step 1 Intake & Completeness Audit
+  const sec2 = body.appendParagraph("2. Step 1: Survey Intake & Completeness Audit");
+  sec2.setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+  body.appendParagraph(
+    "• Selecting the Survey: Pick your active survey from the Google Drive dropdown or paste any survey spreadsheet URL."
+  );
+  body.appendParagraph(
+    "• The Active Member Nag Screen: The intake audit automatically compares registered active members against respondents. Anyone who hasn't submitted a survey appears in the Missing Active Members card so you can send a friendly reminder."
+  );
+  body.appendParagraph(
+    "• [Mark Inactive] Action: If a resident is away for the season, on sabbatical, or dormant, click 'Mark Inactive' to update the Master Registry. They will instantly disappear from current and future missing audits."
+  );
+  body.appendParagraph(
+    "• Auto-Reactivation: If an inactive member submits a survey in any future month, the tool automatically re-activates them (active: true)."
+  );
+  body.appendParagraph(
+    "• Unrecognized Respondents: If someone submits a survey under a new nickname or alternate email, an alert lets you link their alias to an existing member or create a new resident profile with one click."
+  );
+  body.appendParagraph(
+    "• Member Directory (Modal 1): Click 'Member Directory' in the top navigation bar to manage emails, aliases (e.g. Alex / Sasha), active status, or bulk-import roster lists."
+  );
+
+  body.appendHorizontalRule();
+
+  // Section 3: Step 2 Special Instructions & Exception Rules
+  const sec3 = body.appendParagraph("3. Step 2: Special Instructions & Exception Rules");
+  sec3.setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+  body.appendParagraph(
+    "• Reviewing Requests: Read notes submitted in survey responses (e.g. partner childcare constraints, specific days unavailable, preferences)."
+  );
+  body.appendParagraph(
+    "• Coordinator Exception Rules (Modal 2): Click [+ Add Exception Rule] to set pairing constraints:"
+  );
+  body.appendListItem(
+    "NOT_SAME_TEAM: Person A and Person B cannot be on the same cook or clean team."
+  );
+  body.appendListItem(
+    "NOT_SAME_DAY: Person A and Person B cannot be scheduled on the same date for any shift."
+  );
+  body.appendListItem(
+    "SAME_DAY_DIFF_TEAM: Person A and Person B work on the same day if either is scheduled, but on opposite teams (one cooks, one cleans)."
+  );
+  body.appendListItem("PAIR_WITH_ROLE: Person A is on Role X whenever Person B is on Role Y.");
+  body.appendListItem("PREF_SAME_DAY: Allows Person A to cook and clean on the same day.");
+  body.appendParagraph(
+    "• Hard vs. Soft Rules: Hard rules are strictly enforced; soft rules are prioritized during optimization but will not block schedule creation if impossible."
+  );
+
+  body.appendHorizontalRule();
+
+  // Section 4: Step 3 Solve & Review Schedule
+  const sec4 = body.appendParagraph("4. Step 3: Solve & Review Schedule");
+  sec4.setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+  body.appendParagraph(
+    "• Matchmaker Solver: Click [Run Matchmaker Solver] to generate an optimal, constraint-compliant schedule that balances quotas and maximizes complete meals."
+  );
+  body.appendParagraph("• Team Sizing Policies:");
+  body.appendListItem(
+    "Adaptive 3 or 2 (Default & Recommended): Targets 3 cooks on Dinners & 2 on Brunches; dynamically accepts 2 cooks on a Dinner if all assigned cooks agreed to 2-person dinners."
+  );
+  body.appendListItem("Dinner = 3, Brunch = 2 (Strict): Strict 3 cooks on Dinners, 2 on Brunches.");
+  body.appendListItem("2 Regardless (Strict): Strict 2 cooks across all meals.");
+  body.appendListItem("Clean Team Size: Dinner = 3 cleaners, Brunch = 2 cleaners.");
+  body.appendParagraph("• Interactive Roster & Volunteer Inspector:");
+  body.appendListItem(
+    "Click any volunteer name badge to open the Member Calendar Inspector (Modal 3) to view their assigned dates and availability."
+  );
+  body.appendListItem(
+    "[+ Fill Missing Slot] (Modal 4): Click on an unfilled slot to view available volunteers ranked by quota deficit and assign them with one click."
+  );
+  body.appendListItem(
+    "[Swap Shifts] (Modal 6): Safely swap two volunteers across dates with full conflict validation."
+  );
+  body.appendListItem(
+    "[Cancel Meal] / [Restore Meal]: Drops deficit dates to protect volunteer equity, releasing volunteers back into the quota pool."
+  );
+  body.appendListItem(
+    "Near-Complete Opportunities (Modal 10): Generates targeted outreach messages for dates missing just 1 volunteer."
+  );
+  body.appendParagraph(
+    "• Quota Equity Table: Live tracking of requested vs assigned cook/clean shifts, highlighting oversubscribed members in yellow."
+  );
+
+  body.appendHorizontalRule();
+
+  // Section 5: Step 4 Publish & Email Announcement
+  const sec5 = body.appendParagraph("5. Step 4: Publish Schedule & Announce to Listserv");
+  sec5.setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+  body.appendParagraph(
+    "• Export Schedule to Google Sheets: Click [Export Schedule to Google Sheet] to append a clean, formatted Schedule_YYYY-MM tab to your survey spreadsheet."
+  );
+  body.appendParagraph(
+    "• Email Announcement Generator: Pre-formats a friendly announcement starting with 'Hi precious friends & neighbours,' with clean date headers and 'NO COMMUNITY MEAL' labels on cancelled dates."
+  );
+  body.appendParagraph("• One-Click Email Actions:");
+  body.appendListItem("[Copy Email Text]: Copies plain text announcement to your clipboard.");
+  body.appendListItem("[Create Gmail Draft]: Creates a draft in your Gmail account for review.");
+  body.appendListItem("[Send via Gmail]: Sends directly to the community listserv.");
+  body.appendParagraph(
+    "• Duplicate Send Safeguard: Automatically detects if an announcement was already sent for the month and requires confirmation before resending."
+  );
+
+  body.appendHorizontalRule();
+
+  // Section 6: Auxiliary Tools
+  const sec6 = body.appendParagraph("6. Auxiliary Coordinator Tools");
+  sec6.setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+  body.appendParagraph(
+    "• Community Reports & Equity Leaderboard (Modal 7): Multi-month historical aggregator tracking shifts and awarding volunteer badges (Super Volunteer, Cook Master, Clean Master, Same-Day Star, Equity Leader)."
+  );
+  body.appendParagraph(
+    "• Meal Sign-Up Sheet Generator (Modal 8): Creates the monthly diner sign-up workbook used by Rose and the community with custom deadlines and day labels."
+  );
+  body.appendParagraph(
+    "• Survey Form Generator (Modal 9): Generates next month's Google Form availability survey with automatic Thursday/Sunday date options."
+  );
+
+  body.appendHorizontalRule();
+
+  // Footer
+  const footer = body.appendParagraph(
+    "CookTeamTool — Developed for Vancouver Cohousing Community Meal Planning"
+  );
+  footer.editAsText().setItalic(true);
+}
+
+/**
+ * Updates a specific Google Document (such as the main User Guide launcher) with the full user guide.
+ */
+export function updateUserGuideDoc(docId = "1YQLQNDpjgTxczQiVWmLFTGG595cF3rj2_QVqAvPYyLI"): {
+  success: boolean;
+  docId: string;
+  docUrl: string;
+  message: string;
+} {
+  const doc = DocumentApp.openById(docId);
+  const body = doc.getBody();
+  populateUserGuideDocBody(
+    body,
+    true,
+    "https://script.google.com/macros/s/AKfycbwFUo53qovtiFScRr8UufB62fdjjZiCQINHbkpj0U0nuJ6drjxkrJMj7LbJAPPQYN-8lQ/exec"
+  );
+  doc.saveAndClose();
+
+  return {
+    success: true,
+    docId,
+    docUrl: doc.getUrl(),
+    message: "Successfully updated Google Doc User Guide with complete coordinator walkthrough!",
   };
 }
 
