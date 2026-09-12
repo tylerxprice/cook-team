@@ -317,7 +317,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
               type="text"
               value={emailTo}
               onChange={(e) => setEmailTo(e.target.value)}
-              placeholder="e.g. Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>"
+              placeholder="e.g. Community Residents <community-residents@googlegroups.com>"
               className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white font-medium text-slate-900"
             />
           </div>

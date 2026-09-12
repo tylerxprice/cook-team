@@ -236,7 +236,7 @@ function getUserInfo(): {
   try {
     const user = Session.getActiveUser();
     return {
-      email: user.getEmail() || "brenda.coordinator@community.local",
+      email: user.getEmail() || "coordinator@community.local",
       authMode: "V8 Runtime (Google Apps Script)",
       timezone: Session.getScriptTimeZone(),
       timestamp: new Date().toISOString(),
@@ -244,7 +244,7 @@ function getUserInfo(): {
     };
   } catch {
     return {
-      email: "brenda.coordinator@community.local",
+      email: "coordinator@community.local",
       authMode: "V8 Runtime",
       timezone: "America/Los_Angeles",
       timestamp: new Date().toISOString(),

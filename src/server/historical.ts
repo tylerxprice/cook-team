@@ -855,7 +855,7 @@ export function importHistoricalMonthsToEnvironment(
       logTab.getRange(1, 1, 1, 7).setFontWeight("bold").setBackground("#f3f4f6");
       logTab.setFrozenRows(1);
 
-      let emailSubject = `[vancoho-residents] MEAL SCHEDULE - ${monthSuffix} - Please Note Your Dates`;
+      let emailSubject = `[community-residents] MEAL SCHEDULE - ${monthSuffix} - Please Note Your Dates`;
       let emailTimestamp = new Date().toISOString();
       if (matchingEmail) {
         const cleanName = matchingEmail.name.replace(/\.eml$|\.txt$/i, "").trim();
@@ -877,9 +877,9 @@ export function importHistoricalMonthsToEnvironment(
       logTab.appendRow([
         emailTimestamp,
         monthSuffix || "",
-        "Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>",
+        "Community Residents <community-residents@googlegroups.com>",
         emailSubject,
-        "Brenda (Meal Coordinator)",
+        "Meal Coordinator",
         "SENT",
         "Historical Announcement",
       ]);

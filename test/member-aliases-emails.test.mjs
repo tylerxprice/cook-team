@@ -41,8 +41,8 @@ test("parseSheetBoolean - Accurately parses boolean values from sheet cells with
 });
 
 test("Member Normalization - extractEmails and extractAliases", () => {
-  const emails = extractEmails("alexandra@example.com, alex.personal@gmail.com;  WORK@CORP.COM ");
-  assert.deepEqual(emails, ["alexandra@example.com", "alex.personal@gmail.com", "work@corp.com"]);
+  const emails = extractEmails("alexandra@example.com, alex.personal@example.com;  WORK@CORP.COM ");
+  assert.deepEqual(emails, ["alexandra@example.com", "alex.personal@example.com", "work@corp.com"]);
 
   const emptyEmails = extractEmails("");
   assert.deepEqual(emptyEmails, []);
@@ -72,7 +72,7 @@ test("Member Normalization - Email match prioritized over name (Disambiguating M
     },
     {
       name: "Mark B",
-      google_email: "mark.b@community.org, mark.personal@gmail.com",
+      google_email: "mark.b@community.org, mark.personal@example.com",
       active: true,
       aliases: ["Mark", "Marko"],
     },
@@ -83,8 +83,8 @@ test("Member Normalization - Email match prioritized over name (Disambiguating M
   const matchL = findMatchingMember("Mark", "mark.l@community.org", members);
   assert.equal(matchL?.name, "Mark L");
 
-  // 2. Respondent with mark.personal@gmail.com matches Mark B
-  const matchB = findMatchingMember("Mark", "mark.personal@gmail.com", members);
+  // 2. Respondent with mark.personal@example.com matches Mark B
+  const matchB = findMatchingMember("Mark", "mark.personal@example.com", members);
   assert.equal(matchB?.name, "Mark B");
 });
 
@@ -92,7 +92,7 @@ test("Member Normalization - findMatchingMember resolution precedence", () => {
   const members = [
     {
       name: "Alexandra",
-      google_email: "alexandra@community.org, alex.personal@gmail.com",
+      google_email: "alexandra@community.org, alex.personal@example.com",
       active: true,
       aliases: ["Alex", "Sasha"],
     },
@@ -101,7 +101,7 @@ test("Member Normalization - findMatchingMember resolution precedence", () => {
       google_email: "ashley.white@example.com",
       active: true,
       aliases: ["Becca"],
-      alternate_emails: ["ash.alt@gmail.com"],
+      alternate_emails: ["ash.alt@example.com"],
     },
     {
       name: "Marcus",
@@ -112,7 +112,7 @@ test("Member Normalization - findMatchingMember resolution precedence", () => {
   ];
 
   // 1. Match by email first (even if name is completely different)
-  const matchEmail = findMatchingMember("Different Name", "alex.personal@gmail.com", members);
+  const matchEmail = findMatchingMember("Different Name", "alex.personal@example.com", members);
   assert.equal(matchEmail?.name, "Alexandra");
 
   // 2. Match by exact canonical name
@@ -127,7 +127,7 @@ test("Member Normalization - findMatchingMember resolution precedence", () => {
   assert.equal(match3?.name, "Alexandra");
 
   // 4. Match by alternate_emails array
-  const match5 = findMatchingMember("Becca", "ash.alt@gmail.com", members);
+  const match5 = findMatchingMember("Becca", "ash.alt@example.com", members);
   assert.equal(match5?.name, "Ash");
 
   // 5. Match by built-in common community alias (e.g. Marko / Mark B)
@@ -143,7 +143,7 @@ test("Survey Parser - Auto-canonicalizes respondent names and maintains accurate
   const masterMembers = [
     {
       name: "Alexandra",
-      google_email: "alexandra@community.org, alex.personal@gmail.com",
+      google_email: "alexandra@community.org, alex.personal@example.com",
       active: true,
       aliases: ["Alex"],
     },
@@ -180,7 +180,7 @@ test("Survey Parser - Auto-canonicalizes respondent names and maintains accurate
     // Row 1: Alexandra responds with name "Alex" and personal email
     [
       "2026-09-01T10:00:00Z",
-      "alex.personal@gmail.com",
+      "alex.personal@example.com",
       "Alex",
       "2",
       "1",
@@ -244,7 +244,7 @@ test("Survey Parser - Auto-canonicalizes respondent names and maintains accurate
   // 1. Alexandra's response was canonicalized to "Alexandra"
   const alexResp = parsed.responses.find((r) => r.name === "Alexandra");
   assert.ok(alexResp, "Alexandra should be canonicalized from 'Alex'");
-  assert.equal(alexResp?.email, "alex.personal@gmail.com");
+  assert.equal(alexResp?.email, "alex.personal@example.com");
 
   // 2. Mark L and Mark B were both disambiguated by email!
   const markLResp = parsed.responses.find((r) => r.name === "Mark L");
@@ -317,7 +317,7 @@ test("Member Directory - Update member profile (emails, aliases, active status) 
     "Alexandra",
     {
       name: "Alexandra",
-      google_email: "alexandra@community.org, alex.personal@gmail.com; alex.work@corp.com",
+      google_email: "alexandra@community.org, alex.personal@example.com; alex.work@corp.com",
       active: false,
       aliases: "Sasha, Alex, Sandy",
     },
@@ -329,7 +329,7 @@ test("Member Directory - Update member profile (emails, aliases, active status) 
   assert.equal(alex.active, false);
   assert.equal(
     alex.google_email,
-    "alexandra@community.org, alex.personal@gmail.com, alex.work@corp.com"
+    "alexandra@community.org, alex.personal@example.com, alex.work@corp.com"
   );
   assert.deepEqual(alex.aliases, ["Sasha", "Alex", "Sandy"]);
 

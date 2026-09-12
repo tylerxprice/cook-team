@@ -124,7 +124,7 @@ Click **[Run Matchmaker Solver]** to generate the optimal monthly schedule.
 * **One-Click Actions:**
   * **[Copy Email Text]:** Copies the plain-text announcement to your clipboard.
   * **[Create Gmail Draft]:** Creates a formatted draft in your Gmail account for review.
-  * **[Send via Gmail]:** Sends the announcement directly to the listserv (`vancoho-residents@googlegroups.com`).
+  * **[Send via Gmail]:** Sends the announcement directly to the listserv (`community-residents@googlegroups.com`).
 * **Duplicate Email Safeguard:** If an announcement has already been sent for the month, the tool displays an alert banner and requires explicit confirmation in the **Duplicate Email Send Modal (Modal 11)** before resending.
 
 ---

@@ -131,26 +131,26 @@ export const MOCK_MEAL_DATES: MealDate[] = [
 
 export const MOCK_MEMBERS: Member[] = [
   {
-    name: "Tyler",
-    google_email: "tylerxprice@gmail.com",
+    name: "Taylor",
+    google_email: "taylor.tester@example.com",
     active: true,
     last_active_survey: "2026-09",
   },
   {
-    name: "Brenda",
-    google_email: "brenda.meals@example.com",
+    name: "Beth",
+    google_email: "beth.meals@example.com",
     active: true,
     last_active_survey: "2026-09",
   },
   {
-    name: "Cyrena",
-    google_email: "cyrena.art@example.com",
+    name: "Claire",
+    google_email: "claire.art@example.com",
     active: true,
     last_active_survey: "2026-09",
   },
   {
-    name: "Rose",
-    google_email: "rose.gardens@example.com",
+    name: "Emma",
+    google_email: "emma.gardens@example.com",
     active: true,
     last_active_survey: "2026-09",
   },
@@ -327,8 +327,8 @@ export const MOCK_MEMBERS: Member[] = [
 export const MOCK_EXCEPTIONS: ExceptionRule[] = [
   {
     id: "RULE-01",
-    person_a: "Tyler",
-    person_b: "Rose",
+    person_a: "Taylor",
+    person_b: "Emma",
     rule_type: "NOT_SAME_DAY",
     is_hard_rule: true,
     notes: "Childcare coverage needed at home",
@@ -343,7 +343,7 @@ export const MOCK_EXCEPTIONS: ExceptionRule[] = [
   },
   {
     id: "RULE-03",
-    person_a: "Cyrena",
+    person_a: "Claire",
     rule_type: "PREF_SAME_DAY",
     target_role_a: "ANY",
     is_hard_rule: false,
@@ -365,8 +365,8 @@ export const MOCK_EXCEPTIONS: ExceptionRule[] = [
 export const MOCK_SURVEY_RESPONSES: SurveyResponse[] = [
   {
     timestamp: "8/26/2026 23:30:20",
-    email: "tylerxprice@gmail.com",
-    name: "Tyler",
+    email: "taylor.tester@example.com",
+    name: "Taylor",
     availability: {
       "Oct 1 (Thur)": "AVAILABLE",
       "Oct 4 (Sun, Brunch)": "AVAILABLE",
@@ -390,8 +390,8 @@ export const MOCK_SURVEY_RESPONSES: SurveyResponse[] = [
   },
   {
     timestamp: "8/27/2026 09:12:00",
-    email: "brenda.meals@example.com",
-    name: "Brenda",
+    email: "beth.meals@example.com",
+    name: "Beth",
     availability: {
       "Oct 1 (Thur)": "AVAILABLE",
       "Oct 4 (Sun, Brunch)": "COOK_ONLY",
@@ -415,8 +415,8 @@ export const MOCK_SURVEY_RESPONSES: SurveyResponse[] = [
   },
   {
     timestamp: "8/27/2026 10:05:00",
-    email: "cyrena.art@example.com",
-    name: "Cyrena",
+    email: "claire.art@example.com",
+    name: "Claire",
     availability: {
       "Oct 1 (Thur)": "AVAILABLE",
       "Oct 4 (Sun, Brunch)": "AVAILABLE",
@@ -440,8 +440,8 @@ export const MOCK_SURVEY_RESPONSES: SurveyResponse[] = [
   },
   {
     timestamp: "8/27/2026 10:30:00",
-    email: "rose.gardens@example.com",
-    name: "Rose",
+    email: "emma.gardens@example.com",
+    name: "Emma",
     availability: {
       "Oct 1 (Thur)": "CLEAN_ONLY",
       "Oct 4 (Sun, Brunch)": "AVAILABLE",
@@ -461,7 +461,7 @@ export const MOCK_SURVEY_RESPONSES: SurveyResponse[] = [
     canCookCleanSameDay: false,
     cookQuota: 1,
     cleanQuota: 2,
-    specialInstructions: "Please no shifts on same day as Tyler (childcare)",
+    specialInstructions: "Please no shifts on same day as Taylor (childcare)",
   },
   {
     timestamp: "8/27/2026 11:15:00",
@@ -1158,7 +1158,7 @@ export const MOCK_INTAKE_PAYLOAD: IntakePayload = {
 export const MOCK_SHORTAGE_RESPONSES: SurveyResponse[] = MOCK_SURVEY_RESPONSES.map((r) => {
   const newAvail = { ...r.availability };
   // 95% of community unavailable on Oct 11 & Oct 12
-  if (r.name !== "Tyler" && r.name !== "Brenda") {
+  if (r.name !== "Taylor" && r.name !== "Beth") {
     newAvail["Oct 11 (Sun, Dinner)"] = "UNAVAILABLE";
     newAvail["Oct 12 (Mon) - Thanksgiving"] = "UNAVAILABLE";
   }
@@ -1182,7 +1182,7 @@ export const MOCK_SHORTAGE_PAYLOAD: IntakePayload = {
 // -------------------------------------------------------------
 export const MOCK_DEFICIT_RESPONSES: SurveyResponse[] = MOCK_SURVEY_RESPONSES.map((r) => ({
   ...r,
-  cookQuota: r.name === "Brenda" ? 1 : 0, // almost everyone gave 0 cook quota
+  cookQuota: r.name === "Beth" ? 1 : 0, // almost everyone gave 0 cook quota
 }));
 
 export const MOCK_DEFICIT_PAYLOAD: IntakePayload = {
@@ -1243,14 +1243,14 @@ export const MOCK_HIGH_CONFLICT_PAYLOAD: IntakePayload = {
 };
 
 // -------------------------------------------------------------
-// PRESET 5: SINGLE RESPONDENT (Just Tyler's live sheet response)
+// PRESET 5: SINGLE RESPONDENT (Just Taylor's live sheet response)
 // -------------------------------------------------------------
 export const MOCK_SINGLE_PAYLOAD: IntakePayload = {
   sheetId: "1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4",
   mealDates: MOCK_MEAL_DATES,
-  responses: [MOCK_SURVEY_RESPONSES[0]], // Just Tyler
+  responses: [MOCK_SURVEY_RESPONSES[0]], // Just Taylor
   audit: {
-    missingMembers: MOCK_MEMBERS.filter((m) => m.name !== "Tyler" && m.active),
+    missingMembers: MOCK_MEMBERS.filter((m) => m.name !== "Taylor" && m.active),
     reactivatedMembers: [],
     unrecognizedRespondents: [],
     totalActiveMembers: 28,
@@ -1301,7 +1301,7 @@ export const MOCK_PRESETS: Record<
     payload: MOCK_HIGH_CONFLICT_PAYLOAD,
   },
   single_respondent: {
-    name: "👤 Single Response (Tyler only — Live Google Sheet)",
+    name: "👤 Single Response (Taylor only — Live Google Sheet)",
     description:
       "Live intake simulation with only 1 submitted response and 27 missing active members.",
     payload: MOCK_SINGLE_PAYLOAD,

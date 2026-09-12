@@ -603,8 +603,8 @@ function MainApp() {
 
   const [_selectedPreset, setSelectedPreset] = useState<string>("standard");
 
-  const LIVE_LISTSERV_EMAIL = "Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>";
-  const DEV_TEST_EMAIL = "tylerxprice@gmail.com";
+  const LIVE_LISTSERV_EMAIL = "Community Residents <community-residents@googlegroups.com>";
+  const DEV_TEST_EMAIL = "coordinator-test@example.com";
 
   // Helper to format subject line in Brenda's standard format: "MEAL SCHEDULE - Month 1 - Month 31 - Please Note Your Dates"
   const formatDefaultSubject = (dates?: MealDate[] | DaySchedule[]) => {

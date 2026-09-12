@@ -132,12 +132,12 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
             <div>
               <h4 className="text-xs sm:text-sm font-bold text-indigo-950 flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-indigo-700" />
-                Import Roster from Google Group (Vancouver Cohousing Residents)
+                Import Roster from Google Group (Community Residents)
               </h4>
               <p className="text-xs text-slate-700 mt-1">
                 Paste member names, emails, or rows copied directly from Google Groups (
                 <code className="bg-indigo-100 px-1 py-0.5 rounded text-indigo-950 font-bold">
-                  vancoho-residents@googlegroups.com
+                  community-residents@googlegroups.com
                 </code>
                 ). Names will be formatted as <strong>First Names</strong>, and duplicates are
                 automatically disambiguated with <strong>Last Initials</strong> (e.g.{" "}
@@ -156,7 +156,7 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                 id="bulk-import-roster-textarea"
                 value={bulkImportText}
                 onChange={(e) => setBulkImportText(e.target.value)}
-                placeholder={`Example lines to paste from Google Groups:\nTyler Price <tylerxprice@gmail.com>\nBrenda Coordinator <brenda@vancoho.com>\nSarah Chen <sarah.c@gmail.com>\nSarah Miller <sarah.m@gmail.com>\nMaya Patel`}
+                placeholder={`Example lines to paste from Google Groups:\nTaylor Tester <taylor@example.com>\nBeth Coordinator <beth@example.com>\nSarah Chen <sarah.c@example.com>\nSarah Miller <sarah.m@example.com>\nMaya Patel`}
                 rows={5}
                 className="w-full p-3 bg-white border border-indigo-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
               />
@@ -400,7 +400,7 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                             setEditingMember({ ...editingMember, emails: e.target.value })
                           }
                           className="w-full min-h-[38px] px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium text-slate-900 bg-white"
-                          placeholder="e.g. alexandra@community.org, alex.personal@gmail.com"
+                          placeholder="e.g. alexandra@example.com, alex.personal@example.com"
                         />
                       </div>
 

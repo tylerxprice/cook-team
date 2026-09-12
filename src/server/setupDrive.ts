@@ -437,8 +437,8 @@ export function populateUserGuideDocBody(
 
   body.appendParagraph(
     isProd
-      ? "📌 Production Environment: Scoped to 01_Live_Production folder | Reads Master Community Registry | Default Announcement: Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>"
-      : "📌 Dev / Test Environment: Scoped to 02_Dev_and_Testing folder | Reads 30 synthetic members & 6 scenario presets | Default Announcement: tylerxprice@gmail.com"
+      ? "📌 Production Environment: Scoped to 01_Live_Production folder | Reads Master Community Registry | Default Announcement: Community Residents <community-residents@googlegroups.com>"
+      : "📌 Dev / Test Environment: Scoped to 02_Dev_and_Testing folder | Reads 30 synthetic members & 6 scenario presets | Default Announcement: coordinator-test@example.com"
   );
 
   body.appendHorizontalRule();

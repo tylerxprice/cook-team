@@ -125,7 +125,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
   switch (functionName) {
     case "getUserInfo":
       return {
-        email: "brenda.coordinator@local-vite.dev",
+        email: "coordinator@local-vite.dev",
         authMode: "Local Dev Mock (Vite HMR)",
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         timestamp: new Date().toISOString(),
@@ -138,8 +138,8 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         ? localMembers
         : [
             {
-              name: "Tyler Price",
-              google_email: "tylerxprice@gmail.com",
+              name: "Alex Taylor",
+              google_email: "alex.taylor@example.com",
               active: true,
               last_active_survey: "2026-10",
             },
@@ -552,7 +552,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
           sentAt: new Date().toISOString(),
           to: payload.to,
           subject: payload.subject,
-          sentBy: "tylerxprice@gmail.com",
+          sentBy: "coordinator@local-vite.dev",
           monthKey,
         };
         mockEmailDispatchLog[monthKey] = dispatchInfo;

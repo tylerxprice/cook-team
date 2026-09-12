@@ -238,7 +238,7 @@ test("Email Announcement Formatter - Clean NO COMMUNITY MEAL for cancelled meals
 test("Historical Import - Generates Email_Dispatch_Log metadata sheet marking email as sent", () => {
   const monthSuffix = "2026-01";
   const matchingEmailName =
-    "[vancoho-residents] MEAL SCHEDULE - Jan 1 - Jan 31 - Please Note Your Dates.eml";
+    "[community-residents] MEAL SCHEDULE - Jan 1 - Jan 31 - Please Note Your Dates.eml";
 
   const expectedHeaders = [
     "Timestamp",
@@ -255,20 +255,20 @@ test("Historical Import - Generates Email_Dispatch_Log metadata sheet marking em
   const row = [
     new Date("2026-01-01T16:00:00.000Z").toISOString(),
     monthSuffix,
-    "Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>",
+    "Community Residents <community-residents@googlegroups.com>",
     cleanSubject,
-    "Brenda (Meal Coordinator)",
+    "Meal Coordinator",
     "SENT",
     "Historical Announcement",
   ];
 
   assert.equal(row[1], "2026-01");
-  assert.equal(row[2], "Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>");
+  assert.equal(row[2], "Community Residents <community-residents@googlegroups.com>");
   assert.equal(
     row[3],
-    "[vancoho-residents] MEAL SCHEDULE - Jan 1 - Jan 31 - Please Note Your Dates"
+    "[community-residents] MEAL SCHEDULE - Jan 1 - Jan 31 - Please Note Your Dates"
   );
-  assert.equal(row[4], "Brenda (Meal Coordinator)");
+  assert.equal(row[4], "Meal Coordinator");
   assert.equal(row[5], "SENT");
   assert.equal(row[6], "Historical Announcement");
 });
