@@ -5,24 +5,24 @@ import { formatHistoricalSheetTitle, extractMonthKey } from "../src/server/histo
 test("Historical Naming - Real Tab Formats (Slash, No Separator, Spaces)", () => {
   const cases = [
     // Real tab names with slashes
-    { input: "JAN/26", expected: "Historical - 26-01 JAN Cook Team Survey (Responses)" },
-    { input: "FEB/26", expected: "Historical - 26-02 FEB Cook Team Survey (Responses)" },
-    { input: "MAR/26", expected: "Historical - 26-03 MAR Cook Team Survey (Responses)" },
-    { input: "APR/26", expected: "Historical - 26-04 APR Cook Team Survey (Responses)" },
-    { input: "MAY/26", expected: "Historical - 26-05 MAY Cook Team Survey (Responses)" },
-    { input: "JUNE/26", expected: "Historical - 26-06 JUN Cook Team Survey (Responses)" },
-    { input: "JUL/26", expected: "Historical - 26-07 JUL Cook Team Survey (Responses)" },
-    { input: "AUG/26", expected: "Historical - 26-08 AUG Cook Team Survey (Responses)" },
-    { input: "SEPT/26", expected: "Historical - 26-09 SEP Cook Team Survey (Responses)" },
-    { input: "DEC/24", expected: "Historical - 24-12 DEC Cook Team Survey (Responses)" },
+    { input: "JAN/26", expected: "26-01 JAN Cook Team Survey (Responses)" },
+    { input: "FEB/26", expected: "26-02 FEB Cook Team Survey (Responses)" },
+    { input: "MAR/26", expected: "26-03 MAR Cook Team Survey (Responses)" },
+    { input: "APR/26", expected: "26-04 APR Cook Team Survey (Responses)" },
+    { input: "MAY/26", expected: "26-05 MAY Cook Team Survey (Responses)" },
+    { input: "JUNE/26", expected: "26-06 JUN Cook Team Survey (Responses)" },
+    { input: "JUL/26", expected: "26-07 JUL Cook Team Survey (Responses)" },
+    { input: "AUG/26", expected: "26-08 AUG Cook Team Survey (Responses)" },
+    { input: "SEPT/26", expected: "26-09 SEP Cook Team Survey (Responses)" },
+    { input: "DEC/24", expected: "24-12 DEC Cook Team Survey (Responses)" },
 
     // Alternative variations without slashes
-    { input: "JAN26", expected: "Historical - 26-01 JAN Cook Team Survey (Responses)" },
-    { input: "JUNE26", expected: "Historical - 26-06 JUN Cook Team Survey (Responses)" },
-    { input: "SEPT26", expected: "Historical - 26-09 SEP Cook Team Survey (Responses)" },
-    { input: "May 2026", expected: "Historical - 26-05 MAY Cook Team Survey (Responses)" },
-    { input: "August 2026", expected: "Historical - 26-08 AUG Cook Team Survey (Responses)" },
-    { input: "2026 JUNE", expected: "Historical - 26-06 JUN Cook Team Survey (Responses)" },
+    { input: "JAN26", expected: "26-01 JAN Cook Team Survey (Responses)" },
+    { input: "JUNE26", expected: "26-06 JUN Cook Team Survey (Responses)" },
+    { input: "SEPT26", expected: "26-09 SEP Cook Team Survey (Responses)" },
+    { input: "May 2026", expected: "26-05 MAY Cook Team Survey (Responses)" },
+    { input: "August 2026", expected: "26-08 AUG Cook Team Survey (Responses)" },
+    { input: "2026 JUNE", expected: "26-06 JUN Cook Team Survey (Responses)" },
   ];
 
   for (const { input, expected } of cases) {
@@ -233,4 +233,42 @@ test("Email Announcement Formatter - Clean NO COMMUNITY MEAL for cancelled meals
   assert.ok(
     email.includes("Oct 4 (Sun, Brunch)\n  • Cooks: Brenda, Sam\n  • Cleaners: Alex, Rose")
   );
+});
+
+test("Historical Import - Generates Email_Dispatch_Log metadata sheet marking email as sent", () => {
+  const monthSuffix = "2026-01";
+  const matchingEmailName =
+    "[vancoho-residents] MEAL SCHEDULE - Jan 1 - Jan 31 - Please Note Your Dates.eml";
+
+  const expectedHeaders = [
+    "Timestamp",
+    "Month",
+    "Recipient (To)",
+    "Subject",
+    "Sent By",
+    "Status",
+    "Mode",
+  ];
+  assert.equal(expectedHeaders.length, 7);
+
+  const cleanSubject = matchingEmailName.replace(/\.eml$|\.txt$/i, "").trim();
+  const row = [
+    new Date("2026-01-01T16:00:00.000Z").toISOString(),
+    monthSuffix,
+    "Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>",
+    cleanSubject,
+    "Brenda (Meal Coordinator)",
+    "SENT",
+    "Historical Announcement",
+  ];
+
+  assert.equal(row[1], "2026-01");
+  assert.equal(row[2], "Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>");
+  assert.equal(
+    row[3],
+    "[vancoho-residents] MEAL SCHEDULE - Jan 1 - Jan 31 - Please Note Your Dates"
+  );
+  assert.equal(row[4], "Brenda (Meal Coordinator)");
+  assert.equal(row[5], "SENT");
+  assert.equal(row[6], "Historical Announcement");
 });

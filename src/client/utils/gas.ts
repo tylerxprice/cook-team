@@ -438,13 +438,13 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         createdSheets: [
           {
             monthName: "Aug 2026",
-            title: "Historical - Aug 2026 Cook Team Survey (Responses)",
+            title: "26-08 AUG Cook Team Survey (Responses)",
             id: "hist-aug-2026",
             url: "https://docs.google.com/spreadsheets/d/hist-aug-2026",
           },
           {
             monthName: "Jul 2026",
-            title: "Historical - Jul 2026 Cook Team Survey (Responses)",
+            title: "26-07 JUL Cook Team Survey (Responses)",
             id: "hist-jul-2026",
             url: "https://docs.google.com/spreadsheets/d/hist-jul-2026",
           },

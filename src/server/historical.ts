@@ -390,7 +390,7 @@ export function formatHistoricalSheetTitle(tabName: string): string {
     const monthKey = extractMonthKey(monthStr) || "01";
     const month3 = monthStr.slice(0, 3);
     const yr2 = yearStr.length === 4 ? yearStr.slice(2) : yearStr;
-    return `Historical - ${yr2}-${monthKey} ${month3} Cook Team Survey (Responses)`;
+    return `${yr2}-${monthKey} ${month3} Cook Team Survey (Responses)`;
   }
 
   const mRev = clean.match(/(\d{2,4})[^0-9A-Z]*([A-Z]{3,})/);
@@ -400,10 +400,10 @@ export function formatHistoricalSheetTitle(tabName: string): string {
     const monthKey = extractMonthKey(monthStr) || "01";
     const month3 = monthStr.slice(0, 3);
     const yr2 = yearStr.length === 4 ? yearStr.slice(2) : yearStr;
-    return `Historical - ${yr2}-${monthKey} ${month3} Cook Team Survey (Responses)`;
+    return `${yr2}-${monthKey} ${month3} Cook Team Survey (Responses)`;
   }
 
-  return `Historical - ${tabName} Cook Team Survey (Responses)`;
+  return `${tabName} Cook Team Survey (Responses)`;
 }
 
 /**
@@ -623,8 +623,9 @@ export function importHistoricalMonthsToEnvironment(
 
       const title = formatHistoricalSheetTitle(tabName);
 
-      // Automatically rename any old format files to the new alphabetical title
+      // Automatically rename any old format files (including "Historical - " prefix) to the new alphabetical title
       const oldTitles = [
+        `Historical - ${title}`,
         `Historical - ${tabName} Cook Team Survey (Responses)`,
         `Historical - ${tabName.replace(/[^A-Za-z0-9]/g, "")} Cook Team Survey (Responses)`,
       ];
@@ -778,26 +779,27 @@ export function importHistoricalMonthsToEnvironment(
 
       formTab.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
 
+      // Determine canonical Schedule_YYYY-MM tab name matching the app
+      let monthSuffix = "";
+      if (matchingEmail && matchingEmail.schedule.length > 0 && matchingEmail.schedule[0].dateKey) {
+        monthSuffix = matchingEmail.schedule[0].dateKey.slice(0, 7);
+      } else {
+        const m =
+          tabName.match(/([A-Z]{3,})[^0-9A-Z]*(\d{2,4})/i) ||
+          tabName.match(/(\d{2,4})[^0-9A-Z]*([A-Z]{3,})/i);
+        if (m) {
+          const mStr = isNaN(Number(m[1])) ? m[1] : m[2];
+          const yStr = isNaN(Number(m[1])) ? m[2] : m[1];
+          const mKey = extractMonthKey(mStr) || "01";
+          const yFull = yStr.length === 2 ? `20${yStr}` : yStr;
+          monthSuffix = `${yFull}-${mKey}`;
+        }
+      }
+      if (!monthSuffix) {
+        monthSuffix = tabName.replace(/[/\s]+/g, "-");
+      }
+
       if (matchingEmail && matchingEmail.schedule.length > 0) {
-        // Determine canonical Schedule_YYYY-MM tab name matching the app
-        let monthSuffix = "";
-        if (matchingEmail.schedule.length > 0 && matchingEmail.schedule[0].dateKey) {
-          monthSuffix = matchingEmail.schedule[0].dateKey.slice(0, 7);
-        } else {
-          const m =
-            tabName.match(/([A-Z]{3,})[^0-9A-Z]*(\d{2,4})/i) ||
-            tabName.match(/(\d{2,4})[^0-9A-Z]*([A-Z]{3,})/i);
-          if (m) {
-            const mStr = isNaN(Number(m[1])) ? m[1] : m[2];
-            const yStr = isNaN(Number(m[1])) ? m[2] : m[1];
-            const mKey = extractMonthKey(mStr) || "01";
-            const yFull = yStr.length === 2 ? `20${yStr}` : yStr;
-            monthSuffix = `${yFull}-${mKey}`;
-          }
-        }
-        if (!monthSuffix) {
-          monthSuffix = tabName.replace(/[/\s]+/g, "-");
-        }
         const schedTabName = `Schedule_${monthSuffix}`;
         let schedTab = newSS.getSheetByName(schedTabName);
         if (!schedTab) schedTab = newSS.insertSheet(schedTabName);
@@ -838,6 +840,49 @@ export function importHistoricalMonthsToEnvironment(
           schedTab.getRange(2, 1, schedRows.length - 1, 1).setNumberFormat("ddd, mmm d, yyyy");
         }
       }
+
+      // Add Email_Dispatch_Log tab indicating email announcement has already been sent
+      let logTab = newSS.getSheetByName("Email_Dispatch_Log");
+      if (!logTab) {
+        logTab = newSS.insertSheet("Email_Dispatch_Log");
+      }
+      logTab.clear();
+      logTab
+        .getRange(1, 1, 1, 7)
+        .setValues([
+          ["Timestamp", "Month", "Recipient (To)", "Subject", "Sent By", "Status", "Mode"],
+        ]);
+      logTab.getRange(1, 1, 1, 7).setFontWeight("bold").setBackground("#f3f4f6");
+      logTab.setFrozenRows(1);
+
+      let emailSubject = `[vancoho-residents] MEAL SCHEDULE - ${monthSuffix} - Please Note Your Dates`;
+      let emailTimestamp = new Date().toISOString();
+      if (matchingEmail) {
+        const cleanName = matchingEmail.name.replace(/\.eml$|\.txt$/i, "").trim();
+        if (cleanName.includes("MEAL SCHEDULE")) {
+          emailSubject = cleanName;
+        }
+      }
+      if (monthSuffix) {
+        const parts = monthSuffix.split("-");
+        if (parts.length === 2) {
+          const y = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10);
+          if (!isNaN(y) && !isNaN(m)) {
+            emailTimestamp = new Date(Date.UTC(y, m - 1, 1, 16, 0, 0)).toISOString();
+          }
+        }
+      }
+
+      logTab.appendRow([
+        emailTimestamp,
+        monthSuffix || "",
+        "Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>",
+        emailSubject,
+        "Brenda (Meal Coordinator)",
+        "SENT",
+        "Historical Announcement",
+      ]);
 
       createdSheets.push({
         monthName: tabName,
