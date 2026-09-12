@@ -301,6 +301,20 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
                 8. Notes &amp; Instructions
               </div>
             </div>
+            <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-violet-900 font-medium">
+              <span className="bg-violet-100/70 border border-violet-200/80 px-2 py-0.5 rounded-md">
+                ✓ Allow Response Editing
+              </span>
+              <span className="bg-violet-100/70 border border-violet-200/80 px-2 py-0.5 rounded-md">
+                ✓ Limit to 1 Response
+              </span>
+              <span className="bg-violet-100/70 border border-violet-200/80 px-2 py-0.5 rounded-md">
+                ✓ View Results Summary
+              </span>
+              <span className="bg-violet-100/70 border border-violet-200/80 px-2 py-0.5 rounded-md">
+                ✓ Required Questions
+              </span>
+            </div>
           </div>
 
           {/* Interactive Meal Dates Table */}

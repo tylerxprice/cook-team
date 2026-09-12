@@ -149,11 +149,13 @@ export function executeCreateSurveyForm(payload: CreateSurveyFormPayload): Creat
     try {
       form.setCollectEmail(true);
       form.setAllowResponseEdits(true);
+      form.setLimitOneResponsePerUser(true);
+      form.setPublishingSummary(true);
       try {
         form.setRequireLogin(false);
       } catch {}
     } catch (e) {
-      console.warn("Could not setCollectEmail on form:", e);
+      console.warn("Could not set form preferences on form:", e);
     }
 
     // Explicitly set emailCollectionType to VERIFIED (1-click account consent) via Google Forms REST API v1
