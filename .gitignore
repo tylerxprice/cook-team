@@ -27,3 +27,6 @@ dist/
 __pycache__/
 *.pyc
 
+# Local data files and raw spreadsheets/emails
+data/
+
