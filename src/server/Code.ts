@@ -630,6 +630,13 @@ function appendManualSurveyResponse(
       ? "Yes"
       : "No";
 
+  const cookQuota = typeof payload.cookQuota === "number" ? payload.cookQuota : 1;
+  const cleanQuota = typeof payload.cleanQuota === "number" ? payload.cleanQuota : 1;
+  const maxTotalShifts =
+    typeof payload.maxTotalShifts === "number" && payload.maxTotalShifts > 0
+      ? payload.maxTotalShifts
+      : cookQuota + cleanQuota;
+
   const surveyResponse: SurveyResponse = {
     timestamp,
     email: payload.email || "",
@@ -638,8 +645,9 @@ function appendManualSurveyResponse(
     cookTeamSizePref: payload.cookTeamSizePref || "Dinner = 3, Brunch = 2",
     canCookCleanSameDay,
     sameDayPref,
-    cookQuota: typeof payload.cookQuota === "number" ? payload.cookQuota : 1,
-    cleanQuota: typeof payload.cleanQuota === "number" ? payload.cleanQuota : 1,
+    cookQuota,
+    cleanQuota,
+    maxTotalShifts,
     specialInstructions: (payload.specialInstructions || "").trim(),
   };
 
@@ -678,6 +686,14 @@ function appendManualSurveyResponse(
           newRow[colIdx] = surveyResponse.cookQuota;
         } else if (/how many.*clean|clean.*quota|clean.*shifts|meals.*clean/i.test(headerStr)) {
           newRow[colIdx] = surveyResponse.cleanQuota;
+        } else if (
+          /maximum.*total.*shifts|max.*total.*shifts|total.*shifts.*max|combined.*shift.*limit|total.*shifts.*combined|max.*shifts/i.test(
+            headerStr
+          )
+        ) {
+          newRow[colIdx] =
+            surveyResponse.maxTotalShifts ??
+            surveyResponse.cookQuota + surveyResponse.cleanQuota;
         } else if (/special instructions|notes|comments|instructions/i.test(headerStr)) {
           newRow[colIdx] = surveyResponse.specialInstructions;
         } else {

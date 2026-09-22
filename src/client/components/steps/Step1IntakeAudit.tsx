@@ -612,6 +612,12 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
                                 <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-sky-50 text-sky-800 border border-sky-200">
                                   🧼 Clean: {r.cleanQuota ?? 1}
                                 </span>
+                                {typeof r.maxTotalShifts === "number" &&
+                                  r.maxTotalShifts < ((r.cookQuota ?? 1) + (r.cleanQuota ?? 1)) && (
+                                    <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-100 text-amber-950 border border-amber-300">
+                                      🎯 Max: {r.maxTotalShifts} Shifts
+                                    </span>
+                                  )}
                                 {r.canCookCleanSameDay && (
                                   <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-purple-50 text-purple-800 border border-purple-200">
                                     Same-Day: {r.sameDayPref === "PREFERRED" ? "Preferred" : "Yes"}

@@ -15,6 +15,7 @@ interface Candidate {
   name: string;
   cookQuota: number;
   cleanQuota: number;
+  maxTotalShifts: number;
   canSameDay: boolean;
   sameDayPref?: "NO" | "YES" | "PREFERRED";
   hasPrefSameDayRule?: boolean;
@@ -65,10 +66,16 @@ export function solveSinglePass(
     const canSameDay =
       resp.canCookCleanSameDay || sameDayPref === "YES" || sameDayPref === "PREFERRED";
 
+    const maxTotalShifts =
+      typeof resp.maxTotalShifts === "number" && resp.maxTotalShifts > 0
+        ? resp.maxTotalShifts
+        : resp.cookQuota + cleanQuota;
+
     candidates.set(resp.name, {
       name: resp.name,
       cookQuota: resp.cookQuota,
       cleanQuota,
+      maxTotalShifts,
       canSameDay,
       sameDayPref,
       hasPrefSameDayRule: false,
@@ -202,6 +209,7 @@ export function solveSinglePass(
       const eligible = Array.from(candidates.values()).filter((c) => {
         if (c.assignedCookDates.has(md.dateKey)) return false;
         if (c.assignedCookDates.size >= c.cookQuota) return false;
+        if (c.assignedCookDates.size + c.assignedCleanDates.size >= c.maxTotalShifts) return false;
         const avail = getCandidateAvailability(c, md);
         if (avail !== "AVAILABLE" && avail !== "COOK_ONLY") return false;
         if (!c.canSameDay && c.assignedCleanDates.has(md.dateKey)) return false;
@@ -263,6 +271,7 @@ export function solveSinglePass(
     const eligible = Array.from(candidates.values()).filter((c) => {
       if (c.assignedCleanDates.has(md.dateKey)) return false;
       if (c.assignedCleanDates.size >= c.cleanQuota) return false;
+      if (c.assignedCookDates.size + c.assignedCleanDates.size >= c.maxTotalShifts) return false;
       const avail = getCandidateAvailability(c, md);
       if (avail !== "AVAILABLE" && avail !== "CLEAN_ONLY") return false;
       if (!c.canSameDay && entry.cooks.includes(c.name)) return false;
@@ -405,6 +414,7 @@ export function solveSinglePass(
       name,
       requestedCookQuota: cand.cookQuota,
       requestedCleanQuota: cand.cleanQuota,
+      requestedMaxTotalShifts: cand.maxTotalShifts,
       availableCookDays,
       availableCleanDays,
       assignedCooks: cand.assignedCookDates.size,

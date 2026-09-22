@@ -283,6 +283,11 @@ export function parseSurveySheetData(
   const cleanQuotaIdx = headers.findIndex((h) =>
     /how many.*clean|clean.*quota|clean.*shifts|meals.*clean/i.test(h)
   );
+  const maxTotalShiftsIdx = headers.findIndex((h) =>
+    /maximum.*total.*shifts|max.*total.*shifts|total.*shifts.*max|combined.*shift.*limit|total.*shifts.*combined|max.*shifts/i.test(
+      h
+    )
+  );
   const notesIdx = headers.findIndex((h) =>
     /special instructions|notes|comments|instructions/i.test(h)
   );
@@ -370,6 +375,18 @@ export function parseSurveySheetData(
     const cleanQuotaRaw = cleanQuotaIdx >= 0 ? parseInt(String(row[cleanQuotaIdx]), 10) : 1;
     const cleanQuota = isNaN(cleanQuotaRaw) || cleanQuotaRaw < 0 ? 1 : cleanQuotaRaw;
 
+    let maxTotalShifts: number | undefined = undefined;
+    if (maxTotalShiftsIdx >= 0) {
+      const maxRaw = String(row[maxTotalShiftsIdx] || "").trim();
+      const parsedMax = parseInt(maxRaw, 10);
+      if (!isNaN(parsedMax) && parsedMax > 0) {
+        maxTotalShifts = parsedMax;
+      }
+    }
+    if (!maxTotalShifts) {
+      maxTotalShifts = cookQuota + cleanQuota;
+    }
+
     const availability: Record<string, AvailabilityStatus> = {};
     for (const dc of dateColumns) {
       const cellVal = row[dc.colIdx];
@@ -386,6 +403,7 @@ export function parseSurveySheetData(
       sameDayPref,
       cookQuota,
       cleanQuota,
+      maxTotalShifts,
       specialInstructions,
     });
   }

@@ -54,6 +54,7 @@ export interface SurveyResponse {
   sameDayPref?: "NO" | "YES" | "PREFERRED"; // "NO" (default), "YES", "PREFERRED"
   cookQuota: number;
   cleanQuota: number;
+  maxTotalShifts?: number; // Optional cap across both cook and clean shifts combined
   specialInstructions: string;
 }
 
@@ -62,6 +63,7 @@ export interface ManualSurveyResponsePayload {
   email?: string;
   cookQuota: number;
   cleanQuota: number;
+  maxTotalShifts?: number;
   cookTeamSizePref: string;
   sameDayPref: "NO" | "YES" | "PREFERRED";
   availability: Record<string, AvailabilityStatus>; // dateLabel -> AvailabilityStatus
@@ -108,6 +110,7 @@ export interface MemberQuotaStat {
   name: string;
   requestedCookQuota: number;
   requestedCleanQuota: number;
+  requestedMaxTotalShifts?: number;
   availableCookDays: number;
   availableCleanDays: number;
   assignedCooks: number;

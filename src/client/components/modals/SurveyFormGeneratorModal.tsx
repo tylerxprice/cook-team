@@ -279,7 +279,7 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
                 Community Standard
               </span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-700 pt-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-slate-700 pt-1">
               <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
                 1. Verified Email (1-Click Consent)
               </div>
@@ -293,16 +293,19 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
                 4. Clean Quota (Prefilled 1)
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                5. Cook Team Size (Prefilled 3/2)
+                5. Max Total Shifts (Combined Cap)
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                6. Same-Day Shift (Prefilled No)
+                6. Cook Team Size (Prefilled 3/2)
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                7. Date Availability Grid
+                7. Same-Day Shift (Prefilled No)
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                8. Notes &amp; Instructions
+                8. Date Availability Grid
+              </div>
+              <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
+                9. Notes &amp; Instructions
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-violet-900 font-medium">

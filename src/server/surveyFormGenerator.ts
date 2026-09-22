@@ -178,27 +178,49 @@ export function executeCreateSurveyForm(payload: CreateSurveyFormPayload): Creat
       .setChoiceValues(["1", "2", "3", "0"])
       .setRequired(true);
 
-    // 5. Question 4: Cook Team Size Preference (Multiple Choice)
+    // 5. Question 4: Maximum Total Shifts Combined (Multiple Choice)
+    const maxTotalShiftsItem = form
+      .addMultipleChoiceItem()
+      .setTitle("Maximum total shifts (cooking + cleaning combined) this month")
+      .setHelpText(
+        "Optional cap across both roles. Leave as 'No limit' to do the sum of your cook and clean answers above."
+      )
+      .setChoiceValues([
+        "No limit (Sum of cook & clean)",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+      ])
+      .setRequired(false);
+
+    // 6. Question 5: Cook Team Size Preference (Multiple Choice)
     const cookSizeItem = form
       .addMultipleChoiceItem()
       .setTitle("What is your preference for cook team size?")
       .setChoiceValues(["Dinner = 3, Brunch = 2 (Preferred)", "2 regardless of meal type"])
       .setRequired(true);
 
-    // 6. Question 5: Same-Day Shift (Multiple Choice)
+    // 7. Question 6: Same-Day Shift (Multiple Choice)
     const sameDayItem = form
       .addMultipleChoiceItem()
       .setTitle("Can you cook and clean on the same day?")
       .setChoiceValues(["No", "Yes", "Yes, prefer same day"])
       .setRequired(true);
 
-    // Generate Pre-filled Form URL with community default selections (1 cook, 1 clean, standard size, No same day)
+    // Generate Pre-filled Form URL with community default selections
     let formPrefilledUrl: string | undefined = undefined;
     try {
       const prefillResp = form.createResponse();
       prefillResp.withItemResponse(cookQuotaItem.createResponse("1"));
       prefillResp.withItemResponse(cleanQuotaItem.createResponse("1"));
-      prefillResp.withItemResponse(cookSizeItem.createResponse("Dinner = 3, Brunch = 2 (Preferred)"));
+      prefillResp.withItemResponse(
+        maxTotalShiftsItem.createResponse("No limit (Sum of cook & clean)")
+      );
+      prefillResp.withItemResponse(
+        cookSizeItem.createResponse("Dinner = 3, Brunch = 2 (Preferred)")
+      );
       prefillResp.withItemResponse(sameDayItem.createResponse("No"));
       formPrefilledUrl = prefillResp.toPrefilledUrl();
     } catch (prefErr) {

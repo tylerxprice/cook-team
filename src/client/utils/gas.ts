@@ -301,6 +301,13 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
       const sameDayPref = payload.sameDayPref || "NO";
       const canCookCleanSameDay = sameDayPref === "YES" || sameDayPref === "PREFERRED";
 
+      const cookQuota = typeof payload.cookQuota === "number" ? payload.cookQuota : 1;
+      const cleanQuota = typeof payload.cleanQuota === "number" ? payload.cleanQuota : 1;
+      const maxTotalShifts =
+        typeof payload.maxTotalShifts === "number" && payload.maxTotalShifts > 0
+          ? payload.maxTotalShifts
+          : cookQuota + cleanQuota;
+
       const surveyResponse: SurveyResponse = {
         timestamp,
         email: payload.email || "",
@@ -309,8 +316,9 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         cookTeamSizePref: payload.cookTeamSizePref || "Dinner = 3, Brunch = 2",
         canCookCleanSameDay,
         sameDayPref,
-        cookQuota: typeof payload.cookQuota === "number" ? payload.cookQuota : 1,
-        cleanQuota: typeof payload.cleanQuota === "number" ? payload.cleanQuota : 1,
+        cookQuota,
+        cleanQuota,
+        maxTotalShifts,
         specialInstructions: (payload.specialInstructions || "").trim(),
       };
 

@@ -43,6 +43,7 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
   const [email, setEmail] = useState<string>("");
   const [cookQuota, setCookQuota] = useState<number>(1);
   const [cleanQuota, setCleanQuota] = useState<number>(1);
+  const [maxTotalShifts, setMaxTotalShifts] = useState<number>(2);
   const [cookTeamSizePref, setCookTeamSizePref] = useState<string>("Dinner = 3, Brunch = 2");
   const [sameDayPref, setSameDayPref] = useState<"NO" | "YES" | "PREFERRED">("NO");
   const [availability, setAvailability] = useState<Record<string, AvailabilityStatus>>({});
@@ -58,6 +59,7 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
       setEmail("");
       setCookQuota(1);
       setCleanQuota(1);
+      setMaxTotalShifts(2);
       setCookTeamSizePref("Dinner = 3, Brunch = 2");
       setSameDayPref("NO");
       setSpecialInstructions("");
@@ -81,9 +83,17 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
       const respEmail =
         existingResp.email ||
         (matchedMember?.google_email ? matchedMember.google_email.split(/[,;]/)[0].trim() : "");
+      const cq = typeof existingResp.cookQuota === "number" ? existingResp.cookQuota : 1;
+      const clq = typeof existingResp.cleanQuota === "number" ? existingResp.cleanQuota : 1;
+      const mq =
+        typeof existingResp.maxTotalShifts === "number" && existingResp.maxTotalShifts > 0
+          ? existingResp.maxTotalShifts
+          : cq + clq;
+
       setEmail(respEmail);
-      setCookQuota(typeof existingResp.cookQuota === "number" ? existingResp.cookQuota : 1);
-      setCleanQuota(typeof existingResp.cleanQuota === "number" ? existingResp.cleanQuota : 1);
+      setCookQuota(cq);
+      setCleanQuota(clq);
+      setMaxTotalShifts(mq);
       setCookTeamSizePref(existingResp.cookTeamSizePref || "Dinner = 3, Brunch = 2");
       setSameDayPref(
         existingResp.sameDayPref || (existingResp.canCookCleanSameDay ? "YES" : "NO")
@@ -101,6 +111,7 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
       setEmail(primaryEmail);
       setCookQuota(1);
       setCleanQuota(1);
+      setMaxTotalShifts(2);
       setCookTeamSizePref("Dinner = 3, Brunch = 2");
       setSameDayPref("NO");
       setSpecialInstructions("");
@@ -163,6 +174,7 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
       email: email.trim(),
       cookQuota: Math.max(0, cookQuota),
       cleanQuota: Math.max(0, cleanQuota),
+      maxTotalShifts: Math.max(0, maxTotalShifts),
       cookTeamSizePref,
       sameDayPref,
       availability,
@@ -351,7 +363,7 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
               Requested Shifts &amp; Preferences
             </h4>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
               {/* Cook Quota */}
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
@@ -359,7 +371,14 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
                 </label>
                 <select
                   value={cookQuota}
-                  onChange={(e) => setCookQuota(parseInt(e.target.value, 10))}
+                  onChange={(e) => {
+                    const nextCook = parseInt(e.target.value, 10);
+                    setCookQuota(nextCook);
+                    // If max total was tracking the sum, update it
+                    if (maxTotalShifts === cookQuota + cleanQuota) {
+                      setMaxTotalShifts(nextCook + cleanQuota);
+                    }
+                  }}
                   disabled={loading}
                   className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 font-bold text-slate-900 cursor-pointer"
                 >
@@ -378,13 +397,48 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
                 </label>
                 <select
                   value={cleanQuota}
-                  onChange={(e) => setCleanQuota(parseInt(e.target.value, 10))}
+                  onChange={(e) => {
+                    const nextClean = parseInt(e.target.value, 10);
+                    setCleanQuota(nextClean);
+                    if (maxTotalShifts === cookQuota + cleanQuota) {
+                      setMaxTotalShifts(cookQuota + nextClean);
+                    }
+                  }}
                   disabled={loading}
                   className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 font-bold text-slate-900 cursor-pointer"
                 >
                   <option value={0}>0 (No Cleaning)</option>
                   <option value={1}>1 shift (Default)</option>
                   <option value={2}>2 shifts</option>
+                  <option value={3}>3 shifts</option>
+                </select>
+              </div>
+
+              {/* Max Total Shifts Cap */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1 flex items-center justify-between">
+                  <span>Max Total Shifts (Cap):</span>
+                  {maxTotalShifts < cookQuota + cleanQuota && (
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                      Capped
+                    </span>
+                  )}
+                </label>
+                <select
+                  value={maxTotalShifts}
+                  onChange={(e) => setMaxTotalShifts(parseInt(e.target.value, 10))}
+                  disabled={loading}
+                  className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 font-bold text-slate-900 cursor-pointer"
+                >
+                  <option value={cookQuota + cleanQuota}>
+                    Sum of above ({cookQuota + cleanQuota} total)
+                  </option>
+                  <option value={1}>1 shift max</option>
+                  <option value={2}>2 shifts max</option>
+                  <option value={3}>3 shifts max</option>
+                  <option value={4}>4 shifts max</option>
+                  <option value={5}>5 shifts max</option>
+                  <option value={6}>6 shifts max</option>
                 </select>
               </div>
 
@@ -406,7 +460,7 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
               </div>
 
               {/* Same-Day Shifts */}
-              <div>
+              <div className="sm:col-span-2 lg:col-span-2">
                 <label className="text-xs font-bold text-slate-700 block mb-1">
                   Same-Day Cook &amp; Clean:
                 </label>

@@ -559,9 +559,17 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
 
                   const renderStatRow = (stat: MemberQuotaStat, isMuted = false) => {
                     const reqCleans = stat.requestedCleanQuota ?? 1;
-                    const isCleanShort = stat.assignedCleans < reqCleans;
-                    const isCookShort = stat.assignedCooks < stat.requestedCookQuota;
-                    const isShort = isCookShort || isCleanShort;
+                    const reqMaxTotal =
+                      typeof stat.requestedMaxTotalShifts === "number" &&
+                      stat.requestedMaxTotalShifts > 0
+                        ? stat.requestedMaxTotalShifts
+                        : stat.requestedCookQuota + reqCleans;
+                    const hasExplicitMaxCap = reqMaxTotal < stat.requestedCookQuota + reqCleans;
+                    const isTotalCapMet = stat.totalAssigned >= reqMaxTotal;
+
+                    const isCleanShort = !isTotalCapMet && stat.assignedCleans < reqCleans;
+                    const isCookShort = !isTotalCapMet && stat.assignedCooks < stat.requestedCookQuota;
+                    const isShort = !isTotalCapMet && (isCookShort || isCleanShort);
                     const totalMealCount = intakeData?.mealDates.length || 13;
                     const notPart = isNotPart(stat);
 
@@ -575,6 +583,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                     );
                     const hasPendingIncomplete = incompleteAssignedDays.length > 0;
                     const isOversubscribed =
+                      stat.totalAssigned > reqMaxTotal ||
                       stat.assignedCleans > reqCleans ||
                       stat.assignedCooks > stat.requestedCookQuota;
 
@@ -606,7 +615,14 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                         </td>
                         <td className="px-4 py-3 text-slate-700 font-semibold">{reqCleans}</td>
                         <td className="px-4 py-3 font-bold text-sky-700">{stat.assignedCleans}</td>
-                        <td className="px-4 py-3 font-bold text-slate-900">{stat.totalAssigned}</td>
+                        <td className="px-4 py-3 font-bold text-slate-900">
+                          {stat.totalAssigned}
+                          {hasExplicitMaxCap && (
+                            <span className="text-[11px] text-amber-900 font-semibold block">
+                              (Cap: {reqMaxTotal})
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           {isOversubscribed ? (
                             <div className="space-y-1">
@@ -621,6 +637,11 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                                   : ""}
                                 {stat.assignedCleans > reqCleans
                                   ? `${stat.assignedCleans}/${reqCleans} Cleans`
+                                  : ""}
+                                {stat.totalAssigned > reqMaxTotal &&
+                                !(stat.assignedCooks > stat.requestedCookQuota) &&
+                                !(stat.assignedCleans > reqCleans)
+                                  ? `${stat.totalAssigned}/${reqMaxTotal} Total`
                                   : ""}
                                 )
                               </span>
@@ -660,9 +681,13 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                                 Meal missing cleaner/cook team
                               </p>
                             </div>
+                          ) : hasExplicitMaxCap && isTotalCapMet ? (
+                            <span className="text-emerald-950 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-lg font-bold inline-block text-xs">
+                              🎯 Cap Met ({stat.totalAssigned}/{reqMaxTotal})
+                            </span>
                           ) : (
                             <span className="text-emerald-950 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-lg font-bold inline-block text-xs">
-                              ✅ Confirmed Fulfilled
+                              ✅ Staffed ({stat.assignedCooks}C + {stat.assignedCleans}Cl)
                             </span>
                           )}
                         </td>
