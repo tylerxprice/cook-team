@@ -70,9 +70,12 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
 
   const filteredSubmittedResponses = useMemo(() => {
     if (!intakeData?.responses) return [];
+    const sorted = [...intakeData.responses].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    );
     const q = submittedSearch.trim().toLowerCase();
-    if (!q) return intakeData.responses;
-    return intakeData.responses.filter(
+    if (!q) return sorted;
+    return sorted.filter(
       (r) =>
         r.name.toLowerCase().includes(q) ||
         (r.email && r.email.toLowerCase().includes(q)) ||
