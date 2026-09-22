@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
 import {
   FileSpreadsheet,
   ExternalLink,
@@ -10,6 +10,11 @@ import {
   CheckCircle2,
   UserX,
   ChevronRight,
+  ClipboardEdit,
+  Users,
+  ChevronDown,
+  ChevronUp,
+  Search,
 } from "lucide-react";
 import { IntakePayload, Member } from "../../../server/types";
 
@@ -33,6 +38,7 @@ export interface Step1IntakeAuditProps {
   handleAddMember: (e?: React.FormEvent, directName?: string, directEmail?: string) => void;
   updatingMemberName: string | null;
   handleMarkInactive: (memberName: string) => void;
+  handleOpenManualSurveyModal: (memberName?: string) => void;
   goToStep: (step: 1 | 2 | 3 | 4) => void;
 }
 
@@ -56,8 +62,23 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
   handleAddMember,
   updatingMemberName,
   handleMarkInactive,
+  handleOpenManualSurveyModal,
   goToStep,
 }) => {
+  const [showSubmittedResponses, setShowSubmittedResponses] = useState(false);
+  const [submittedSearch, setSubmittedSearch] = useState("");
+
+  const filteredSubmittedResponses = useMemo(() => {
+    if (!intakeData?.responses) return [];
+    const q = submittedSearch.trim().toLowerCase();
+    if (!q) return intakeData.responses;
+    return intakeData.responses.filter(
+      (r) =>
+        r.name.toLowerCase().includes(q) ||
+        (r.email && r.email.toLowerCase().includes(q)) ||
+        (r.specialInstructions && r.specialInstructions.toLowerCase().includes(q))
+    );
+  }, [intakeData?.responses, submittedSearch]);
   return (
     <div className="space-y-6">
       {/* Sheet Link & Dropdown Selector Card */}
@@ -72,7 +93,18 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
               Select a monthly survey response sheet from Google Drive or choose a test scenario
             </p>
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {intakeData && (
+              <button
+                type="button"
+                onClick={() => handleOpenManualSurveyModal()}
+                className="min-h-[44px] inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-bold text-orange-950 bg-orange-50 hover:bg-orange-100 rounded-xl border border-orange-300 transition-colors cursor-pointer shadow-2xs"
+                title="Enter survey availability response on behalf of a member"
+              >
+                <ClipboardEdit className="w-4 h-4 text-orange-600 shrink-0" />
+                <span>+ Enter Response</span>
+              </button>
+            )}
             {sheetInput && (
               <a
                 href={
@@ -449,7 +481,17 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenManualSurveyModal(m.name)}
+                          aria-label={`Enter survey availability for ${m.name}`}
+                          className="min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 hover:border-emerald-400 transition-colors cursor-pointer shadow-2xs"
+                          title="Enter survey availability for this member"
+                        >
+                          <ClipboardEdit className="w-4 h-4 text-emerald-700 shrink-0" />
+                          <span>+ Enter Availability</span>
+                        </button>
                         <button
                           onClick={() => handleMarkInactive(m.name)}
                           disabled={isUpdating}
@@ -481,6 +523,132 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
             ) : (
               <div className="p-8 text-center text-slate-600 text-xs sm:text-sm font-medium">
                 ✨ Excellent! Every active community member has submitted their survey.
+              </div>
+            )}
+          </div>
+
+          {/* Submitted Survey Responses Collapsible Accordion */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowSubmittedResponses((prev) => !prev)}
+              className="w-full p-5 text-left flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 transition-colors cursor-pointer"
+              aria-expanded={showSubmittedResponses}
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-900 font-bold flex items-center justify-center text-sm border border-blue-200 shrink-0">
+                  <Users className="w-5 h-5 text-blue-800" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                    <span>Submitted Survey Responses</span>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-900 border border-blue-200">
+                      {intakeData.responses.length}
+                    </span>
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+                    Click to view or manually edit submitted availability responses
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs sm:text-sm font-bold text-blue-700">
+                  {showSubmittedResponses ? "Hide Submitted List" : "Show Submitted List"}
+                </span>
+                {showSubmittedResponses ? (
+                  <ChevronUp className="w-4 h-4 text-blue-700" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-blue-700" />
+                )}
+              </div>
+            </button>
+
+            {showSubmittedResponses && (
+              <div className="border-t border-slate-100 p-5 space-y-4 bg-slate-50/40">
+                {/* Search Filter Bar */}
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={submittedSearch}
+                    onChange={(e) => setSubmittedSearch(e.target.value)}
+                    placeholder="Search submitted responses by member name, email, or notes..."
+                    className="w-full min-h-[42px] pl-10 pr-4 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+
+                {/* Submitted List Items */}
+                {filteredSubmittedResponses.length === 0 ? (
+                  <div className="p-8 text-center text-xs sm:text-sm text-slate-500 bg-white rounded-xl border border-slate-200">
+                    {submittedSearch
+                      ? `No submitted responses match "${submittedSearch}".`
+                      : "No survey responses have been submitted yet."}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100 bg-white rounded-xl border border-slate-200 overflow-hidden">
+                    {filteredSubmittedResponses.map((r) => {
+                      const availableCount = Object.values(r.availability || {}).filter(
+                        (v) => v === "AVAILABLE" || v === "COOK_ONLY" || v === "CLEAN_ONLY"
+                      ).length;
+
+                      return (
+                        <div
+                          key={r.name}
+                          className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors"
+                        >
+                          <div className="flex items-start gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-900 font-bold flex items-center justify-center text-xs sm:text-sm border border-blue-200 shrink-0">
+                              {r.name.charAt(0)}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs sm:text-sm font-bold text-slate-900">
+                                  {r.name}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-orange-50 text-orange-800 border border-orange-200">
+                                  🍳 Cook: {r.cookQuota ?? 1}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                                  🧼 Clean: {r.cleanQuota ?? 1}
+                                </span>
+                                {r.canCookCleanSameDay && (
+                                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-purple-50 text-purple-800 border border-purple-200">
+                                    Same-Day: {r.sameDayPref === "PREFERRED" ? "Preferred" : "Yes"}
+                                  </span>
+                                )}
+                                <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                  📅 {availableCount} Dates Available
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 mt-1 truncate">
+                                {r.email ? `Email: ${r.email}` : "No email attached"}
+                                {r.timestamp ? ` • Submitted: ${r.timestamp}` : ""}
+                              </p>
+                              {r.specialInstructions && (
+                                <p className="text-xs text-slate-700 mt-1 italic line-clamp-1 bg-amber-50/70 border border-amber-200/80 px-2 py-1 rounded-lg">
+                                  💬 &ldquo;{r.specialInstructions}&rdquo;
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenManualSurveyModal(r.name)}
+                              className="min-h-[40px] inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 transition-colors cursor-pointer shadow-2xs"
+                              title={`Modify survey response for ${r.name}`}
+                            >
+                              <ClipboardEdit className="w-3.5 h-3.5 text-blue-700 shrink-0" />
+                              <span>Edit Response</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>

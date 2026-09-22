@@ -164,33 +164,46 @@ export function executeCreateSurveyForm(payload: CreateSurveyFormPayload): Creat
       .setHelpText("Please enter your name as it appears in the member directory.")
       .setRequired(true);
 
-    // 3. Question 2: Cook Quota (Dropdown: 1, 2, 3, 0)
-    form
-      .addListItem()
+    // 3. Question 2: Cook Quota (Multiple Choice: 1, 2, 3, 0)
+    const cookQuotaItem = form
+      .addMultipleChoiceItem()
       .setTitle("How many meals can you cook this month?")
       .setChoiceValues(["1", "2", "3", "0"])
       .setRequired(true);
 
-    // 4. Question 3: Clean Quota (Dropdown: 1, 2, 3, 0)
-    form
-      .addListItem()
+    // 4. Question 3: Clean Quota (Multiple Choice: 1, 2, 3, 0)
+    const cleanQuotaItem = form
+      .addMultipleChoiceItem()
       .setTitle("How many meals can you clean this month?")
       .setChoiceValues(["1", "2", "3", "0"])
       .setRequired(true);
 
-    // 5. Question 4: Cook Team Size Preference (Dropdown)
-    form
-      .addListItem()
+    // 5. Question 4: Cook Team Size Preference (Multiple Choice)
+    const cookSizeItem = form
+      .addMultipleChoiceItem()
       .setTitle("What is your preference for cook team size?")
       .setChoiceValues(["Dinner = 3, Brunch = 2 (Preferred)", "2 regardless of meal type"])
       .setRequired(true);
 
-    // 6. Question 5: Same-Day Shift (Dropdown)
-    form
-      .addListItem()
+    // 6. Question 5: Same-Day Shift (Multiple Choice)
+    const sameDayItem = form
+      .addMultipleChoiceItem()
       .setTitle("Can you cook and clean on the same day?")
       .setChoiceValues(["No", "Yes", "Yes, prefer same day"])
       .setRequired(true);
+
+    // Generate Pre-filled Form URL with community default selections (1 cook, 1 clean, standard size, No same day)
+    let formPrefilledUrl: string | undefined = undefined;
+    try {
+      const prefillResp = form.createResponse();
+      prefillResp.withItemResponse(cookQuotaItem.createResponse("1"));
+      prefillResp.withItemResponse(cleanQuotaItem.createResponse("1"));
+      prefillResp.withItemResponse(cookSizeItem.createResponse("Dinner = 3, Brunch = 2 (Preferred)"));
+      prefillResp.withItemResponse(sameDayItem.createResponse("No"));
+      formPrefilledUrl = prefillResp.toPrefilledUrl();
+    } catch (prefErr) {
+      console.warn("Could not generate prefilled form URL:", prefErr);
+    }
 
     // 7. Question 6: Date Availability Grid (Multiple Choice Grid)
     const gridRows = activeDates.map((d) => buildFormGridRowLabel(d));
@@ -307,6 +320,7 @@ export function executeCreateSurveyForm(payload: CreateSurveyFormPayload): Creat
       formTitle: title,
       formEditUrl,
       formPublishedUrl,
+      formPrefilledUrl,
       spreadsheetId: responseSs.getId(),
       spreadsheetUrl,
       folderId: targetFolder ? targetFolder.getId() : undefined,

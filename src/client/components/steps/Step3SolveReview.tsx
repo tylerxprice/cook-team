@@ -56,6 +56,48 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
   setSelectedSlotToFill,
   goToStep,
 }) => {
+  const totalPlannedDates = solverResult ? solverResult.schedule.length : 0;
+  const activeMeals = solverResult
+    ? solverResult.schedule.filter((d: DaySchedule) => d.targetCookCount > 0 && !d.isNoMeal)
+    : [];
+  const cancelledDates = solverResult
+    ? solverResult.schedule.filter((d: DaySchedule) => d.targetCookCount === 0 || d.isNoMeal)
+    : [];
+  const staffedActiveMeals = activeMeals.filter(
+    (d: DaySchedule) => d.unfilledCooks === 0 && d.unfilledCleaners === 0
+  );
+  const needyActiveMeals = activeMeals.filter(
+    (d: DaySchedule) => d.unfilledCooks > 0 || d.unfilledCleaners > 0
+  );
+
+  const isAllPlannedStaffed =
+    solverResult && cancelledDates.length === 0 && solverResult.unfilledSlotsCount === 0;
+  const isAllActiveStaffed = solverResult && solverResult.unfilledSlotsCount === 0;
+
+  let headlineTitle = "Schedule Review";
+  if (solverResult) {
+    if (isAllPlannedStaffed) {
+      headlineTitle = `All ${totalPlannedDates} Planned Meals Fully Staffed!`;
+    } else if (isAllActiveStaffed) {
+      headlineTitle = `${activeMeals.length} of ${totalPlannedDates} Planned Meals Staffed (${cancelledDates.length} Cancelled)`;
+    } else if (cancelledDates.length > 0) {
+      headlineTitle = `${staffedActiveMeals.length} of ${totalPlannedDates} Planned Meals Staffed (${needyActiveMeals.length} Need Attention, ${cancelledDates.length} Cancelled)`;
+    } else {
+      headlineTitle = `${needyActiveMeals.length} of ${totalPlannedDates} Scheduled Meals Need Attention`;
+    }
+  }
+
+  let subtitleText = "Review meal assignments, fill open shifts, and inspect volunteer quotas.";
+  if (solverResult) {
+    if (isAllPlannedStaffed) {
+      subtitleText = "Every planned dinner and brunch has a complete cook and clean team assigned.";
+    } else if (isAllActiveStaffed) {
+      subtitleText = `${activeMeals.length} active meals are 100% complete. ${cancelledDates.length} date(s) were cancelled to prevent understaffed meals (click 'Restore Date' on any cancelled card to re-open).`;
+    } else {
+      subtitleText = `${solverResult.unfilledSlotsCount} open shift(s) remaining across ${needyActiveMeals.length} meal(s). Click [+ Fill Slot] on any date card to resolve.`;
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Unified Step 3 Header & Completeness Bar */}
@@ -65,14 +107,14 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
             className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
               !solverResult
                 ? "bg-orange-50 text-orange-700 border border-orange-200"
-                : solverResult.unfilledSlotsCount === 0
+                : isAllActiveStaffed
                   ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
                   : "bg-amber-100 text-amber-900 border border-amber-300"
             }`}
           >
             {!solverResult ? (
               <Calendar className="w-5 h-5" />
-            ) : solverResult.unfilledSlotsCount === 0 ? (
+            ) : isAllActiveStaffed ? (
               <CheckCircle2 className="w-6 h-6 text-emerald-700" />
             ) : (
               <AlertTriangle className="w-6 h-6 text-amber-800" />
@@ -82,49 +124,27 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
               <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                {!solverResult
-                  ? "Schedule Review"
-                  : solverResult.unfilledSlotsCount === 0
-                    ? `All ${solverResult.schedule.filter((d: DaySchedule) => d.targetCookCount > 0).length} Scheduled Meals Fully Staffed!`
-                    : `${solverResult.schedule.filter((d: DaySchedule) => d.targetCookCount > 0 && (d.unfilledCooks > 0 || d.unfilledCleaners > 0)).length} of ${solverResult.schedule.filter((d: DaySchedule) => d.targetCookCount > 0).length} Scheduled Meals Need Attention`}
+                {headlineTitle}
               </h2>
               {solverResult && (
                 <span
                   className={`text-xs font-bold px-3 py-1 rounded-full ${
-                    solverResult.unfilledSlotsCount === 0
+                    isAllActiveStaffed
                       ? "bg-emerald-100 text-emerald-950 border border-emerald-300"
                       : "bg-amber-100 text-amber-950 border border-amber-300"
                   }`}
                 >
-                  {
-                    solverResult.schedule.filter(
-                      (d: DaySchedule) =>
-                        d.targetCookCount > 0 && d.unfilledCooks === 0 && d.unfilledCleaners === 0
-                    ).length
-                  }{" "}
-                  / {solverResult.schedule.filter((d: DaySchedule) => d.targetCookCount > 0).length}{" "}
-                  Confirmed
+                  {staffedActiveMeals.length} / {activeMeals.length} Active Confirmed
                 </span>
               )}
-              {solverResult &&
-                solverResult.schedule.some((d: DaySchedule) => d.targetCookCount === 0) && (
-                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-300">
-                    {
-                      solverResult.schedule.filter((d: DaySchedule) => d.targetCookCount === 0)
-                        .length
-                    }{" "}
-                    Dates Cancelled (No Meal)
-                  </span>
-                )}
+              {cancelledDates.length > 0 && (
+                <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-300">
+                  {cancelledDates.length} Dates Cancelled (No Meal)
+                </span>
+              )}
             </div>
             <p className="text-xs sm:text-sm text-slate-600 mt-1">
-              {!solverResult
-                ? "Review meal assignments, fill open shifts, and inspect volunteer quotas."
-                : solverResult.unfilledSlotsCount === 0
-                  ? solverResult.schedule.some((d: DaySchedule) => d.targetCookCount === 0)
-                    ? `Optimal schedule: All active meals are 100% complete (${solverResult.schedule.filter((d: DaySchedule) => d.targetCookCount === 0).length} deficit date(s) cancelled to concentrate volunteer supply).`
-                    : "Every dinner and brunch has a complete cook and clean team assigned."
-                  : `${solverResult.unfilledSlotsCount} open shift(s) remaining. Click [+ Fill Slot] on any date card to resolve.`}
+              {subtitleText}
             </p>
           </div>
         </div>

@@ -57,6 +57,24 @@ export interface SurveyResponse {
   specialInstructions: string;
 }
 
+export interface ManualSurveyResponsePayload {
+  memberName: string;
+  email?: string;
+  cookQuota: number;
+  cleanQuota: number;
+  cookTeamSizePref: string;
+  sameDayPref: "NO" | "YES" | "PREFERRED";
+  availability: Record<string, AvailabilityStatus>; // dateLabel -> AvailabilityStatus
+  specialInstructions?: string;
+}
+
+export interface ManualSurveyResponseResult {
+  success: boolean;
+  message: string;
+  response: SurveyResponse;
+  updatedIntake?: IntakePayload;
+}
+
 export interface CompletenessAudit {
   missingMembers: Member[];
   reactivatedMembers: Member[];
@@ -286,6 +304,7 @@ export interface CreateSurveyFormResult {
   formTitle: string;
   formEditUrl: string;
   formPublishedUrl: string;
+  formPrefilledUrl?: string;
   spreadsheetId: string;
   spreadsheetUrl: string;
   folderId?: string;

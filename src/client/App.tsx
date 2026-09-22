@@ -34,6 +34,7 @@ import {
   SurveyFormDateConfig,
   CreateSurveyFormResult,
   EmailDispatchInfo,
+  ManualSurveyResponsePayload,
 } from "../server/types";
 import {
   computeMemberQuotaStats,
@@ -61,6 +62,7 @@ import { MealSignupGeneratorModal } from "./components/modals/MealSignupGenerato
 import { SurveyFormGeneratorModal } from "./components/modals/SurveyFormGeneratorModal";
 import { NearCompleteOpportunityModal } from "./components/modals/NearCompleteOpportunityModal";
 import { ResendConfirmModal } from "./components/modals/ResendConfirmModal";
+import { ManualSurveyResponseModal } from "./components/modals/ManualSurveyResponseModal";
 
 function MainApp() {
   const [inGas, setInGas] = useState(false);
@@ -193,6 +195,11 @@ function MainApp() {
   const [surveyFormResult, setSurveyFormResult] = useState<CreateSurveyFormResult | null>(null);
   const [surveyFormCopiedLink, setSurveyFormCopiedLink] = useState(false);
   const surveyFormModalBodyRef = useRef<HTMLDivElement>(null);
+
+  // Modal: Manual Survey Response Entry (Brenda's Coordinator Workflow)
+  const [showManualSurveyModal, setShowManualSurveyModal] = useState(false);
+  const [manualSurveyTargetMember, setManualSurveyTargetMember] = useState<string | null>(null);
+  const [manualSurveySaving, setManualSurveySaving] = useState(false);
 
   // Main Navigation Hamburger Menu State
   const [showMainMenu, setShowMainMenu] = useState(false);
@@ -531,6 +538,62 @@ function MainApp() {
     setSurveyFormDates((prev) => [...prev, newDate]);
   };
 
+  const handleOpenManualSurveyModal = (memberName?: string) => {
+    setManualSurveyTargetMember(memberName || null);
+    setShowManualSurveyModal(true);
+  };
+
+  const handleSubmitManualSurveyResponse = async (payload: ManualSurveyResponsePayload) => {
+    const targetId = intakeData?.sheetId || sheetInput;
+    if (!targetId) {
+      showToast("Please select or load a survey response sheet first.", "error");
+      return;
+    }
+    setManualSurveySaving(true);
+    try {
+      const res = await callGas<any>("appendManualSurveyResponse", targetId, payload, isDevMode);
+      if (res && res.success) {
+        if (res.updatedIntake) {
+          setIntakeData(res.updatedIntake);
+        } else if (res.response) {
+          setIntakeData((prev) => {
+            if (!prev) return prev;
+            const existingIdx = prev.responses.findIndex(
+              (r) => r.name.toLowerCase() === res.response.name.toLowerCase()
+            );
+            const nextResponses = [...prev.responses];
+            if (existingIdx >= 0) {
+              nextResponses[existingIdx] = res.response;
+            } else {
+              nextResponses.push(res.response);
+            }
+            const nextMissing = prev.audit.missingMembers.filter(
+              (m) => m.name.toLowerCase() !== res.response.name.toLowerCase()
+            );
+            return {
+              ...prev,
+              responses: nextResponses,
+              audit: {
+                ...prev.audit,
+                missingMembers: nextMissing,
+                respondentCount: nextResponses.length,
+              },
+            };
+          });
+        }
+        setShowManualSurveyModal(false);
+        showToast(`✨ Saved survey availability for ${payload.memberName}!`);
+      } else {
+        showToast(res?.message || "Failed to save manual survey response.", "error");
+      }
+    } catch (err: any) {
+      console.error("Error saving manual survey response:", err);
+      showToast("Failed to save survey response: " + err.message, "error");
+    } finally {
+      setManualSurveySaving(false);
+    }
+  };
+
   const handleExecuteSwap = (
     sourceDateKey: string,
     sourceRole: Role,
@@ -675,21 +738,8 @@ function MainApp() {
         s.folderName?.includes("Live") ||
         s.folderName?.includes("01_Live")
     );
-    const hasOct = list.some(
-      (s) => s.id === "1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4" || s.name?.includes("2026-10")
-    );
-    const merged = !hasOct
-      ? [
-          {
-            id: "1GHPTpg1Mk8gIUxij1eB-_P4RDmPhfEIMwoVYMMTo5A4",
-            name: "2026-10 Cook Team Survey (Responses) — Oct 2026 Form",
-            folderCategory: "live",
-          },
-          ...list,
-        ]
-      : list;
 
-    return [...merged].sort((a, b) =>
+    return [...list].sort((a, b) =>
       b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: "base" })
     );
   }, [driveSheets, isDevMode]);
@@ -2472,17 +2522,17 @@ function MainApp() {
 
       {/* Step Wizard Navigation Bar */}
       <div
-        className="bg-white border-b border-slate-200 shadow-sm"
+        className="bg-white border-b border-slate-200 shadow-xs"
         role="navigation"
         aria-label="Wizard Steps"
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
-          <nav className="flex items-center gap-2 sm:gap-3 overflow-x-auto" aria-label="Progress">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-4">
+          <nav className="flex items-center gap-1 sm:gap-2 md:gap-3" aria-label="Progress">
             {[
-              { step: 1, title: "Intake & Audit", icon: Users },
-              { step: 2, title: "Notes & Rules", icon: Settings },
-              { step: 3, title: "Solve & Review", icon: Calendar },
-              { step: 4, title: "Publish & Email", icon: Mail },
+              { step: 1, title: "Intake & Audit", shortTitle: "Intake", icon: Users },
+              { step: 2, title: "Notes & Rules", shortTitle: "Rules", icon: Settings },
+              { step: 3, title: "Solve & Review", shortTitle: "Solve", icon: Calendar },
+              { step: 4, title: "Publish & Email", shortTitle: "Publish", icon: Mail },
             ].map((item, idx, arr) => {
               const isActive = currentStep === item.step;
               const isDone = currentStep > item.step;
@@ -2492,7 +2542,9 @@ function MainApp() {
                   <button
                     onClick={() => goToStep(item.step as any)}
                     aria-current={isActive ? "step" : undefined}
-                    className={`min-h-[44px] inline-flex items-center gap-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold border transition-all shrink-0 select-none cursor-pointer ${
+                    aria-label={`Step ${item.step}: ${item.title}`}
+                    title={`Step ${item.step}: ${item.title}`}
+                    className={`min-h-[40px] sm:min-h-[44px] inline-flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3.5 md:px-4 rounded-xl text-xs sm:text-sm font-bold border transition-all shrink-0 select-none cursor-pointer ${
                       isActive
                         ? "bg-orange-600 text-white border-orange-600 shadow-sm shadow-orange-600/25"
                         : isDone
@@ -2511,13 +2563,14 @@ function MainApp() {
                     >
                       {isDone ? <CheckCircle2 className="w-4 h-4" /> : item.step}
                     </span>
-                    <span>{item.title}</span>
+                    <span className="hidden md:inline">{item.title}</span>
+                    <span className="hidden sm:inline md:hidden">{item.shortTitle}</span>
                   </button>
 
                   {idx < arr.length - 1 && (
                     <ChevronRight
                       aria-hidden="true"
-                      className={`w-4 h-4 shrink-0 transition-colors ${
+                      className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 transition-colors ${
                         currentStep > item.step ? "text-emerald-600" : "text-slate-300"
                       }`}
                     />
@@ -2530,7 +2583,7 @@ function MainApp() {
           <button
             onClick={() => fetchIntake()}
             disabled={loading}
-            className="min-h-[44px] inline-flex items-center gap-2 px-3.5 text-slate-700 hover:text-slate-950 hover:bg-slate-100 rounded-xl text-xs sm:text-sm font-bold shrink-0 transition-colors border border-slate-200 cursor-pointer disabled:opacity-50"
+            className="min-h-[40px] sm:min-h-[44px] inline-flex items-center gap-2 px-3 sm:px-3.5 text-slate-700 hover:text-slate-950 hover:bg-slate-100 rounded-xl text-xs sm:text-sm font-bold shrink-0 transition-colors border border-slate-200 cursor-pointer disabled:opacity-50"
             title="Refresh Survey Data"
             aria-label="Refresh survey response data from Google Sheets"
           >
@@ -2563,6 +2616,7 @@ function MainApp() {
             handleAddMember={handleAddMember}
             updatingMemberName={updatingMemberName}
             handleMarkInactive={handleMarkInactive}
+            handleOpenManualSurveyModal={handleOpenManualSurveyModal}
             goToStep={goToStep}
           />
         )}
@@ -2807,6 +2861,16 @@ function MainApp() {
         onConfirm={() => handleSendGmail("send", true)}
         emailDispatchInfo={emailDispatchInfo}
         emailTo={emailTo}
+      />
+
+      <ManualSurveyResponseModal
+        isOpen={showManualSurveyModal}
+        onClose={() => setShowManualSurveyModal(false)}
+        intakeData={intakeData}
+        members={members}
+        initialMemberName={manualSurveyTargetMember}
+        onSubmit={handleSubmitManualSurveyResponse}
+        loading={manualSurveySaving}
       />
 
       <footer className="bg-white border-t border-slate-200 py-3.5 text-center text-xs text-slate-400">

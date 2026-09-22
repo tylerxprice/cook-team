@@ -120,7 +120,11 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
                 <button
                   type="button"
-                  onClick={() => handleCopySurveyLink(surveyFormResult.formPublishedUrl)}
+                  onClick={() =>
+                    handleCopySurveyLink(
+                      surveyFormResult.formPrefilledUrl || surveyFormResult.formPublishedUrl
+                    )
+                  }
                   className="min-h-[44px] px-3.5 py-2.5 bg-violet-700 hover:bg-violet-800 text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {surveyFormCopiedLink ? (
@@ -128,11 +132,11 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
                   ) : (
                     <Copy className="w-4 h-4" />
                   )}
-                  <span>{surveyFormCopiedLink ? "Link Copied!" : "Copy Survey Link"}</span>
+                  <span>{surveyFormCopiedLink ? "Link Copied!" : "Copy Survey Link (Defaults Prefilled)"}</span>
                 </button>
 
                 <a
-                  href={surveyFormResult.formPublishedUrl}
+                  href={surveyFormResult.formPrefilledUrl || surveyFormResult.formPublishedUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="min-h-[44px] px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs sm:text-sm font-bold rounded-xl shadow-2xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
@@ -283,16 +287,16 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
                 2. Member Name (Text)
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                3. Cook Quota [1, 2, 3, 0]
+                3. Cook Quota (Prefilled 1)
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                4. Clean Quota [1, 2, 3, 0]
+                4. Clean Quota (Prefilled 1)
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                5. Cook Team Size (Dropdown)
+                5. Cook Team Size (Prefilled 3/2)
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                6. Same-Day Shift (Dropdown)
+                6. Same-Day Shift (Prefilled No)
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
                 7. Date Availability Grid

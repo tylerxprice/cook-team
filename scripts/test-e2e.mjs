@@ -59,6 +59,29 @@ async function runE2ETest() {
     await page.waitForSelector("text=Proceed to Notes & Exception Rules");
     console.log("✓ Step 1 verified after explicit selection.");
 
+    // Test Manual Survey Response Modal (Modal 10) on Step 1
+    console.log("2b. Testing Modal 10: Manual Survey Response Entry on Step 1 ...");
+    const enterRespBtn = page.locator("button:has-text('+ Enter Response')").first();
+    await enterRespBtn.click();
+    await page.waitForSelector("text=Enter Availability Survey for Member");
+    console.log("✓ Manual Survey Response Modal opened successfully.");
+    const cancelRespBtn = page.locator(".fixed button:has-text('Cancel')").first();
+    await cancelRespBtn.click();
+    console.log("✓ Manual Survey Response Modal closed.");
+
+    // Test Expanding Submitted Survey Responses Accordion and Clicking Edit
+    console.log("2c. Testing Collapsible Submitted Survey Responses Pane on Step 1 ...");
+    const submittedAccordionBtn = page.locator("button:has-text('Submitted Survey Responses')").first();
+    await submittedAccordionBtn.click();
+    await page.waitForSelector("text=Hide Submitted List");
+    const editRespBtn = page.locator("button:has-text('Edit Response')").first();
+    await editRespBtn.click();
+    await page.waitForSelector("text=Modify Survey Response");
+    console.log("✓ Edit existing response from submitted pane opened successfully.");
+    const cancelEditBtn = page.locator(".fixed button:has-text('Cancel')").first();
+    await cancelEditBtn.click();
+    console.log("✓ Edit response modal closed.");
+
     // Navigate to Step 2: Notes & Rules
     console.log("3. Navigating to Step 2: Notes & Rules ...");
     const step2Btn = page.locator("button:has-text('Proceed to Notes & Exception Rules')");

@@ -14,6 +14,7 @@ import {
   ScheduleOutput,
   EmailDispatchInfo,
   EmailPayload,
+  ManualSurveyResponsePayload,
 } from "../../server/types";
 import {
   MOCK_INTAKE_PAYLOAD,
@@ -290,6 +291,51 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
           );
       }
       return localMembers as unknown as T;
+    }
+
+    case "appendManualSurveyResponse": {
+      const [_spreadsheetUrlOrId, payload] = args as [string, ManualSurveyResponsePayload];
+      const now = new Date();
+      const timestamp = `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+
+      const sameDayPref = payload.sameDayPref || "NO";
+      const canCookCleanSameDay = sameDayPref === "YES" || sameDayPref === "PREFERRED";
+
+      const surveyResponse: SurveyResponse = {
+        timestamp,
+        email: payload.email || "",
+        name: payload.memberName.trim(),
+        availability: payload.availability || {},
+        cookTeamSizePref: payload.cookTeamSizePref || "Dinner = 3, Brunch = 2",
+        canCookCleanSameDay,
+        sameDayPref,
+        cookQuota: typeof payload.cookQuota === "number" ? payload.cookQuota : 1,
+        cleanQuota: typeof payload.cleanQuota === "number" ? payload.cleanQuota : 1,
+        specialInstructions: (payload.specialInstructions || "").trim(),
+      };
+
+      if (localIntake) {
+        const existingIdx = localIntake.responses.findIndex(
+          (r) => r.name.toLowerCase() === surveyResponse.name.toLowerCase()
+        );
+        if (existingIdx >= 0) {
+          localIntake.responses[existingIdx] = surveyResponse;
+        } else {
+          localIntake.responses.push(surveyResponse);
+        }
+
+        localIntake.audit.missingMembers = localIntake.audit.missingMembers.filter(
+          (m) => m.name.toLowerCase() !== surveyResponse.name.toLowerCase()
+        );
+        localIntake.audit.respondentCount = localIntake.responses.length;
+      }
+
+      return {
+        success: true,
+        message: `Successfully saved availability response for ${payload.memberName}.`,
+        response: surveyResponse,
+        updatedIntake: localIntake,
+      } as unknown as T;
     }
 
     case "setupDriveWorkspace": {
@@ -677,6 +723,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         formTitle: title,
         formEditUrl: `https://docs.google.com/forms/d/mock-form-id-12345/edit`,
         formPublishedUrl: `https://docs.google.com/forms/d/e/1FAIpQLSd-mock-published-url/viewform`,
+        formPrefilledUrl: `https://docs.google.com/forms/d/e/1FAIpQLSd-mock-published-url/viewform?usp=pp_url&entry.1=1&entry.2=1`,
         spreadsheetId: "mock-response-ss-id-67890",
         spreadsheetUrl: `https://docs.google.com/spreadsheets/d/mock-response-ss-id-67890/edit`,
         folderId: payload.folderId || "1miNkXw-7co1ncAMZvaRJYUZXkFT07R4o",

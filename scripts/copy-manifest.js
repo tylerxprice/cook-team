@@ -29,6 +29,7 @@ if (fs.existsSync(codeDest)) {
   const gasStubs = `
 // Top-level function declarations for Google Apps Script AST scanner & google.script.run
 function authorizeAppScopes() { return globalThis.authorizeAppScopes ? globalThis.authorizeAppScopes() : null; }
+function authorizeAllPermissions() { return globalThis.authorizeAllPermissions ? globalThis.authorizeAllPermissions() : (globalThis.authorizeAppScopes ? globalThis.authorizeAppScopes() : null); }
 function doGet(e) { return globalThis.doGet ? globalThis.doGet(e) : null; }
 function onOpen(e) { return globalThis.onOpen ? globalThis.onOpen(e) : null; }
 function openSidebar() { return globalThis.openSidebar ? globalThis.openSidebar() : null; }
@@ -58,6 +59,7 @@ function getMealSignupWorkbookInfo(targetSpreadsheetId, defaultMonthTab) { retur
 function exportToMealSignupWorkbook(targetSpreadsheetId, sourceScheduleOrSheetId, options) { return globalThis.exportToMealSignupWorkbook ? globalThis.exportToMealSignupWorkbook(targetSpreadsheetId, sourceScheduleOrSheetId, options) : null; }
 function getSurveyFormDatesPreview(monthKey) { return globalThis.getSurveyFormDatesPreview ? globalThis.getSurveyFormDatesPreview(monthKey) : null; }
 function createMonthlySurveyForm(payload) { return globalThis.createMonthlySurveyForm ? globalThis.createMonthlySurveyForm(payload) : null; }
+function appendManualSurveyResponse(spreadsheetUrlOrId, payload, isDevMode) { return globalThis.appendManualSurveyResponse ? globalThis.appendManualSurveyResponse(spreadsheetUrlOrId, payload, isDevMode) : null; }
 function runHistoricalImportOnce() { return globalThis.runHistoricalImportOnce ? globalThis.runHistoricalImportOnce() : null; }
 function dumpHistoricalRawDataOnly() { return globalThis.dumpHistoricalRawDataOnly ? globalThis.dumpHistoricalRawDataOnly() : null; }
 function updateUserGuideDoc(docId) { return globalThis.updateUserGuideDoc ? globalThis.updateUserGuideDoc(docId) : null; }

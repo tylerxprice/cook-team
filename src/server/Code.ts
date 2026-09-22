@@ -17,6 +17,8 @@ import {
   EmailResult,
   EmailDispatchInfo,
   CommunityReportSummary,
+  ManualSurveyResponsePayload,
+  ManualSurveyResponseResult,
 } from "./types";
 import { parseSurveySheetData, extractEmails, extractAliases, parseSheetBoolean } from "./parser";
 import { solveCookAndCleanSchedule } from "./matchmaker";
@@ -251,6 +253,57 @@ function getUserInfo(): {
       isDevMode: false,
     };
   }
+}
+
+/**
+ * Helper function to explicitly trigger the Google Apps Script OAuth consent popup
+ * for all required scopes (including UrlFetchApp, FormApp, Drive, Sheets, Gmail).
+ */
+function authorizeAllPermissions(): { success: boolean; user: string; message: string } {
+  return authorizeAppScopesInternal();
+}
+
+function authorizeAppScopes(): string {
+  const res = authorizeAppScopesInternal();
+  return res.message;
+}
+
+function authorizeAppScopesInternal(): { success: boolean; user: string; message: string } {
+  console.log("Authorizing Google Apps Script permissions for CookTeamTool...");
+
+  // 1. Explicitly invoke FormApp to trigger Google Forms OAuth authorization
+  try {
+    const testForm = FormApp.create("Authorization Test Form - Delete Me");
+    const testFormId = testForm.getId();
+    console.log("FormApp authorized! Created temp test form:", testFormId);
+    DriveApp.getFileById(testFormId).setTrashed(true);
+    console.log("Trashed temp test form successfully.");
+  } catch (err: any) {
+    console.warn("FormApp authorization notice:", err);
+  }
+
+  // 2. Explicitly invoke UrlFetchApp to trigger script.external_request scope
+  try {
+    UrlFetchApp.fetch("https://forms.googleapis.com", { muteHttpExceptions: true });
+    console.log("UrlFetchApp scope verified!");
+  } catch (err: any) {
+    console.warn("UrlFetchApp authorization notice:", err);
+  }
+
+  // 3. Explicitly invoke Session, DriveApp, SpreadsheetApp, GmailApp
+  let userEmail = "unknown";
+  try {
+    userEmail = Session.getActiveUser().getEmail() || "authorized user";
+    console.log("Current user:", userEmail);
+  } catch (e) {
+    console.warn("Could not get user:", e);
+  }
+
+  return {
+    success: true,
+    user: userEmail,
+    message: "All required Google Apps Script OAuth scopes (Forms, Forms REST/UrlFetch, Drive, Sheets, Gmail) successfully authorized!",
+  };
 }
 
 /**
@@ -541,6 +594,148 @@ function getIntakeData(
     console.error("Error reading spreadsheet:", err);
     throw new Error(`Failed to parse Google Sheet: ${err.message}`);
   }
+}
+
+/**
+ * Appends a manual survey response directly into the survey spreadsheet Form Responses tab
+ */
+function appendManualSurveyResponse(
+  spreadsheetUrlOrId: string,
+  payload: ManualSurveyResponsePayload,
+  isDevMode?: boolean
+): ManualSurveyResponseResult {
+  if (!spreadsheetUrlOrId || spreadsheetUrlOrId.trim() === "") {
+    throw new Error("Spreadsheet ID or URL is required to save response.");
+  }
+
+  let dev = isDevMode;
+  if (typeof dev === "undefined") {
+    try {
+      const url = ScriptApp.getService().getUrl() || "";
+      dev = url.endsWith("/dev");
+    } catch {
+      dev = false;
+    }
+  }
+
+  const now = new Date();
+  const timestamp = `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+
+  const sameDayPref = payload.sameDayPref || "NO";
+  const canCookCleanSameDay = sameDayPref === "YES" || sameDayPref === "PREFERRED";
+  const sameDayString =
+    sameDayPref === "PREFERRED"
+      ? "Prefer same day (Cook and Clean on the same day)"
+      : sameDayPref === "YES"
+      ? "Yes"
+      : "No";
+
+  const surveyResponse: SurveyResponse = {
+    timestamp,
+    email: payload.email || "",
+    name: payload.memberName.trim(),
+    availability: payload.availability || {},
+    cookTeamSizePref: payload.cookTeamSizePref || "Dinner = 3, Brunch = 2",
+    canCookCleanSameDay,
+    sameDayPref,
+    cookQuota: typeof payload.cookQuota === "number" ? payload.cookQuota : 1,
+    cleanQuota: typeof payload.cleanQuota === "number" ? payload.cleanQuota : 1,
+    specialInstructions: (payload.specialInstructions || "").trim(),
+  };
+
+  try {
+    const cleanId = spreadsheetUrlOrId.trim();
+    let ss: GoogleAppsScript.Spreadsheet.Spreadsheet;
+    if (cleanId.startsWith("http")) {
+      ss = SpreadsheetApp.openByUrl(cleanId);
+    } else {
+      ss = SpreadsheetApp.openById(cleanId);
+    }
+
+    const targetSheet = ss.getSheetByName("Form Responses 1") || ss.getSheets()[0];
+    if (targetSheet) {
+      const lastCol = Math.max(1, targetSheet.getLastColumn());
+      const headers = targetSheet.getRange(1, 1, 1, lastCol).getValues()[0];
+      const newRow: any[] = new Array(headers.length).fill("");
+
+      headers.forEach((h, colIdx) => {
+        const headerStr = String(h || "").trim();
+        if (/timestamp/i.test(headerStr)) {
+          newRow[colIdx] = timestamp;
+        } else if (/email/i.test(headerStr)) {
+          newRow[colIdx] = surveyResponse.email;
+        } else if (/name/i.test(headerStr)) {
+          newRow[colIdx] = surveyResponse.name;
+        } else if (
+          /minimum number of cooks|2-person|two-person|cook team size|open to.*2|team.*size|cook.*size/i.test(
+            headerStr
+          )
+        ) {
+          newRow[colIdx] = surveyResponse.cookTeamSizePref;
+        } else if (/cook and clean on the same day|same day/i.test(headerStr)) {
+          newRow[colIdx] = sameDayString;
+        } else if (/how many.*cook|cook.*quota|cook.*shifts|meals.*cook/i.test(headerStr)) {
+          newRow[colIdx] = surveyResponse.cookQuota;
+        } else if (/how many.*clean|clean.*quota|clean.*shifts|meals.*clean/i.test(headerStr)) {
+          newRow[colIdx] = surveyResponse.cleanQuota;
+        } else if (/special instructions|notes|comments|instructions/i.test(headerStr)) {
+          newRow[colIdx] = surveyResponse.specialInstructions;
+        } else {
+          const match = headerStr.match(/Select your available dates\s*\[([^\]]+)\]/i);
+          if (match) {
+            const dateLabel = match[1].trim();
+            const avail = payload.availability[dateLabel] || "UNAVAILABLE";
+            if (avail === "AVAILABLE") newRow[colIdx] = "Available";
+            else if (avail === "COOK_ONLY") newRow[colIdx] = "Cook only";
+            else if (avail === "CLEAN_ONLY") newRow[colIdx] = "Clean only";
+            else newRow[colIdx] = "";
+          }
+        }
+      });
+
+      // Check if an existing row exists for this member to update in place
+      const lastRow = targetSheet.getLastRow();
+      let existingRowIndex = -1;
+      const nameColIdx = headers.findIndex((h) => /name/i.test(String(h || "")));
+      const emailColIdx = headers.findIndex((h) => /email/i.test(String(h || "")));
+
+      if (lastRow > 1 && nameColIdx >= 0) {
+        const existingData = targetSheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+        const targetName = surveyResponse.name.toLowerCase();
+        const targetEmail = (surveyResponse.email || "").toLowerCase();
+
+        for (let r = 0; r < existingData.length; r++) {
+          const rowName = String(existingData[r][nameColIdx] || "").trim().toLowerCase();
+          const rowEmail = emailColIdx >= 0 ? String(existingData[r][emailColIdx] || "").trim().toLowerCase() : "";
+          if (
+            (targetEmail && rowEmail && rowEmail === targetEmail) ||
+            (targetName && rowName && rowName === targetName)
+          ) {
+            existingRowIndex = r + 2; // 1-indexed sheet row (row 1 is headers)
+            break;
+          }
+        }
+      }
+
+      if (existingRowIndex > 1) {
+        targetSheet.getRange(existingRowIndex, 1, 1, newRow.length).setValues([newRow]);
+      } else {
+        targetSheet.appendRow(newRow);
+      }
+      SpreadsheetApp.flush();
+    }
+  } catch (err: any) {
+    console.warn("Could not save row to Google Sheet (running in dev/mock or offline):", err);
+    if (!dev) {
+      throw new Error(`Failed to write survey response to Google Sheet: ${err.message}`);
+    }
+  }
+
+  return {
+    success: true,
+    message: `Successfully saved availability response for ${payload.memberName}.`,
+    response: surveyResponse,
+  };
 }
 
 /**
@@ -1884,39 +2079,6 @@ function createMonthlySurveyForm(payload: CreateSurveyFormPayload): CreateSurvey
   return executeCreateSurveyForm(payload);
 }
 
-/**
- * One-time authorization helper function.
- * Run this function once from the Google Apps Script editor (https://script.google.com/d/1goFp3XHJ93HWRDU3lNpWNfraX47G8N333E4EJo4XUT9nSXxJc88AE1Fw/edit)
- * to grant Google OAuth permissions for FormApp, DriveApp, GmailApp, and SpreadsheetApp.
- */
-function authorizeAppScopes(): string {
-  console.log("Authorizing Google Apps Script permissions for CookTeamTool...");
-
-  // 1. Explicitly invoke FormApp to trigger Google Forms OAuth authorization
-  try {
-    const testForm = FormApp.create("Authorization Test Form - Delete Me");
-    const testFormId = testForm.getId();
-    console.log("FormApp authorized! Created temp test form:", testFormId);
-
-    // Trash the temporary test form
-    DriveApp.getFileById(testFormId).setTrashed(true);
-    console.log("Trashed temp test form successfully.");
-  } catch (err: any) {
-    console.error("FormApp authorization error:", err);
-    throw err;
-  }
-
-  // 2. Explicitly invoke Session, DriveApp, SpreadsheetApp
-  try {
-    const user = Session.getActiveUser().getEmail();
-    console.log("Current user:", user);
-  } catch (e) {
-    console.warn("Could not get user:", e);
-  }
-
-  return "All required Google Apps Script OAuth scopes (Forms, Drive, Sheets, Gmail) successfully authorized!";
-}
-
 // Global exposure for Google Apps Script runtime & google.script.run
 const g: any = typeof globalThis !== "undefined" ? globalThis : this;
 g.dumpHistoricalRawDataOnly = dumpHistoricalRawDataOnly;
@@ -1950,5 +2112,7 @@ g.getMealSignupWorkbookInfo = getMealSignupWorkbookInfo;
 g.exportToMealSignupWorkbook = exportToMealSignupWorkbook;
 g.getSurveyFormDatesPreview = getSurveyFormDatesPreview;
 g.createMonthlySurveyForm = createMonthlySurveyForm;
+g.appendManualSurveyResponse = appendManualSurveyResponse;
 g.authorizeAppScopes = authorizeAppScopes;
+g.authorizeAllPermissions = authorizeAllPermissions;
 g.updateUserGuideDoc = updateUserGuideDoc;
