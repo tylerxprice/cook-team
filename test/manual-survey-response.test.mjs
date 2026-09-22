@@ -113,7 +113,7 @@ test("Manual Survey Response - Parse Maximum Total Shifts column", () => {
       "No",
       "2",
       "1",
-      "",
+      "No set limit (sum of cooks and cleans above)",
       "Available",
       "",
     ],
@@ -130,7 +130,7 @@ test("Manual Survey Response - Parse Maximum Total Shifts column", () => {
   assert.ok(bob);
   assert.equal(bob.cookQuota, 2);
   assert.equal(bob.cleanQuota, 1);
-  assert.equal(bob.maxTotalShifts, 3); // defaulted to cookQuota + cleanQuota (2+1)
+  assert.equal(bob.maxTotalShifts, 3); // parsed from 'No set limit' -> cookQuota + cleanQuota (2+1=3)
 });
 
 test("Matchmaker Solver - Enforces maxTotalShifts combined cap", async () => {

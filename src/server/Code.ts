@@ -692,8 +692,10 @@ function appendManualSurveyResponse(
           )
         ) {
           newRow[colIdx] =
-            surveyResponse.maxTotalShifts ??
-            surveyResponse.cookQuota + surveyResponse.cleanQuota;
+            typeof surveyResponse.maxTotalShifts === "number" &&
+            surveyResponse.maxTotalShifts < surveyResponse.cookQuota + surveyResponse.cleanQuota
+              ? surveyResponse.maxTotalShifts
+              : "No set limit (sum of cooks and cleans above)";
         } else if (/special instructions|notes|comments|instructions/i.test(headerStr)) {
           newRow[colIdx] = surveyResponse.specialInstructions;
         } else {

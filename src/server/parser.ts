@@ -378,12 +378,26 @@ export function parseSurveySheetData(
     let maxTotalShifts: number | undefined = undefined;
     if (maxTotalShiftsIdx >= 0) {
       const maxRaw = String(row[maxTotalShiftsIdx] || "").trim();
-      const parsedMax = parseInt(maxRaw, 10);
-      if (!isNaN(parsedMax) && parsedMax > 0) {
-        maxTotalShifts = parsedMax;
+      const lowerMax = maxRaw.toLowerCase();
+      if (
+        lowerMax.includes("no set limit") ||
+        lowerMax.includes("no limit") ||
+        lowerMax.includes("sum of")
+      ) {
+        maxTotalShifts = cookQuota + cleanQuota;
+      } else {
+        const numMatch = maxRaw.match(/\b(\d+)\b/);
+        if (numMatch) {
+          maxTotalShifts = parseInt(numMatch[1], 10);
+        } else {
+          const parsed = parseInt(maxRaw, 10);
+          if (!isNaN(parsed)) {
+            maxTotalShifts = parsed;
+          }
+        }
       }
     }
-    if (!maxTotalShifts) {
+    if (typeof maxTotalShifts === "undefined") {
       maxTotalShifts = cookQuota + cleanQuota;
     }
 
