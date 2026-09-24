@@ -180,12 +180,75 @@ export function extractAliases(aliasField?: string | string[]): string[] {
 }
 
 /**
+ * Formats last active survey month string cleanly (e.g. "2026-08")
+ * Handles Date objects, timestamps, or raw month strings.
+ */
+export function formatLastActiveSurvey(val: any): string | undefined {
+  if (!val) return undefined;
+  if (val instanceof Date || (typeof val === "object" && typeof (val as any).getTime === "function")) {
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}`;
+  }
+  const str = String(val).trim();
+  if (!str || str.toLowerCase() === "never") return undefined;
+  if (/^\d{4}-\d{2}$/.test(str)) return str;
+
+  const ymMatch = str.match(/\b(20\d{2})[-/](\d{1,2})\b/);
+  if (ymMatch) {
+    return `${ymMatch[1]}-${String(ymMatch[2]).padStart(2, "0")}`;
+  }
+
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 2000) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}`;
+  }
+  return str;
+}
+
+const SHORT_MONTH_NAMES = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+/**
+ * Human-friendly Month + Year display (e.g. "Aug 2026" or "Oct 2026")
+ * Defaults to "Never" if missing, empty, or unparseable.
+ */
+export function formatLastActiveDisplay(val: any): string {
+  const iso = formatLastActiveSurvey(val);
+  if (!iso) return "Never";
+  const match = iso.match(/^(\d{4})-(\d{2})$/);
+  if (match) {
+    const year = match[1];
+    const monthIndex = parseInt(match[2], 10) - 1;
+    if (monthIndex >= 0 && monthIndex < 12) {
+      return `${SHORT_MONTH_NAMES[monthIndex]} ${year}`;
+    }
+  }
+  return iso;
+}
+
+/**
  * Finds matching member from master registry by priority:
  * 1. Primary or alternate email match (case-insensitive) - Authoritative unique identifier
  *    (Disambiguates duplicate first names like Mark L vs Mark B when respondent types "Mark")
  * 2. Exact canonical name match (case-insensitive)
  * 3. Registered Aliases / Nicknames match (case-insensitive)
  * 4. Built-in community alias/nickname fallback (e.g. Alex -> Alexandra)
+ * 5. First-Name / Full-Name prefix matching (e.g. "Marijean Day" matching "Marijean", or "Tyler" matching "Tyler Price")
  */
 export function findMatchingMember(
   rawName: string,
@@ -244,6 +307,28 @@ export function findMatchingMember(
     }
   }
 
+  // 5. First-Name / Full-Name prefix matching (e.g. "Marijean Day" matching "Marijean", or "Tyler" matching "Tyler Price")
+  if (normName) {
+    const firstName = normName.split(/\s+/)[0];
+    if (firstName && firstName.length >= 3) {
+      const matchingCandidates = members.filter((m) => {
+        if (!m.name) return false;
+        const mNorm = m.name.trim().toLowerCase();
+        const mFirstName = mNorm.split(/\s+/)[0];
+        return (
+          normName.startsWith(mNorm + " ") ||
+          mNorm.startsWith(normName + " ") ||
+          (mFirstName === firstName && (normName.includes(mNorm) || mNorm.includes(normName)))
+        );
+      });
+
+      // If exactly one unambiguous candidate in registry, match them!
+      if (matchingCandidates.length === 1) {
+        return matchingCandidates[0];
+      }
+    }
+  }
+
   return null;
 }
 
@@ -269,7 +354,7 @@ export function parseSurveySheetData(
 
   // Find standard column indexes
   const tsIdx = headers.findIndex((h) => /timestamp/i.test(h));
-  const emailIdx = headers.findIndex((h) => /email/i.test(h));
+  const emailIdx = headers.findIndex((h) => /email|e-mail|username|user name/i.test(h));
   const nameIdx = headers.findIndex((h) => /name/i.test(h));
   const cookPrefIdx = headers.findIndex((h) =>
     /minimum number of cooks|2-person|two-person|cook team size|open to.*2|team.*size|cook.*size/i.test(
@@ -304,6 +389,7 @@ export function parseSurveySheetData(
   const mealDates = dateColumns.map((dc) => dc.mealDate);
   const responses: SurveyResponse[] = [];
   const respondedMemberNames = new Set<string>();
+  const respondedEmails = new Set<string>();
   const unrecognizedRespondents: string[] = [];
 
   for (let r = 1; r < grid.length; r++) {
@@ -311,14 +397,45 @@ export function parseSurveySheetData(
     const rawName = String(row[nameIdx] || "").trim();
     if (!rawName) continue; // Skip blank rows
 
-    const rawEmail = emailIdx >= 0 ? String(row[emailIdx] || "").trim() : "";
+    let rawEmail = emailIdx >= 0 ? String(row[emailIdx] || "").trim() : "";
+    if (!rawEmail || !rawEmail.includes("@")) {
+      // Row-wide fallback scan for email address in case column header was unrecognized or column order changed
+      for (let c = 0; c < row.length; c++) {
+        const val = String(row[c] || "").trim();
+        if (/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/i.test(val)) {
+          rawEmail = val;
+          break;
+        }
+      }
+    }
     const matchedMember = findMatchingMember(rawName, rawEmail, masterMembers);
 
     const name = matchedMember ? matchedMember.name : rawName;
     const email = rawEmail || (matchedMember ? matchedMember.google_email : "");
 
+    // Track all name variations and emails from the response and matched member
+    if (rawName) {
+      respondedMemberNames.add(rawName.trim().toLowerCase());
+    }
+    if (rawEmail) {
+      extractEmails(rawEmail).forEach((e) => respondedEmails.add(e.toLowerCase()));
+    }
+
     if (matchedMember) {
-      respondedMemberNames.add(matchedMember.name.toLowerCase());
+      respondedMemberNames.add(matchedMember.name.trim().toLowerCase());
+      if (matchedMember.google_email) {
+        extractEmails(matchedMember.google_email).forEach((e) => respondedEmails.add(e.toLowerCase()));
+      }
+      if (matchedMember.alternate_emails) {
+        matchedMember.alternate_emails
+          .flatMap((e) => extractEmails(e))
+          .forEach((e) => respondedEmails.add(e.toLowerCase()));
+      }
+      if (matchedMember.aliases) {
+        extractAliases(matchedMember.aliases).forEach((a) =>
+          respondedMemberNames.add(a.trim().toLowerCase())
+        );
+      }
     } else {
       if (!unrecognizedRespondents.includes(rawName)) {
         unrecognizedRespondents.push(rawName);
@@ -433,7 +550,27 @@ export function parseSurveySheetData(
 
   // Check master members
   for (const m of masterMembers) {
-    const responded = respondedMemberNames.has(m.name.toLowerCase());
+    const mNormName = (m.name || "").trim().toLowerCase();
+    const mFirstName = mNormName.split(/\s+/)[0];
+    const mEmails = [
+      ...extractEmails(m.google_email),
+      ...(m.alternate_emails ? m.alternate_emails.flatMap((e) => extractEmails(e)) : []),
+    ];
+    const mAliases = extractAliases(m.aliases || []).map((a) => a.trim().toLowerCase());
+
+    const responded =
+      respondedMemberNames.has(mNormName) ||
+      mAliases.some((a) => respondedMemberNames.has(a)) ||
+      mEmails.some((e) => respondedEmails.has(e)) ||
+      (mFirstName &&
+        mFirstName.length >= 3 &&
+        Array.from(respondedMemberNames).some(
+          (rn) =>
+            rn === mFirstName ||
+            rn.startsWith(mFirstName + " ") ||
+            (mNormName.length >= 3 && rn.startsWith(mNormName + " "))
+        ));
+
     if (responded) {
       if (!m.active) {
         // Dormant member responded -> Auto-Reactivate!

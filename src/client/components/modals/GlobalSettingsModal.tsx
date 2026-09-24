@@ -10,6 +10,7 @@ import {
   ExternalLink,
   RefreshCw,
   CheckCircle2,
+  Mail,
 } from "lucide-react";
 import { CookTeamPolicy } from "../../../server/types";
 
@@ -22,6 +23,12 @@ export interface GlobalSettingsModalProps {
   setDefaultCleanQuota: (quota: number) => void;
   autoCancelDeficitDates: boolean;
   setAutoCancelDeficitDates: (val: boolean) => void;
+  announcementTo: string;
+  setAnnouncementTo: (to: string) => void;
+  announcementCc: string;
+  setAnnouncementCc: (cc: string) => void;
+  DEFAULT_ANNOUNCEMENT_TO: string;
+  DEFAULT_ANNOUNCEMENT_CC: string;
   masterSheetInput: string;
   setMasterSheetInput: (val: string) => void;
   driveFolderId: string;
@@ -42,6 +49,12 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   setDefaultCleanQuota,
   autoCancelDeficitDates,
   setAutoCancelDeficitDates,
+  announcementTo,
+  setAnnouncementTo,
+  announcementCc,
+  setAnnouncementCc,
+  DEFAULT_ANNOUNCEMENT_TO,
+  DEFAULT_ANNOUNCEMENT_CC,
   masterSheetInput,
   setMasterSheetInput,
   driveFolderId,
@@ -252,7 +265,87 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
             </div>
           </div>
 
-          {/* 5. Google Drive Workspace & Master Community Registry */}
+          {/* 5. Master Community Announcement Email & Listserv Settings */}
+          <div className="space-y-3 pt-3 border-t border-slate-200">
+            <span className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+              <Mail className="w-4 h-4 text-blue-600" />
+              Announcement Listserv &amp; Default CC Recipients
+            </span>
+            <p className="text-slate-700 text-xs">
+              Default recipient listserv and CC recipients for monthly meal announcements (saved to the Master Community Registry Settings sheet).
+            </p>
+
+            <div className="space-y-3 pt-1">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label
+                    htmlFor="settings-announcement-to"
+                    className="text-xs font-bold text-slate-800"
+                  >
+                    Default Announcement Listserv (To:)
+                  </label>
+                  {announcementTo !== DEFAULT_ANNOUNCEMENT_TO && (
+                    <button
+                      type="button"
+                      onClick={() => setAnnouncementTo(DEFAULT_ANNOUNCEMENT_TO)}
+                      className="text-xs text-blue-700 hover:text-blue-900 font-bold hover:underline cursor-pointer"
+                    >
+                      Reset to Vancouver Cohousing
+                    </button>
+                  )}
+                </div>
+                <input
+                  id="settings-announcement-to"
+                  type="text"
+                  value={announcementTo}
+                  onChange={(e) => setAnnouncementTo(e.target.value)}
+                  placeholder="Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>"
+                  className="w-full min-h-[44px] px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white text-slate-900 font-medium"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label
+                    htmlFor="settings-announcement-cc"
+                    className="text-xs font-bold text-slate-800"
+                  >
+                    Default Announcement CC Recipients (CC:)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {announcementCc !== DEFAULT_ANNOUNCEMENT_CC && (
+                      <button
+                        type="button"
+                        onClick={() => setAnnouncementCc(DEFAULT_ANNOUNCEMENT_CC)}
+                        className="text-xs text-indigo-700 hover:text-indigo-900 font-bold hover:underline cursor-pointer"
+                      >
+                        Reset Default CC
+                      </button>
+                    )}
+                    {announcementCc && (
+                      <button
+                        type="button"
+                        onClick={() => setAnnouncementCc("")}
+                        className="text-xs text-rose-600 hover:text-rose-800 font-bold hover:underline cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <textarea
+                  id="settings-announcement-cc"
+                  value={announcementCc}
+                  onChange={(e) => setAnnouncementCc(e.target.value)}
+                  rows={2}
+                  placeholder="Ben Ernst <ben@earnesticecream.com>, Fabrice Retiere <fabrulous@gmail.com>, Patricia Fahrni <pfahrni@shaw.ca>"
+                  className="w-full px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white text-slate-900 font-medium resize-y"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 6. Google Drive Workspace & Master Community Registry */}
           <div className="space-y-3 pt-3 border-t border-slate-200">
             <span className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
               <Folder className="w-4 h-4 text-emerald-600" />

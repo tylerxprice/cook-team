@@ -89,11 +89,18 @@ export function solveSinglePass(
     });
   }
 
-  // Check PREF_SAME_DAY exceptions to allow same day for those members
+  // Legacy fallback: Apply PREF_SAME_DAY exceptions ONLY if respondent did NOT submit an explicit same-day answer in survey
   for (const rule of exceptions) {
     if (rule.rule_type === "PREF_SAME_DAY") {
       const cand = candidates.get(rule.person_a);
-      if (cand) {
+      const resp = responses.find(
+        (r) => r.name && r.name.trim().toLowerCase() === rule.person_a.trim().toLowerCase()
+      );
+      const hasExplicitSurveyAnswer =
+        resp &&
+        (typeof resp.sameDayPref !== "undefined" || typeof resp.canCookCleanSameDay !== "undefined");
+
+      if (cand && !hasExplicitSurveyAnswer) {
         cand.canSameDay = true;
         cand.hasPrefSameDayRule = true;
         cand.sameDayPref = "PREFERRED";
@@ -171,6 +178,13 @@ export function solveSinglePass(
         if (memberName === pA && team.includes(pB)) return true;
         if (memberName === pB && team.includes(pA)) return true;
       }
+
+      // SAME_DAY_DIFF_TEAM (Must not be placed on the same team)
+      if (rule.rule_type === "SAME_DAY_DIFF_TEAM" && pB) {
+        const team = role === "COOK" ? currentCooks : currentCleaners;
+        if (memberName === pA && team.includes(pB)) return true;
+        if (memberName === pB && team.includes(pA)) return true;
+      }
     }
     return false;
   }
@@ -187,6 +201,23 @@ export function solveSinglePass(
 
   for (const passLimit of cookPassTargets) {
     const cookMealDates = [...activeMealDates].sort((a, b) => {
+      if (passLimit === 3 && cookPolicy === "ADAPTIVE_3_OR_2") {
+        const entryA = scheduleMap.get(a.dateKey)!;
+        const entryB = scheduleMap.get(b.dateKey)!;
+        const aAllWilling =
+          a.mealType === "DINNER" &&
+          entryA.cooks.length === 2 &&
+          entryA.cooks.every((c) => candidates.get(c)?.minCooksPref === "TWO_REGARDLESS");
+        const bAllWilling =
+          b.mealType === "DINNER" &&
+          entryB.cooks.length === 2 &&
+          entryB.cooks.every((c) => candidates.get(c)?.minCooksPref === "TWO_REGARDLESS");
+
+        // Prioritize dates that MUST have 3 cooks over dates that are already valid with 2 willing cooks
+        if (!aAllWilling && bAllWilling) return -1;
+        if (aAllWilling && !bAllWilling) return 1;
+      }
+
       // Prioritize Brunches and meals with fewer available candidates (MRV)
       const getAvailCount = (md: MealDate) =>
         Array.from(candidates.values()).filter((c) => {
@@ -219,22 +250,31 @@ export function solveSinglePass(
 
       // Sort candidate cooks:
       // 1. Willing 2-person dinner team members in pass 1
-      // 2. Candidates with fewer total available cook opportunities (MRV)
-      // 3. Candidates with highest remaining cook quota
+      // 2. Round-robin fair share: candidate with fewest currently assigned cook shifts
+      //    (Ensures everyone gets their 1st shift before anyone gets a 2nd or 3rd)
+      // 3. MRV: candidates with fewer total available cook opportunities so they aren't squeezed out
+      // 4. Highest remaining cook quota (tie-breaker)
       eligible.sort((a, b) => {
         if (cookPolicy === "ADAPTIVE_3_OR_2" && passLimit === 2) {
           const aWilling = a.minCooksPref === "TWO_REGARDLESS" ? 1 : 0;
           const bWilling = b.minCooksPref === "TWO_REGARDLESS" ? 1 : 0;
           if (bWilling !== aWilling) return bWilling - aWilling;
         }
-        const remA = a.cookQuota - a.assignedCookDates.size;
-        const remB = b.cookQuota - b.assignedCookDates.size;
-        if (remB !== remA) return remB - remA;
+
+        // Equity / Fair Share heuristic: prioritize candidates with fewest assigned cook dates so far
+        if (a.assignedCookDates.size !== b.assignedCookDates.size) {
+          return a.assignedCookDates.size - b.assignedCookDates.size;
+        }
 
         // MRV: prioritize candidate with fewer available cook opportunities so they aren't squeezed out
         if (a.totalCookAvail !== b.totalCookAvail) {
           return a.totalCookAvail - b.totalCookAvail;
         }
+
+        const remA = a.cookQuota - a.assignedCookDates.size;
+        const remB = b.cookQuota - b.assignedCookDates.size;
+        if (remB !== remA) return remB - remA;
+
         return Math.random() - 0.5;
       });
 
@@ -463,16 +503,25 @@ function solveStochasticRestarts(
       }
     }
 
+    let volunteersWithAtLeastOneShift = 0;
+    for (const stat of Object.values(res.memberStats)) {
+      if ((stat.requestedCookQuota > 0 || stat.requestedCleanQuota > 0) && stat.totalAssigned > 0) {
+        volunteersWithAtLeastOneShift++;
+      }
+    }
+
     // Objective function:
     // +1000 per fully staffed meal
     // -600 per incomplete meal (heavily penalize partial staffing over 100% complete teams)
     // -150 per unfilled slot
+    // +40 per distinct volunteer receiving >= 1 shift (fair share round-robin equity)
     // +25 per 2-person willing team (conserver of supply)
     // -30 per soft constraint violation
     const score =
       fullyStaffedCount * 1000 -
       incompleteCount * 600 -
       res.unfilledSlotsCount * 150 +
+      volunteersWithAtLeastOneShift * 40 +
       twoCookWillingCount * 25 -
       res.violations.length * 30;
 
@@ -538,8 +587,8 @@ export function solveCookAndCleanSchedule(
         return b.unfilledCooks + b.unfilledCleaners - (a.unfilledCooks + a.unfilledCleaners);
       });
 
-      // Branch on top 2 worst deficit candidates
-      const branchesToTry = incomplete.slice(0, 2);
+      // Branch on top 3 worst deficit candidates
+      const branchesToTry = incomplete.slice(0, 3);
 
       for (const branchTarget of branchesToTry) {
         const nextDates = node.dates.map((md) => {

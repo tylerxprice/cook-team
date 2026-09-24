@@ -126,12 +126,23 @@ function createMasterRegistrySheet(
   const settingRows: any[][] = [
     ["Key", "Value", "Description"],
     [
+      "announcement_to",
+      "Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>",
+      "Default recipient listserv for monthly meal schedule announcements",
+    ],
+    [
+      "announcement_cc",
+      "Ben Ernst <ben@earnesticecream.com>, Fabrice Retiere <fabrulous@gmail.com>, Patricia Fahrni <pfahrni@shaw.ca>",
+      "Default CC recipients for monthly meal schedule announcements",
+    ],
+    [
       "cook_policy",
       "ADAPTIVE_3_OR_2",
       "Adaptive cook sizing (Target 3 for dinner, accept 2 if agreed)",
     ],
     ["default_clean_quota", "1", "Default clean shifts per member when not specified"],
-    ["community_name", "Cohousing Community", "Community organization name"],
+    ["auto_cancel_deficit_dates", "TRUE", "Auto-drop bottleneck deficit dates to maximize complete meals"],
+    ["community_name", "Vancouver Cohousing", "Community organization name"],
   ];
   settingsSheet.getRange(1, 1, settingRows.length, settingRows[0].length).setValues(settingRows);
   formatHeader(settingsSheet, 3, "#ede9fe"); // soft purple
@@ -437,7 +448,7 @@ export function populateUserGuideDocBody(
 
   body.appendParagraph(
     isProd
-      ? "📌 Production Environment: Scoped to 01_Live_Production folder | Reads Master Community Registry | Default Announcement: Community Residents <community-residents@googlegroups.com>"
+      ? "📌 Production Environment: Scoped to 01_Live_Production folder | Reads Master Community Registry | Default Announcement: Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>"
       : "📌 Dev / Test Environment: Scoped to 02_Dev_and_Testing folder | Reads 30 synthetic members & 6 scenario presets | Default Announcement: coordinator-test@example.com"
   );
 

@@ -181,6 +181,23 @@ export interface EmailDispatchInfo {
   monthKey?: string;
 }
 
+export interface AppSettings {
+  announcementTo?: string;
+  announcementCc?: string;
+  cookPolicy?: CookTeamPolicy;
+  defaultCleanQuota?: number;
+  autoCancelDeficitDates?: boolean;
+  communityName?: string;
+  signupWorkbookId?: string;
+  [key: string]: any;
+}
+
+export interface MasterRegistryPayload {
+  members: Member[];
+  exceptions: ExceptionRule[];
+  settings?: AppSettings;
+}
+
 export interface IntakePayload {
   sheetId?: string;
   mealDates: MealDate[];
@@ -188,6 +205,7 @@ export interface IntakePayload {
   audit: CompletenessAudit;
   exceptions: ExceptionRule[];
   members: Member[];
+  settings?: AppSettings;
   existingScheduleTab?: {
     name: string;
     url?: string;

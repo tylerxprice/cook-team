@@ -35,6 +35,7 @@ import {
   CreateSurveyFormResult,
   EmailDispatchInfo,
   ManualSurveyResponsePayload,
+  AppSettings,
 } from "../server/types";
 import {
   computeMemberQuotaStats,
@@ -666,8 +667,15 @@ function MainApp() {
 
   const [_selectedPreset, setSelectedPreset] = useState<string>("standard");
 
-  const LIVE_LISTSERV_EMAIL = "Community Residents <community-residents@googlegroups.com>";
+  const DEFAULT_ANNOUNCEMENT_TO =
+    "Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>";
+  const DEFAULT_ANNOUNCEMENT_CC =
+    "Ben Ernst <ben@earnesticecream.com>, Fabrice Retiere <fabrulous@gmail.com>, Patricia Fahrni <pfahrni@shaw.ca>";
   const DEV_TEST_EMAIL = "coordinator-test@example.com";
+
+  // Global Settings state
+  const [announcementTo, setAnnouncementTo] = useState<string>(DEFAULT_ANNOUNCEMENT_TO);
+  const [announcementCc, setAnnouncementCc] = useState<string>(DEFAULT_ANNOUNCEMENT_CC);
 
   // Helper to format subject line in Brenda's standard format: "MEAL SCHEDULE - Month 1 - Month 31 - Please Note Your Dates"
   const formatDefaultSubject = (dates?: MealDate[] | DaySchedule[]) => {
@@ -687,7 +695,10 @@ function MainApp() {
   };
 
   // Email Dispatch States
-  const [emailTo, setEmailTo] = useState(isGasEnvironment() ? LIVE_LISTSERV_EMAIL : DEV_TEST_EMAIL);
+  const [emailTo, setEmailTo] = useState(
+    isGasEnvironment() ? DEFAULT_ANNOUNCEMENT_TO : DEV_TEST_EMAIL
+  );
+  const [emailCc, setEmailCc] = useState(DEFAULT_ANNOUNCEMENT_CC);
   const [emailSubject, setEmailSubject] = useState(formatDefaultSubject());
   const isEmailSubjectDirty = useRef(false);
   const [customEmailBody, setCustomEmailBody] = useState<string | null>(null);
@@ -700,6 +711,27 @@ function MainApp() {
     message: string;
     recipient: string;
   } | null>(null);
+
+  const applyLoadedSettings = (settings?: AppSettings) => {
+    if (!settings) return;
+    if (settings.announcementTo) {
+      setAnnouncementTo(settings.announcementTo);
+      setEmailTo(settings.announcementTo);
+    }
+    if (settings.announcementCc) {
+      setAnnouncementCc(settings.announcementCc);
+      setEmailCc(settings.announcementCc);
+    }
+    if (settings.cookPolicy) {
+      setCookPolicy(settings.cookPolicy);
+    }
+    if (typeof settings.defaultCleanQuota === "number") {
+      setDefaultCleanQuota(settings.defaultCleanQuota);
+    }
+    if (typeof settings.autoCancelDeficitDates === "boolean") {
+      setAutoCancelDeficitDates(settings.autoCancelDeficitDates);
+    }
+  };
 
   // Synchronize default email subject whenever survey or schedule changes
   useEffect(() => {
@@ -814,7 +846,7 @@ function MainApp() {
                   : "standard";
       await handleSelectPreset(presetKey);
     } else {
-      setEmailTo(LIVE_LISTSERV_EMAIL);
+      setEmailTo(announcementTo || DEFAULT_ANNOUNCEMENT_TO);
       await fetchIntake(optionValue);
     }
   };
@@ -828,6 +860,9 @@ function MainApp() {
       setIntakeData(data);
       setExceptions(data.exceptions || []);
       setMembers(data.members || []);
+      if (data.settings) {
+        applyLoadedSettings(data.settings);
+      }
       setEmailDispatchInfo(data.emailDispatchInfo || null);
       isEmailSubjectDirty.current = false;
       setEmailSubject(formatDefaultSubject(data.mealDates));
@@ -863,16 +898,26 @@ function MainApp() {
       setIntakeData(cached);
       setExceptions(cached.exceptions || []);
       setMembers(cached.members || []);
+      if (cached.settings) {
+        applyLoadedSettings(cached.settings);
+      }
       setEmailDispatchInfo(cached.emailDispatchInfo || null);
       isEmailSubjectDirty.current = false;
       setEmailSubject(formatDefaultSubject(cached.mealDates));
       if (!targetSheet.startsWith("test-sheet-")) {
-        setEmailTo(LIVE_LISTSERV_EMAIL);
+        setEmailTo(cached.settings?.announcementTo || announcementTo || DEFAULT_ANNOUNCEMENT_TO);
+        if (cached.settings?.announcementCc) {
+          setEmailCc(cached.settings.announcementCc);
+        }
       }
       showToast(
         `Loaded ${cached.responses.length} survey responses across ${cached.mealDates.length} meals.`
       );
       return;
+    }
+
+    if (forceRefresh) {
+      delete intakeCacheRef.current[targetSheet];
     }
 
     setLoading(true);
@@ -881,18 +926,24 @@ function MainApp() {
         "getIntakeData",
         targetSheet,
         masterId || masterSheetInput,
-        members && members.length > 0 ? members : undefined,
-        exceptions && exceptions.length > 0 ? exceptions : undefined
+        forceRefresh ? undefined : members && members.length > 0 ? members : undefined,
+        forceRefresh ? undefined : exceptions && exceptions.length > 0 ? exceptions : undefined
       );
       intakeCacheRef.current[targetSheet] = data;
       setIntakeData(data);
       setExceptions(data.exceptions || []);
       setMembers(data.members || []);
+      if (data.settings) {
+        applyLoadedSettings(data.settings);
+      }
       setEmailDispatchInfo(data.emailDispatchInfo || null);
       isEmailSubjectDirty.current = false;
       setEmailSubject(formatDefaultSubject(data.mealDates));
       if (!targetSheet.startsWith("test-sheet-")) {
-        setEmailTo(LIVE_LISTSERV_EMAIL);
+        setEmailTo(data.settings?.announcementTo || announcementTo || DEFAULT_ANNOUNCEMENT_TO);
+        if (data.settings?.announcementCc) {
+          setEmailCc(data.settings.announcementCc);
+        }
       }
       showToast(
         `Loaded ${data.responses.length} survey responses across ${data.mealDates.length} meals.`
@@ -963,18 +1014,31 @@ function MainApp() {
                   ? boot.userInfo.isDevMode
                   : !isGasEnvironment();
               setIsDevMode(devMode);
-              if (devMode) {
-                setEmailTo(DEV_TEST_EMAIL);
+              if (boot.registry) {
+                if (boot.registry.settings) {
+                  applyLoadedSettings(boot.registry.settings);
+                }
+                if (devMode) {
+                  setEmailTo(DEV_TEST_EMAIL);
+                } else {
+                  setEmailTo(boot.registry.settings?.announcementTo || DEFAULT_ANNOUNCEMENT_TO);
+                  if (boot.registry.settings?.announcementCc) {
+                    setEmailCc(boot.registry.settings.announcementCc);
+                  }
+                }
+                if (
+                  Array.isArray(boot.registry.members) &&
+                  boot.registry.members.length > 0
+                ) {
+                  setMembers(boot.registry.members);
+                  setExceptions(boot.registry.exceptions || []);
+                }
               } else {
-                setEmailTo(LIVE_LISTSERV_EMAIL);
-              }
-              if (
-                boot.registry &&
-                Array.isArray(boot.registry.members) &&
-                boot.registry.members.length > 0
-              ) {
-                setMembers(boot.registry.members);
-                setExceptions(boot.registry.exceptions || []);
+                if (devMode) {
+                  setEmailTo(DEV_TEST_EMAIL);
+                } else {
+                  setEmailTo(DEFAULT_ANNOUNCEMENT_TO);
+                }
               }
               if (
                 boot.driveSheets &&
@@ -999,16 +1063,30 @@ function MainApp() {
           const devMode =
             info && typeof info.isDevMode === "boolean" ? info.isDevMode : !isGasEnvironment();
           setIsDevMode(devMode);
-          if (devMode) {
-            setEmailTo(DEV_TEST_EMAIL);
-          } else {
-            setEmailTo(LIVE_LISTSERV_EMAIL);
-          }
 
           const regData = await callGas<any>("getMasterRegistryData", devMode);
-          if (regData && Array.isArray(regData.members) && regData.members.length > 0) {
-            setMembers(regData.members);
-            setExceptions(regData.exceptions || []);
+          if (regData) {
+            if (regData.settings) {
+              applyLoadedSettings(regData.settings);
+            }
+            if (devMode) {
+              setEmailTo(DEV_TEST_EMAIL);
+            } else {
+              setEmailTo(regData.settings?.announcementTo || DEFAULT_ANNOUNCEMENT_TO);
+              if (regData.settings?.announcementCc) {
+                setEmailCc(regData.settings.announcementCc);
+              }
+            }
+            if (Array.isArray(regData.members) && regData.members.length > 0) {
+              setMembers(regData.members);
+              setExceptions(regData.exceptions || []);
+            }
+          } else {
+            if (devMode) {
+              setEmailTo(DEV_TEST_EMAIL);
+            } else {
+              setEmailTo(DEFAULT_ANNOUNCEMENT_TO);
+            }
           }
 
           await fetchDriveSheets();
@@ -2149,16 +2227,51 @@ function MainApp() {
     }
   };
 
-  // Helper to format clean, non-redundant date headings in the email announcement
+  // Helper to format clean date headings matching Brenda's announcement format: "Sun Sept 6 - Dinner"
   const formatEmailDateHeader = (d: DaySchedule) => {
-    let label = d.dateLabel.trim();
-    const lowerLabel = label.toLowerCase();
-    const isBrunch = d.mealType === "BRUNCH" || lowerLabel.includes("brunch");
+    let dayOfWeek = "";
+    let monthName = "";
+    let dayNum = "";
+    const isBrunch = d.mealType === "BRUNCH";
+    const typeStr = isBrunch ? "Brunch" : "Dinner";
+
+    const parsed = parseDateFromLabelOrKey(d.dateLabel, d.dateKey);
+    if (parsed && !isNaN(parsed.getTime())) {
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "June",
+        "July",
+        "Aug",
+        "Sept",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+      dayOfWeek = days[parsed.getDay()];
+      monthName = months[parsed.getMonth()];
+      dayNum = String(parsed.getDate());
+    }
+
+    let headerBase = "";
+    if (dayOfWeek && monthName && dayNum) {
+      headerBase = `${dayOfWeek} ${monthName} ${dayNum} - ${typeStr}`;
+    } else {
+      let label = d.dateLabel.trim();
+      const lowerLabel = label.toLowerCase();
+      if (!lowerLabel.includes("brunch") && !lowerLabel.includes("dinner")) {
+        label = `${label} - ${typeStr}`;
+      }
+      headerBase = label;
+    }
 
     // Clean specialNote: discard if it's "BRUNCH"/"DINNER", "NO COMMUNITY MEAL", auto-cancel notes, or already present in label
     let note = d.specialNote?.trim();
     if (note) {
-      // Strip auto-cancelled/volunteer deficit and "no community meal" markers from the date header note
       note = note
         .replace(/\(?\s*auto-cancelled[^)]*\)?/gi, "")
         .replace(/\(?\s*volunteer deficit[^)]*\)?/gi, "")
@@ -2171,23 +2284,17 @@ function MainApp() {
         !note ||
         lowerNote === "brunch" ||
         lowerNote === "dinner" ||
-        lowerLabel.includes(lowerNote)
+        headerBase.toLowerCase().includes(lowerNote)
       ) {
         note = undefined;
       }
     }
 
-    // Only append (Brunch) or (Dinner) if not already explicitly stated in label
-    if (!lowerLabel.includes("brunch") && !lowerLabel.includes("dinner")) {
-      const typeStr = isBrunch ? "Brunch" : "Dinner";
-      label = `${label} (${typeStr})`;
-    }
-
     if (note) {
-      label = `${label} - ${note}`;
+      headerBase = `${headerBase} (${note})`;
     }
 
-    return `${label}`;
+    return headerBase;
   };
 
   // Generate Email Summary Text
@@ -2211,10 +2318,16 @@ function MainApp() {
 
       text += `${formatEmailDateHeader(d)}\n`;
       if (isNoMeal) {
-        text += `  NO COMMUNITY MEAL\n\n`;
+        text += `NO COMMUNITY MEAL\n\n`;
       } else {
-        text += `  • Cooks: ${d.cooks.join(", ") || "(Need Volunteers)"}\n`;
-        text += `  • Cleaners: ${d.cleaners.join(", ") || "(Need Volunteers)"}\n\n`;
+        if (d.cooks.length > 0) {
+          text += `${d.cooks.join("\n")}\n`;
+        } else {
+          text += `(Need Volunteers)\n`;
+        }
+        text += `\n`;
+        const cleanersList = d.cleaners.length > 0 ? d.cleaners.join(", ") : "(Need Volunteers)";
+        text += `Cleaning: ${cleanersList}\n\n`;
       }
     }
     text += "Thank you all for making our meals happen!\n\nBest,\nBrenda";
@@ -2254,6 +2367,7 @@ function MainApp() {
     try {
       const res = await callGas<EmailResult>("sendScheduleEmail", {
         to: emailTo.trim(),
+        cc: emailCc.trim() || undefined,
         subject: emailSubject.trim() || formatDefaultSubject(),
         body: bodyToSend,
         mode,
@@ -2666,7 +2780,10 @@ function MainApp() {
             emailDeliveryResult={emailDeliveryResult}
             emailTo={emailTo}
             setEmailTo={setEmailTo}
-            LIVE_LISTSERV_EMAIL={LIVE_LISTSERV_EMAIL}
+            emailCc={emailCc}
+            setEmailCc={setEmailCc}
+            DEFAULT_ANNOUNCEMENT_TO={announcementTo}
+            DEFAULT_ANNOUNCEMENT_CC={announcementCc}
             DEV_TEST_EMAIL={DEV_TEST_EMAIL}
             emailSubject={emailSubject}
             setEmailSubject={setEmailSubject}
@@ -2750,6 +2867,12 @@ function MainApp() {
         setDefaultCleanQuota={setDefaultCleanQuota}
         autoCancelDeficitDates={autoCancelDeficitDates}
         setAutoCancelDeficitDates={setAutoCancelDeficitDates}
+        announcementTo={announcementTo}
+        setAnnouncementTo={setAnnouncementTo}
+        announcementCc={announcementCc}
+        setAnnouncementCc={setAnnouncementCc}
+        DEFAULT_ANNOUNCEMENT_TO={DEFAULT_ANNOUNCEMENT_TO}
+        DEFAULT_ANNOUNCEMENT_CC={DEFAULT_ANNOUNCEMENT_CC}
         masterSheetInput={masterSheetInput}
         setMasterSheetInput={setMasterSheetInput}
         driveFolderId={driveFolderId}
@@ -2758,8 +2881,24 @@ function MainApp() {
         handleProvisionDrive={handleProvisionDrive}
         provisioning={provisioning}
         provisionResult={provisionResult}
-        onSaveAndRecalculate={() => {
+        onSaveAndRecalculate={async () => {
           setShowSettingsModal(false);
+          try {
+            await callGas(
+              "saveMasterSettings",
+              {
+                announcementTo,
+                announcementCc,
+                cookPolicy,
+                defaultCleanQuota,
+                autoCancelDeficitDates,
+              },
+              masterSheetInput
+            );
+            showToast("Settings saved to Master Community Registry!");
+          } catch (e: any) {
+            console.warn("Could not save settings to master registry:", e);
+          }
           handleRunSolver();
         }}
       />

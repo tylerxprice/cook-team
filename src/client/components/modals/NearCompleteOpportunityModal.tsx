@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { X, Check, Plus } from "lucide-react";
 import { ScheduleOutput } from "../../../server/types";
 import { formatDisplayDateLabel } from "../../utils/formatters";
@@ -73,6 +73,72 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
     return a.name.localeCompare(b.name);
   });
 
+  // Pre-select candidates when modal opens for a new dateKey
+  useEffect(() => {
+    if (!selectedNearCompleteDateKey) return;
+
+    const initialCooks: string[] = [];
+    for (const cand of sortedCookCandidates) {
+      if (initialCooks.length >= targetCooks) break;
+      const assigned =
+        solverResult.memberStats?.[cand.name]?.assignedCooks ?? cand.assignedCooks ?? 0;
+      const quota = cand.requestedCookQuota ?? 1;
+      if (assigned < quota) {
+        initialCooks.push(cand.name);
+      }
+    }
+    if (initialCooks.length < targetCooks) {
+      for (const cand of sortedCookCandidates) {
+        if (initialCooks.length >= targetCooks) break;
+        if (!initialCooks.includes(cand.name)) {
+          initialCooks.push(cand.name);
+        }
+      }
+    }
+
+    const initialCleans: string[] = [];
+    for (const cand of sortedCleanCandidates) {
+      if (initialCleans.length >= targetCleans) break;
+      const assigned =
+        solverResult.memberStats?.[cand.name]?.assignedCleans ?? cand.assignedCleans ?? 0;
+      const quota = cand.requestedCleanQuota ?? 1;
+      if (assigned < quota) {
+        initialCleans.push(cand.name);
+      }
+    }
+    if (initialCleans.length < targetCleans) {
+      for (const cand of sortedCleanCandidates) {
+        if (initialCleans.length >= targetCleans) break;
+        if (!initialCleans.includes(cand.name)) {
+          initialCleans.push(cand.name);
+        }
+      }
+    }
+
+    setRecoverySelectedCooks(initialCooks);
+    setRecoverySelectedCleaners(initialCleans);
+  }, [selectedNearCompleteDateKey]);
+
+  const handleToggleCook = (name: string) => {
+    if (recoverySelectedCooks.includes(name)) {
+      setRecoverySelectedCooks(recoverySelectedCooks.filter((n) => n !== name));
+    } else {
+      if (recoverySelectedCooks.length < targetCooks) {
+        setRecoverySelectedCooks([...recoverySelectedCooks, name]);
+      }
+    }
+  };
+
+  const handleToggleCleaner = (name: string) => {
+    if (recoverySelectedCleaners.includes(name)) {
+      setRecoverySelectedCleaners(recoverySelectedCleaners.filter((n) => n !== name));
+    } else {
+      if (recoverySelectedCleaners.length < targetCleans) {
+        setRecoverySelectedCleaners([...recoverySelectedCleaners, name]);
+      }
+    }
+  };
+
   return (
     <div
       role="dialog"
@@ -120,23 +186,31 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
 
         {/* Body */}
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
-          {/* 3-Column Capacity & Gap Breakdown */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-center text-xs sm:text-sm">
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 shadow-2xs">
-              <p className="text-xs text-slate-600 font-bold uppercase">Required Team Size</p>
-              <p className="font-extrabold text-slate-900 text-sm mt-0.5">
+          {/* Compact Capacity & Gap Breakdown Strip */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs shadow-2xs">
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500 font-semibold uppercase text-[11px] tracking-wide">
+                Required:
+              </span>
+              <span className="font-extrabold text-slate-800">
                 {targetCooks} Cooks • {targetCleans} Cleaners
-              </p>
+              </span>
             </div>
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 shadow-2xs">
-              <p className="text-xs text-slate-600 font-bold uppercase">Available in Survey</p>
-              <p className="font-extrabold text-slate-900 text-sm mt-0.5">
+            <div className="hidden sm:block text-slate-300 font-bold">•</div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500 font-semibold uppercase text-[11px] tracking-wide">
+                Available:
+              </span>
+              <span className="font-extrabold text-slate-800">
                 {opp.availableCooks.length} Cooks • {opp.availableCleaners.length} Cleaners
-              </p>
+              </span>
             </div>
-            <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3 shadow-2xs">
-              <p className="text-xs text-amber-900 font-bold uppercase">Recruitment Gap</p>
-              <p className="font-extrabold text-amber-950 text-sm mt-0.5">
+            <div className="hidden sm:block text-slate-300 font-bold">•</div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-amber-800 font-semibold uppercase text-[11px] tracking-wide">
+                Gap:
+              </span>
+              <span className="font-extrabold text-amber-950">
                 {opp.missingCooksCount > 0
                   ? `Short ${opp.missingCooksCount} Cook${opp.missingCooksCount > 1 ? "s" : ""}`
                   : "0 cooks needed"}
@@ -146,7 +220,7 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                   : opp.missingCooksCount === 0
                     ? "0 cleaners needed"
                     : ""}
-              </p>
+              </span>
             </div>
           </div>
 
@@ -156,7 +230,15 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
               <h4 className="text-xs sm:text-sm font-bold text-orange-950 uppercase tracking-wider flex items-center gap-1.5">
                 🍳 Select Cooks to Assign ({sortedCookCandidates.length} Available)
               </h4>
-              <span className="text-xs text-orange-950 font-bold">
+              <span
+                className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                  recoverySelectedCooks.length === targetCooks
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                    : recoverySelectedCooks.length > 0
+                      ? "bg-orange-100 text-orange-800 border-orange-300"
+                      : "bg-slate-100 text-slate-700 border-slate-300"
+                }`}
+              >
                 {recoverySelectedCooks.length} of {targetCooks} selected
               </span>
             </div>
@@ -177,27 +259,13 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                       onKeyDown={(e) => {
                         if (e.key === " " || e.key === "Enter") {
                           e.preventDefault();
-                          if (isSelected) {
-                            setRecoverySelectedCooks(
-                              recoverySelectedCooks.filter((n) => n !== cand.name)
-                            );
-                          } else {
-                            setRecoverySelectedCooks([...recoverySelectedCooks, cand.name]);
-                          }
+                          handleToggleCook(cand.name);
                         }
                       }}
-                      onClick={() => {
-                        if (isSelected) {
-                          setRecoverySelectedCooks(
-                            recoverySelectedCooks.filter((n) => n !== cand.name)
-                          );
-                        } else {
-                          setRecoverySelectedCooks([...recoverySelectedCooks, cand.name]);
-                        }
-                      }}
+                      onClick={() => handleToggleCook(cand.name)}
                       className={`min-h-[48px] pt-2 first:pt-0 p-2.5 rounded-xl cursor-pointer transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs sm:text-sm ${
                         isSelected
-                          ? "bg-orange-100 border border-orange-400 shadow-2xs font-semibold"
+                          ? "bg-orange-50/90 border-2 border-orange-500 shadow-xs ring-1 ring-orange-400 font-semibold"
                           : "bg-white border border-orange-200 hover:border-orange-300 hover:bg-orange-50/60"
                       }`}
                     >
@@ -205,14 +273,27 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                         <div
                           className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${
                             isSelected
-                              ? "bg-orange-600 border-orange-600 text-white"
+                              ? "bg-orange-600 border-orange-600 text-white shadow-2xs"
                               : "border-slate-300 bg-white"
                           }`}
                         >
                           {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                         </div>
                         <div>
-                          <span className="font-bold text-slate-900">{cand.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`font-bold ${
+                                isSelected ? "text-orange-950 font-extrabold" : "text-slate-900"
+                              }`}
+                            >
+                              {cand.name}
+                            </span>
+                            {isSelected && (
+                              <span className="text-[10px] font-extrabold text-orange-700 bg-orange-100 border border-orange-300 px-2 py-0.5 rounded-full shadow-2xs">
+                                ✓ Selected
+                              </span>
+                            )}
+                          </div>
                           {cand.specialInstructions && (
                             <p className="text-xs text-amber-900 font-medium italic mt-0.5">
                               &quot;{cand.specialInstructions}&quot;
@@ -226,7 +307,7 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                             ✨ Can Cook ({liveCooksAssigned}/{liveCookQuota} assigned)
                           </span>
                         ) : (
-                          <span className="text-xs font-bold text-orange-950 bg-orange-100 border border-orange-300 px-2.5 py-1 rounded-lg">
+                          <span className="text-xs font-bold text-orange-950 bg-orange-100/80 border border-orange-300 px-2.5 py-1 rounded-lg">
                             ⚡ At Quota ({liveCooksAssigned}/{liveCookQuota} assigned)
                           </span>
                         )}
@@ -248,7 +329,15 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
               <h4 className="text-xs sm:text-sm font-bold text-sky-950 uppercase tracking-wider flex items-center gap-1.5">
                 🧼 Select Cleaners to Assign ({sortedCleanCandidates.length} Available)
               </h4>
-              <span className="text-xs text-sky-950 font-bold">
+              <span
+                className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                  recoverySelectedCleaners.length === targetCleans
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                    : recoverySelectedCleaners.length > 0
+                      ? "bg-sky-100 text-sky-800 border-sky-300"
+                      : "bg-slate-100 text-slate-700 border-slate-300"
+                }`}
+              >
                 {recoverySelectedCleaners.length} of {targetCleans} selected
               </span>
             </div>
@@ -271,27 +360,13 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                       onKeyDown={(e) => {
                         if (e.key === " " || e.key === "Enter") {
                           e.preventDefault();
-                          if (isSelected) {
-                            setRecoverySelectedCleaners(
-                              recoverySelectedCleaners.filter((n) => n !== cand.name)
-                            );
-                          } else {
-                            setRecoverySelectedCleaners([...recoverySelectedCleaners, cand.name]);
-                          }
+                          handleToggleCleaner(cand.name);
                         }
                       }}
-                      onClick={() => {
-                        if (isSelected) {
-                          setRecoverySelectedCleaners(
-                            recoverySelectedCleaners.filter((n) => n !== cand.name)
-                          );
-                        } else {
-                          setRecoverySelectedCleaners([...recoverySelectedCleaners, cand.name]);
-                        }
-                      }}
+                      onClick={() => handleToggleCleaner(cand.name)}
                       className={`min-h-[48px] pt-2 first:pt-0 p-2.5 rounded-xl cursor-pointer transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs sm:text-sm ${
                         isSelected
-                          ? "bg-sky-100 border border-sky-400 shadow-2xs font-semibold"
+                          ? "bg-sky-50/90 border-2 border-sky-500 shadow-xs ring-1 ring-sky-400 font-semibold"
                           : "bg-white border border-sky-200 hover:border-sky-300 hover:bg-sky-50/60"
                       }`}
                     >
@@ -299,14 +374,27 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                         <div
                           className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${
                             isSelected
-                              ? "bg-sky-600 border-sky-600 text-white"
+                              ? "bg-sky-600 border-sky-600 text-white shadow-2xs"
                               : "border-slate-300 bg-white"
                           }`}
                         >
                           {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                         </div>
                         <div>
-                          <span className="font-bold text-slate-900">{cand.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`font-bold ${
+                                isSelected ? "text-sky-950 font-extrabold" : "text-slate-900"
+                              }`}
+                            >
+                              {cand.name}
+                            </span>
+                            {isSelected && (
+                              <span className="text-[10px] font-extrabold text-sky-700 bg-sky-100 border border-sky-300 px-2 py-0.5 rounded-full shadow-2xs">
+                                ✓ Selected
+                              </span>
+                            )}
+                          </div>
                           {cand.specialInstructions && (
                             <p className="text-xs text-amber-900 font-medium italic mt-0.5">
                               &quot;{cand.specialInstructions}&quot;
@@ -320,7 +408,7 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                             ✨ Can Clean ({liveCleansAssigned}/{liveCleanQuota} assigned)
                           </span>
                         ) : (
-                          <span className="text-xs font-bold text-sky-950 bg-sky-100 border border-sky-300 px-2.5 py-1 rounded-lg">
+                          <span className="text-xs font-bold text-sky-950 bg-sky-100/80 border border-sky-300 px-2.5 py-1 rounded-lg">
                             ⚡ At Quota ({liveCleansAssigned}/{liveCleanQuota} assigned)
                           </span>
                         )}
@@ -362,7 +450,11 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
             <Plus className="w-4 h-4" />
             <span>
               {recoverySelectedCooks.length + recoverySelectedCleaners.length > 0
-                ? `+ Add Back & Assign (${recoverySelectedCooks.length} cook${recoverySelectedCooks.length === 1 ? "" : "s"}, ${recoverySelectedCleaners.length} clean${recoverySelectedCleaners.length === 1 ? "" : "s"})`
+                ? `+ Add Back & Assign (${recoverySelectedCooks.length} cook${
+                    recoverySelectedCooks.length === 1 ? "" : "s"
+                  }, ${recoverySelectedCleaners.length} clean${
+                    recoverySelectedCleaners.length === 1 ? "" : "s"
+                  })`
                 : "+ Add Back into Schedule"}
             </span>
           </button>

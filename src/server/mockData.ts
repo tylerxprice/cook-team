@@ -5,7 +5,18 @@ import {
   SurveyResponse,
   CompletenessAudit,
   IntakePayload,
+  AppSettings,
 } from "./types";
+
+export const MOCK_SETTINGS: AppSettings = {
+  announcementTo: "Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>",
+  announcementCc:
+    "Ben Ernst <ben@earnesticecream.com>, Fabrice Retiere <fabrulous@gmail.com>, Patricia Fahrni <pfahrni@shaw.ca>",
+  cookPolicy: "ADAPTIVE_3_OR_2",
+  defaultCleanQuota: 1,
+  autoCancelDeficitDates: true,
+  communityName: "Vancouver Cohousing",
+};
 
 export const MOCK_MEAL_DATES: MealDate[] = [
   {
@@ -1150,6 +1161,7 @@ export const MOCK_INTAKE_PAYLOAD: IntakePayload = {
   audit: MOCK_AUDIT,
   exceptions: MOCK_EXCEPTIONS,
   members: MOCK_MEMBERS,
+  settings: MOCK_SETTINGS,
 };
 
 // -------------------------------------------------------------
@@ -1175,6 +1187,7 @@ export const MOCK_SHORTAGE_PAYLOAD: IntakePayload = {
   audit: MOCK_AUDIT,
   exceptions: MOCK_EXCEPTIONS,
   members: MOCK_MEMBERS,
+  settings: MOCK_SETTINGS,
 };
 
 // -------------------------------------------------------------
@@ -1192,6 +1205,7 @@ export const MOCK_DEFICIT_PAYLOAD: IntakePayload = {
   audit: MOCK_AUDIT,
   exceptions: MOCK_EXCEPTIONS,
   members: MOCK_MEMBERS,
+  settings: MOCK_SETTINGS,
 };
 
 // -------------------------------------------------------------
@@ -1240,6 +1254,7 @@ export const MOCK_HIGH_CONFLICT_PAYLOAD: IntakePayload = {
   audit: MOCK_AUDIT,
   exceptions: MOCK_HIGH_CONFLICT_EXCEPTIONS,
   members: MOCK_MEMBERS,
+  settings: MOCK_SETTINGS,
 };
 
 // -------------------------------------------------------------
@@ -1258,6 +1273,7 @@ export const MOCK_SINGLE_PAYLOAD: IntakePayload = {
   },
   exceptions: MOCK_EXCEPTIONS,
   members: MOCK_MEMBERS,
+  settings: MOCK_SETTINGS,
 };
 
 export const MOCK_SAVED_SCHEDULE_PAYLOAD: IntakePayload = {

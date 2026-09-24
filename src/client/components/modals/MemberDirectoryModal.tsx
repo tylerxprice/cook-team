@@ -1,6 +1,7 @@
 import React from "react";
 import { X, Users, Search, Pencil, RefreshCw, UserPlus } from "lucide-react";
 import { Member } from "../../../server/types";
+import { formatLastActiveDisplay } from "../../../server/parser";
 
 export interface MemberDirectoryModalProps {
   show: boolean;
@@ -547,7 +548,7 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                           </div>
                           <p className="text-xs text-slate-600 mt-0.5 truncate">
                             {m.google_email || "No email registered"} • Last active:{" "}
-                            {m.last_active_survey || "Never"}
+                            {formatLastActiveDisplay(m.last_active_survey)}
                           </p>
                         </div>
 

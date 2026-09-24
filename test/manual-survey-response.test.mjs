@@ -209,3 +209,171 @@ test("Matchmaker Solver - Enforces maxTotalShifts combined cap", async () => {
   );
   assert.equal(aliceStat.requestedMaxTotalShifts, 3);
 });
+
+test("Matchmaker Solver - Survey sameDay answer is authoritative over static PREF_SAME_DAY rule", async () => {
+  const { solveCookAndCleanSchedule } = await import("../src/server/matchmaker.ts");
+
+  const mealDates = [
+    {
+      id: "MEAL-1",
+      dateKey: "2026-10-01",
+      dateLabel: "Oct 1 (Thur)",
+      dayOfWeek: "Thursday",
+      mealType: "DINNER",
+      targetCookCount: 3,
+      targetCleanCount: 3,
+    },
+  ];
+
+  // Bob explicitly answered "No" to same-day shifts
+  const responses = [
+    {
+      timestamp: "2026-09-20",
+      email: "bob@example.com",
+      name: "Bob",
+      cookTeamSizePref: "Dinner = 3, Brunch = 2",
+      canCookCleanSameDay: false,
+      sameDayPref: "NO",
+      cookQuota: 1,
+      cleanQuota: 1,
+      maxTotalShifts: 2,
+      specialInstructions: "",
+      availability: {
+        "Oct 1 (Thur)": "AVAILABLE",
+      },
+    },
+  ];
+
+  // Old legacy exception rule in Master Sheet
+  const exceptions = [
+    {
+      id: "RULE-LEGACY",
+      person_a: "Bob",
+      rule_type: "PREF_SAME_DAY",
+      is_hard_rule: true,
+    },
+  ];
+
+  const result = solveCookAndCleanSchedule(mealDates, responses, exceptions, {
+    cookPolicy: "ADAPTIVE_3_OR_2",
+    autoCancelDeficitDates: false,
+  });
+
+  const day1 = result.schedule[0];
+  // Bob should NOT be assigned to BOTH cook and clean on the same day because he answered "NO"
+  const isCooking = day1.cooks.includes("Bob");
+  const isCleaning = day1.cleaners.includes("Bob");
+  assert.ok(
+    !(isCooking && isCleaning),
+    "Bob was assigned to BOTH cook and clean on Oct 1 despite answering 'NO' in survey!"
+  );
+});
+
+test("Matchmaker Solver - Fair Share Round-Robin: Gives each volunteer 1 shift before giving 2nd/3rd to higher-quota volunteers", async () => {
+  const { solveCookAndCleanSchedule } = await import("../src/server/matchmaker.ts");
+
+  // 2 meals, each needing 1 cook (simulated via 2 meals with limited slots)
+  const mealDates = [
+    {
+      id: "MEAL-1",
+      dateKey: "2026-10-01",
+      dateLabel: "Oct 1 (Thur)",
+      dayOfWeek: "Thursday",
+      mealType: "BRUNCH",
+      targetCookCount: 2,
+      targetCleanCount: 0,
+    },
+    {
+      id: "MEAL-2",
+      dateKey: "2026-10-04",
+      dateLabel: "Oct 4 (Sun, Brunch)",
+      dayOfWeek: "Sunday",
+      mealType: "BRUNCH",
+      targetCookCount: 2,
+      targetCleanCount: 0,
+    },
+  ];
+
+  // Person A wants 3 cooks, Person B wants 1 cook, Person C wants 1 cook, Person D wants 1 cook
+  // 4 slots total across 2 brunch meals (2 cooks per meal)
+  // If Person A were greedily assigned all 3 shifts, one of B, C, or D would be left with 0 shifts.
+  // With Fair Share Round-Robin: A gets 1, B gets 1, C gets 1, D gets 1 (everyone gets their 1st shift).
+  const responses = [
+    {
+      timestamp: "2026-09-20",
+      email: "a@example.com",
+      name: "Person A",
+      cookTeamSizePref: "2 for either",
+      canCookCleanSameDay: false,
+      cookQuota: 3,
+      cleanQuota: 0,
+      maxTotalShifts: 3,
+      specialInstructions: "",
+      availability: {
+        "Oct 1 (Thur)": "AVAILABLE",
+        "Oct 4 (Sun, Brunch)": "AVAILABLE",
+      },
+    },
+    {
+      timestamp: "2026-09-20",
+      email: "b@example.com",
+      name: "Person B",
+      cookTeamSizePref: "2 for either",
+      canCookCleanSameDay: false,
+      cookQuota: 1,
+      cleanQuota: 0,
+      maxTotalShifts: 1,
+      specialInstructions: "",
+      availability: {
+        "Oct 1 (Thur)": "AVAILABLE",
+        "Oct 4 (Sun, Brunch)": "AVAILABLE",
+      },
+    },
+    {
+      timestamp: "2026-09-20",
+      email: "c@example.com",
+      name: "Person C",
+      cookTeamSizePref: "2 for either",
+      canCookCleanSameDay: false,
+      cookQuota: 1,
+      cleanQuota: 0,
+      maxTotalShifts: 1,
+      specialInstructions: "",
+      availability: {
+        "Oct 1 (Thur)": "AVAILABLE",
+        "Oct 4 (Sun, Brunch)": "AVAILABLE",
+      },
+    },
+    {
+      timestamp: "2026-09-20",
+      email: "d@example.com",
+      name: "Person D",
+      cookTeamSizePref: "2 for either",
+      canCookCleanSameDay: false,
+      cookQuota: 1,
+      cleanQuota: 0,
+      maxTotalShifts: 1,
+      specialInstructions: "",
+      availability: {
+        "Oct 1 (Thur)": "AVAILABLE",
+        "Oct 4 (Sun, Brunch)": "AVAILABLE",
+      },
+    },
+  ];
+
+  const result = solveCookAndCleanSchedule(mealDates, responses, [], {
+    cookPolicy: "DINNER_3_BRUNCH_2",
+    autoCancelDeficitDates: false,
+  });
+
+  // Verify that Person B, C, and D each received their 1 requested shift (100% fair share satisfaction)
+  const statA = result.memberStats["Person A"];
+  const statB = result.memberStats["Person B"];
+  const statC = result.memberStats["Person C"];
+  const statD = result.memberStats["Person D"];
+
+  assert.equal(statB.assignedCooks, 1, "Person B should get 1 cook shift");
+  assert.equal(statC.assignedCooks, 1, "Person C should get 1 cook shift");
+  assert.equal(statD.assignedCooks, 1, "Person D should get 1 cook shift");
+  assert.equal(statA.assignedCooks, 1, "Person A should get 1 shift before getting a 2nd shift");
+});

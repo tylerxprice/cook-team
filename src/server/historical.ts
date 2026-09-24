@@ -430,7 +430,7 @@ export function parseEmailScheduleAnnouncement(rawEmailText: string): DaySchedul
   let collectingRole: "COOKS" | "CLEANERS" | null = null;
 
   const dateRegex =
-    /^(?:\*\s*)?(?:Mon|Tue|Wed|Thu|Thur|Thurs|Fri|Sat|Sun)(?:\s*-\s*|\s+)(?:Jan|Feb|Mar|Apr|May|Jun|June|Jul|July|Aug|August|Sep|Sept|September|Oct|Nov|Dec)\s+\d+.*/i;
+    /^(?:\*\s*)?(?:(?:Mon|Tue|Wed|Thu|Thur|Thurs|Fri|Sat|Sun)(?:\s*-\s*|\s+)(?:Jan|Feb|Mar|Apr|May|Jun|June|Jul|July|Aug|August|Sep|Sept|September|Oct|Nov|Dec)|(?:Jan|Feb|Mar|Apr|May|Jun|June|Jul|July|Aug|August|Sep|Sept|September|Oct|Nov|Dec)\s+\d+).*/i;
 
   const pushDay = (dayObj: {
     dateLabel: string;
@@ -466,8 +466,8 @@ export function parseEmailScheduleAnnouncement(rawEmailText: string): DaySchedul
     const line = lines[i];
     if (!line) continue;
 
-    // Clean markdown asterisks/underscores
-    const clean = line.replace(/[*#_]+/g, "").trim();
+    // Clean markdown asterisks/underscores and calendar emoji
+    const clean = line.replace(/[*#_📅]+/gu, "").trim();
     if (!clean) continue;
 
     // Check if line is a date header
@@ -496,9 +496,9 @@ export function parseEmailScheduleAnnouncement(rawEmailText: string): DaySchedul
       continue;
     }
 
-    if (/^Cleaning:\s*/i.test(clean)) {
+    if (/^(?:Cleaning|Cleaners):\s*/i.test(clean)) {
       collectingRole = "CLEANERS";
-      const namesPart = clean.replace(/^Cleaning:\s*/i, "").trim();
+      const namesPart = clean.replace(/^(?:Cleaning|Cleaners):\s*/i, "").trim();
       if (namesPart) {
         const names = namesPart
           .split(/[,;&+]/)

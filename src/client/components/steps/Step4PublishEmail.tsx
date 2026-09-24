@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   CheckCircle2,
   ExternalLink,
@@ -8,8 +8,11 @@ import {
   FileText,
   Send,
   AlertTriangle,
+  Eye,
+  Edit3,
 } from "lucide-react";
 import { ScheduleOutput, EmailDispatchInfo } from "../../../server/types";
+import { formatEmailHtmlBody } from "../../utils/formatters";
 
 interface Step4PublishEmailProps {
   solverResult: ScheduleOutput;
@@ -35,7 +38,10 @@ interface Step4PublishEmailProps {
   } | null;
   emailTo: string;
   setEmailTo: (to: string) => void;
-  LIVE_LISTSERV_EMAIL: string;
+  emailCc: string;
+  setEmailCc: (cc: string) => void;
+  DEFAULT_ANNOUNCEMENT_TO: string;
+  DEFAULT_ANNOUNCEMENT_CC: string;
   DEV_TEST_EMAIL: string;
   emailSubject: string;
   setEmailSubject: (subject: string) => void;
@@ -60,7 +66,10 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
   emailDeliveryResult,
   emailTo,
   setEmailTo,
-  LIVE_LISTSERV_EMAIL,
+  emailCc,
+  setEmailCc,
+  DEFAULT_ANNOUNCEMENT_TO,
+  DEFAULT_ANNOUNCEMENT_CC,
   DEV_TEST_EMAIL,
   emailSubject,
   setEmailSubject,
@@ -71,6 +80,8 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
   goToStep,
   parseDateFromLabelOrKey,
 }) => {
+  const [emailTab, setEmailTab] = useState<"edit" | "preview">("edit");
+
   return (
     <div className="space-y-6">
       {/* Full-width Horizontal Auto-Publish Status Banner */}
@@ -278,50 +289,96 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
         )}
 
         {/* Email Header Fields */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between flex-wrap gap-1">
-              <label
-                htmlFor="email-recipients-to-input"
-                className="text-xs sm:text-sm font-bold text-slate-800"
-              >
-                Recipients / Listserv (To:)
-              </label>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setEmailTo(LIVE_LISTSERV_EMAIL)}
-                  className={`text-xs px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
-                    emailTo === LIVE_LISTSERV_EMAIL
-                      ? "bg-blue-100 text-blue-950 border border-blue-300"
-                      : "text-slate-700 hover:text-blue-900 bg-slate-100 border border-slate-200"
-                  }`}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Recipients (To:) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between flex-wrap gap-1">
+                <label
+                  htmlFor="email-recipients-to-input"
+                  className="text-xs sm:text-sm font-bold text-slate-800"
                 >
-                  Community Listserv
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEmailTo(DEV_TEST_EMAIL)}
-                  className={`text-xs px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
-                    emailTo === DEV_TEST_EMAIL
-                      ? "bg-amber-100 text-amber-950 border border-amber-300"
-                      : "text-slate-700 hover:text-amber-900 bg-slate-100 border border-slate-200"
-                  }`}
-                >
-                  Dev / Test (Tyler)
-                </button>
+                  Recipients / Listserv (To:)
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setEmailTo(DEFAULT_ANNOUNCEMENT_TO)}
+                    className={`text-xs px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
+                      emailTo === DEFAULT_ANNOUNCEMENT_TO
+                        ? "bg-blue-100 text-blue-950 border border-blue-300"
+                        : "text-slate-700 hover:text-blue-900 bg-slate-100 border border-slate-200"
+                    }`}
+                  >
+                    Vancouver Cohousing Listserv
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEmailTo(DEV_TEST_EMAIL)}
+                    className={`text-xs px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
+                      emailTo === DEV_TEST_EMAIL
+                        ? "bg-amber-100 text-amber-950 border border-amber-300"
+                        : "text-slate-700 hover:text-amber-900 bg-slate-100 border border-slate-200"
+                    }`}
+                  >
+                    Dev / Test (Tyler)
+                  </button>
+                </div>
               </div>
+              <input
+                id="email-recipients-to-input"
+                type="text"
+                value={emailTo}
+                onChange={(e) => setEmailTo(e.target.value)}
+                placeholder="e.g. Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>"
+                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white font-medium text-slate-900"
+              />
             </div>
-            <input
-              id="email-recipients-to-input"
-              type="text"
-              value={emailTo}
-              onChange={(e) => setEmailTo(e.target.value)}
-              placeholder="e.g. Community Residents <community-residents@googlegroups.com>"
-              className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white font-medium text-slate-900"
-            />
+
+            {/* CC Recipients (CC:) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between flex-wrap gap-1">
+                <label
+                  htmlFor="email-recipients-cc-input"
+                  className="text-xs sm:text-sm font-bold text-slate-800"
+                >
+                  CC Recipients (CC:)
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setEmailCc(DEFAULT_ANNOUNCEMENT_CC)}
+                    className={`text-xs px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
+                      emailCc === DEFAULT_ANNOUNCEMENT_CC
+                        ? "bg-indigo-100 text-indigo-950 border border-indigo-300"
+                        : "text-slate-700 hover:text-indigo-900 bg-slate-100 border border-slate-200"
+                    }`}
+                  >
+                    Default CC (Ben, Fabrice, Patricia)
+                  </button>
+                  {emailCc && (
+                    <button
+                      type="button"
+                      onClick={() => setEmailCc("")}
+                      className="text-xs px-2.5 py-1 rounded-lg font-bold text-slate-600 hover:text-rose-700 bg-slate-100 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition-colors cursor-pointer"
+                    >
+                      Clear CC
+                    </button>
+                  )}
+                </div>
+              </div>
+              <input
+                id="email-recipients-cc-input"
+                type="text"
+                value={emailCc}
+                onChange={(e) => setEmailCc(e.target.value)}
+                placeholder="e.g. Ben Ernst <ben@earnesticecream.com>, Fabrice Retiere <fabrulous@gmail.com>, Patricia Fahrni <pfahrni@shaw.ca>"
+                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white font-medium text-slate-900"
+              />
+            </div>
           </div>
 
+          {/* Subject Line */}
           <div className="space-y-1.5">
             <label
               htmlFor="email-subject-line-input"
@@ -343,15 +400,43 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
           </div>
         </div>
 
-        {/* Email Body Editor */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label
-              htmlFor="email-body-text-area"
-              className="text-xs sm:text-sm font-bold text-slate-800"
-            >
-              Email Announcement Body
-            </label>
+        {/* Email Body Editor & Formatted Preview */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <label
+                htmlFor="email-body-text-area"
+                className="text-xs sm:text-sm font-bold text-slate-800"
+              >
+                Email Announcement Body
+              </label>
+              <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setEmailTab("edit")}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+                    emailTab === "edit"
+                      ? "bg-white text-slate-900 shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit Text</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEmailTab("preview")}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+                    emailTab === "preview"
+                      ? "bg-white text-blue-700 shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Formatted Preview</span>
+                </button>
+              </div>
+            </div>
             {customEmailBody !== null && (
               <button
                 onClick={() => setCustomEmailBody(null)}
@@ -361,13 +446,25 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
               </button>
             )}
           </div>
-          <textarea
-            id="email-body-text-area"
-            value={generateEmailText()}
-            onChange={(e) => setCustomEmailBody(e.target.value)}
-            rows={12}
-            className="w-full p-4 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 leading-relaxed resize-y select-all"
-          />
+
+          {emailTab === "edit" ? (
+            <textarea
+              id="email-body-text-area"
+              value={generateEmailText()}
+              onChange={(e) => setCustomEmailBody(e.target.value)}
+              rows={12}
+              className="w-full p-4 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 leading-relaxed resize-y select-all"
+            />
+          ) : (
+            <div className="p-5 bg-white border border-slate-300 rounded-xl shadow-inner min-h-[260px] overflow-y-auto">
+              <div
+                className="text-slate-900 leading-relaxed"
+                dangerouslySetInnerHTML={{
+                  __html: formatEmailHtmlBody(generateEmailText()),
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
 

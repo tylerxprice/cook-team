@@ -19,8 +19,16 @@ import {
   CommunityReportSummary,
   ManualSurveyResponsePayload,
   ManualSurveyResponseResult,
+  AppSettings,
+  MasterRegistryPayload,
 } from "./types";
-import { parseSurveySheetData, extractEmails, extractAliases, parseSheetBoolean } from "./parser";
+import {
+  parseSurveySheetData,
+  extractEmails,
+  extractAliases,
+  parseSheetBoolean,
+  formatLastActiveSurvey,
+} from "./parser";
 import { solveCookAndCleanSchedule } from "./matchmaker";
 import { computeCommunityReportSummary, MonthScheduleRecord } from "./reports";
 import { MOCK_INTAKE_PAYLOAD, MOCK_MEMBERS, MOCK_EXCEPTIONS } from "./mockData";
@@ -54,7 +62,7 @@ import { SurveyFormDateConfig, CreateSurveyFormPayload, CreateSurveyFormResult }
  */
 function getInitialBootstrapData(): {
   userInfo: ReturnType<typeof getUserInfo>;
-  registry: { members: Member[]; exceptions: ExceptionRule[] };
+  registry: MasterRegistryPayload;
   driveSheets: DriveSheetItem[];
 } {
   try {
@@ -329,12 +337,12 @@ function listAvailableDriveSheets(parentFolderId?: string): DriveSheetItem[] {
 }
 
 /**
- * Fetches the Master Community Registry data (members and rules) on demand.
+ * Fetches the Master Community Registry data (members, rules, and settings) on demand.
  */
 function getMasterRegistryData(
   masterRegistryUrlOrIdOrDev?: string | boolean,
   isDevMode?: boolean
-): { members: Member[]; exceptions: ExceptionRule[] } {
+): MasterRegistryPayload {
   let masterUrlOrId: string | undefined = undefined;
   let dev: boolean | undefined = undefined;
 
@@ -359,6 +367,15 @@ function getMasterRegistryData(
   const masterSpreadsheet = getMasterRegistrySpreadsheet(masterUrlOrId, dev);
   let members: Member[] = [];
   let exceptions: ExceptionRule[] = [];
+  const settings: AppSettings = {
+    announcementTo: "Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>",
+    announcementCc:
+      "Ben Ernst <ben@earnesticecream.com>, Fabrice Retiere <fabrulous@gmail.com>, Patricia Fahrni <pfahrni@shaw.ca>",
+    cookPolicy: "ADAPTIVE_3_OR_2",
+    defaultCleanQuota: 1,
+    autoCancelDeficitDates: true,
+    communityName: "Vancouver Cohousing",
+  };
 
   if (masterSpreadsheet) {
     const membersTab = masterSpreadsheet.getSheetByName("Members");
@@ -378,7 +395,7 @@ function getMasterRegistryData(
             name: String(row[0]).trim(),
             google_email: rawEmail,
             active: isActive,
-            last_active_survey: row[3] ? String(row[3]).trim() : undefined,
+            last_active_survey: formatLastActiveSurvey(row[3]),
             aliases: aliases.length > 0 ? aliases : undefined,
             alternate_emails: emails.length > 1 ? emails.slice(1) : undefined,
           });
@@ -407,6 +424,92 @@ function getMasterRegistryData(
         }
       }
     }
+
+    const settingsTab = masterSpreadsheet.getSheetByName("Settings");
+    if (settingsTab) {
+      const sData = settingsTab.getDataRange().getValues();
+      if (sData.length > 0) {
+        // Resolve key column and value column index
+        let keyCol = 0;
+        let valCol = 1;
+
+        const headerRow = sData[0].map((h) => String(h || "").trim().toLowerCase());
+        const kIdx = headerRow.findIndex(
+          (h) => h === "key" || h === "setting" || h === "property" || h === "name"
+        );
+        const vIdx = headerRow.findIndex(
+          (h) => h === "value" || h === "val" || h === "setting value"
+        );
+
+        if (kIdx >= 0 && vIdx >= 0 && kIdx !== vIdx) {
+          keyCol = kIdx;
+          valCol = vIdx;
+        }
+
+        // Iterate through setting rows
+        for (let i = 1; i < sData.length; i++) {
+          const row = sData[i];
+          const rawCell = row[keyCol] !== undefined && row[keyCol] !== null ? String(row[keyCol]).trim() : "";
+          if (!rawCell) continue;
+
+          const rawKey = rawCell.toLowerCase().replace(/[\s-_]+/g, "_");
+          const val = row[valCol] !== undefined && row[valCol] !== null ? String(row[valCol]).trim() : "";
+          if (!val) continue;
+
+          if (
+            [
+              "announcement_to",
+              "listserv_email",
+              "email_to",
+              "to_email",
+              "recipients_to",
+              "to",
+              "announcement_recipients",
+            ].includes(rawKey)
+          ) {
+            settings.announcementTo = val;
+          } else if (
+            [
+              "announcement_cc",
+              "email_cc",
+              "cc_recipients",
+              "cc_email",
+              "default_cc",
+              "cc",
+              "announcement_cc_recipients",
+            ].includes(rawKey)
+          ) {
+            settings.announcementCc = val;
+          } else if (["cook_policy", "cook_team_policy", "sizing_policy"].includes(rawKey)) {
+            if (
+              val === "ADAPTIVE_3_OR_2" ||
+              val === "DINNER_3_BRUNCH_2" ||
+              val === "TWO_REGARDLESS"
+            ) {
+              settings.cookPolicy = val;
+            }
+          } else if (["default_clean_quota", "clean_quota", "default_clean"].includes(rawKey)) {
+            const num = parseInt(val, 10);
+            if (!isNaN(num)) settings.defaultCleanQuota = num;
+          } else if (["community_name", "community", "organization_name"].includes(rawKey)) {
+            settings.communityName = val;
+          } else if (
+            [
+              "signup_workbook_id",
+              "common_meal_signup_id",
+              "signup_sheet_id",
+              "signup_sheet_url",
+            ].includes(rawKey)
+          ) {
+            settings.signupWorkbookId = val;
+          } else if (["auto_cancel_deficit_dates", "drop_deficit_dates"].includes(rawKey)) {
+            settings.autoCancelDeficitDates = parseSheetBoolean(val, true);
+          } else {
+            settings[rawKey] = val;
+          }
+        }
+      }
+    }
   }
 
   if (members.length === 0 && dev) {
@@ -416,7 +519,118 @@ function getMasterRegistryData(
 
   members.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 
-  return { members, exceptions };
+  return { members, exceptions, settings };
+}
+
+/**
+ * Updates application settings in the Master Community Registry Settings tab.
+ */
+function saveMasterSettings(
+  updatedSettings: Partial<AppSettings>,
+  masterUrlOrId?: string,
+  isDevMode?: boolean
+): { success: boolean; message: string; settings: AppSettings } {
+  let dev = isDevMode;
+  if (typeof dev === "undefined") {
+    try {
+      const url = ScriptApp.getService().getUrl() || "";
+      dev = url.endsWith("/dev");
+    } catch {
+      dev = false;
+    }
+  }
+
+  const masterSpreadsheet = getMasterRegistrySpreadsheet(masterUrlOrId, dev);
+  if (!masterSpreadsheet) {
+    throw new Error("Could not find or open Master Community Registry spreadsheet.");
+  }
+
+  let settingsSheet = masterSpreadsheet.getSheetByName("Settings");
+  const formatHeader = (sh: GoogleAppsScript.Spreadsheet.Sheet, numCols: number, bgColor: string) => {
+    const r = sh.getRange(1, 1, 1, numCols);
+    r.setFontWeight("bold");
+    r.setBackground(bgColor);
+    sh.setFrozenRows(1);
+  };
+
+  if (!settingsSheet) {
+    settingsSheet = masterSpreadsheet.insertSheet("Settings");
+    settingsSheet.appendRow(["Key", "Value", "Description"]);
+    formatHeader(settingsSheet, 3, "#ede9fe");
+  } else {
+    // Standardize header row 1 if missing or mislabeled
+    const hRange = settingsSheet.getRange(1, 1, 1, 3);
+    const currHeaders = hRange.getValues()[0];
+    if (String(currHeaders[0] || "").trim() !== "Key" || String(currHeaders[1] || "").trim() !== "Value") {
+      hRange.setValues([["Key", "Value", "Description"]]);
+      formatHeader(settingsSheet, 3, "#ede9fe");
+    }
+  }
+
+  const sData = settingsSheet.getDataRange().getValues();
+  const keyRowMap: Record<string, number> = {};
+  for (let i = 1; i < sData.length; i++) {
+    const k = String(sData[i][0] || "").trim().toLowerCase().replace(/[\s-_]+/g, "_");
+    if (k) keyRowMap[k] = i + 1; // 1-indexed sheet row
+  }
+
+  const settingMeta: Record<string, { key: string; sheetKey: string; desc: string }> = {
+    announcementTo: {
+      key: "announcementTo",
+      sheetKey: "announcement_to",
+      desc: "Default recipient listserv for monthly meal schedule announcements",
+    },
+    announcementCc: {
+      key: "announcementCc",
+      sheetKey: "announcement_cc",
+      desc: "Default CC recipients for monthly meal schedule announcements",
+    },
+    cookPolicy: {
+      key: "cookPolicy",
+      sheetKey: "cook_policy",
+      desc: "Adaptive cook sizing (Target 3 for dinner, accept 2 if agreed)",
+    },
+    defaultCleanQuota: {
+      key: "defaultCleanQuota",
+      sheetKey: "default_clean_quota",
+      desc: "Default clean shifts per member when not specified",
+    },
+    autoCancelDeficitDates: {
+      key: "autoCancelDeficitDates",
+      sheetKey: "auto_cancel_deficit_dates",
+      desc: "Auto-drop bottleneck deficit dates to maximize complete meals",
+    },
+    communityName: {
+      key: "communityName",
+      sheetKey: "community_name",
+      desc: "Community organization name",
+    },
+    signupWorkbookId: {
+      key: "signupWorkbookId",
+      sheetKey: "signup_workbook_id",
+      desc: "Master Common Meal Sign-Up Google Sheet ID or URL",
+    },
+  };
+
+  for (const [prop, meta] of Object.entries(settingMeta)) {
+    if (updatedSettings[prop as keyof AppSettings] !== undefined) {
+      const val = String(updatedSettings[prop as keyof AppSettings]);
+      const rowNum = keyRowMap[meta.sheetKey];
+      if (rowNum) {
+        settingsSheet.getRange(rowNum, 2).setValue(val);
+      } else {
+        settingsSheet.appendRow([meta.sheetKey, val, meta.desc]);
+        keyRowMap[meta.sheetKey] = settingsSheet.getLastRow();
+      }
+    }
+  }
+
+  const refreshed = getMasterRegistryData(masterUrlOrId, dev);
+  return {
+    success: true,
+    message: "Master Registry settings updated successfully.",
+    settings: refreshed.settings || (updatedSettings as AppSettings),
+  };
 }
 
 /**
@@ -455,26 +669,21 @@ function getIntakeData(
     let members: Member[] = [];
     let exceptions: ExceptionRule[] = [];
 
-    // Optimization: If caller provided pre-loaded members, bypass opening master registry workbook
-    if (Array.isArray(providedMembers) && providedMembers.length > 0) {
-      members = providedMembers;
-      exceptions = Array.isArray(providedExceptions) ? providedExceptions : [];
-    } else {
-      try {
-        const file = DriveApp.getFileById(surveySpreadsheet.getId());
-        const parents = file.getParents();
-        while (parents.hasNext()) {
-          const p = parents.next();
-          if (p.getName().includes("Dev")) {
-            isDevMode = true;
-            break;
-          }
+    try {
+      const file = DriveApp.getFileById(surveySpreadsheet.getId());
+      const parents = file.getParents();
+      while (parents.hasNext()) {
+        const p = parents.next();
+        if (p.getName().includes("Dev")) {
+          isDevMode = true;
+          break;
         }
-      } catch {}
+      }
+    } catch {}
 
-      // 1. Resolve Master Community Registry from appropriate environment folder
-      const masterSpreadsheet =
-        getMasterRegistrySpreadsheet(masterRegistryUrlOrId, isDevMode) || surveySpreadsheet;
+    // 1. Resolve Master Community Registry from appropriate environment folder
+    const masterSpreadsheet =
+      getMasterRegistrySpreadsheet(masterRegistryUrlOrId, isDevMode) || surveySpreadsheet;
 
       if (masterSpreadsheet) {
         const membersTab = masterSpreadsheet.getSheetByName("Members");
@@ -495,7 +704,7 @@ function getIntakeData(
                   name: String(row[0]).trim(),
                   google_email: rawEmail,
                   active: isActive,
-                  last_active_survey: row[3] ? String(row[3]).trim() : undefined,
+                  last_active_survey: formatLastActiveSurvey(row[3]),
                   aliases: aliases.length > 0 ? aliases : undefined,
                   alternate_emails: emails.length > 1 ? emails.slice(1) : undefined,
                 });
@@ -527,31 +736,33 @@ function getIntakeData(
         }
       }
 
-      // Fallback: If no members tab found in registry, extract from survey responses or mock
-      if (members.length === 0) {
-        if (isDevMode) {
-          members = MOCK_MEMBERS;
-          exceptions = MOCK_EXCEPTIONS;
-        } else {
-          const respondentsFromSurvey: Member[] = [];
-          for (let r = 1; r < surveyData.length; r++) {
-            const row = surveyData[r];
-            const email = String(row[1] || "").trim();
-            const name = String(row[2] || "").trim();
-            if (
-              name &&
-              !respondentsFromSurvey.some((m) => m.name.toLowerCase() === name.toLowerCase())
-            ) {
-              respondentsFromSurvey.push({
-                name,
-                google_email: email,
-                active: true,
-                last_active_survey: "2026-10",
-              });
-            }
+    // Fallback: If no members tab found in registry, use providedMembers or extract from survey or mock
+    if (members.length === 0) {
+      if (Array.isArray(providedMembers) && providedMembers.length > 0) {
+        members = providedMembers;
+        exceptions = Array.isArray(providedExceptions) ? providedExceptions : [];
+      } else if (isDevMode) {
+        members = MOCK_MEMBERS;
+        exceptions = MOCK_EXCEPTIONS;
+      } else {
+        const respondentsFromSurvey: Member[] = [];
+        for (let r = 1; r < surveyData.length; r++) {
+          const row = surveyData[r];
+          const email = String(row[1] || "").trim();
+          const name = String(row[2] || "").trim();
+          if (
+            name &&
+            !respondentsFromSurvey.some((m) => m.name.toLowerCase() === name.toLowerCase())
+          ) {
+            respondentsFromSurvey.push({
+              name,
+              google_email: email,
+              active: true,
+              last_active_survey: "2026-10",
+            });
           }
-          members = respondentsFromSurvey.length > 0 ? respondentsFromSurvey : MOCK_MEMBERS;
         }
+        members = respondentsFromSurvey.length > 0 ? respondentsFromSurvey : MOCK_MEMBERS;
       }
     }
 
@@ -579,6 +790,7 @@ function getIntakeData(
         : undefined;
     const emailDispatchInfo =
       getEmailDispatchMetadata(surveySpreadsheet, surveyMonthKey) || undefined;
+    const regSettings = getMasterRegistryData(masterRegistryUrlOrId, isDevMode).settings;
 
     return {
       sheetId: surveySpreadsheet.getId(),
@@ -587,6 +799,7 @@ function getIntakeData(
       audit: parsed.audit,
       exceptions,
       members,
+      settings: regSettings,
       existingScheduleTab,
       emailDispatchInfo,
     };
@@ -1610,7 +1823,7 @@ function recordEmailDispatchMetadata(spreadsheetIdOrUrl?: string, info?: EmailDi
 }
 
 /**
- * Converts plain text email body with bullets and date headings to clean, formatted HTML email
+ * Converts plain text email body with date headings, individual cooks, and italic cleaners to clean, formatted HTML email
  */
 function textToHtmlEmailBody(plainText: string): string {
   const escaped = String(plainText || "")
@@ -1622,12 +1835,16 @@ function textToHtmlEmailBody(plainText: string): string {
   let html = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1e293b;">`;
 
   for (const line of lines) {
-    if (!line.trim()) {
+    const trimmed = line.trim();
+    if (!trimmed) {
       html += `<div style="height: 10px;"></div>`;
-    } else if (line.startsWith("  • ") || line.startsWith("• ")) {
-      html += `<div style="padding-left: 18px; margin: 3px 0;">${line.trim()}</div>`;
-    } else if (line.startsWith("  NO COMMUNITY MEAL") || line.trim() === "NO COMMUNITY MEAL") {
-      html += `<div style="padding-left: 18px; margin: 3px 0; font-weight: bold; color: #64748b;">NO COMMUNITY MEAL</div>`;
+    } else if (/^(\*|_)?(cleaners?|cleaning):/i.test(trimmed)) {
+      const cleanLine = trimmed.replace(/^(\*|_)+|(\*|_)+$/g, "");
+      html += `<div style="font-style: italic; color: #475569; margin: 3px 0;">${cleanLine}</div>`;
+    } else if (trimmed === "NO COMMUNITY MEAL" || trimmed.startsWith("NO COMMUNITY MEAL")) {
+      html += `<div style="font-weight: bold; color: #64748b; margin: 3px 0;">NO COMMUNITY MEAL</div>`;
+    } else if (trimmed.startsWith("• ") || trimmed.startsWith("  • ")) {
+      html += `<div style="padding-left: 18px; margin: 3px 0;">${trimmed}</div>`;
     } else if (
       line.includes("(") &&
       (line.includes("Dinner") ||
@@ -1638,11 +1855,23 @@ function textToHtmlEmailBody(plainText: string): string {
         line.includes("Thu") ||
         line.includes("Fri") ||
         line.includes("Sat") ||
-        line.includes("Sun"))
+        line.includes("Sun") ||
+        line.includes("Jan") ||
+        line.includes("Feb") ||
+        line.includes("Mar") ||
+        line.includes("Apr") ||
+        line.includes("May") ||
+        line.includes("Jun") ||
+        line.includes("Jul") ||
+        line.includes("Aug") ||
+        line.includes("Sep") ||
+        line.includes("Oct") ||
+        line.includes("Nov") ||
+        line.includes("Dec"))
     ) {
-      html += `<div style="font-weight: bold; margin-top: 12px; margin-bottom: 2px; color: #0f172a;">${line}</div>`;
+      html += `<div style="font-weight: bold; margin-top: 14px; margin-bottom: 3px; color: #0f172a;">${line}</div>`;
     } else {
-      html += `<div>${line}</div>`;
+      html += `<div style="margin: 2px 0;">${line}</div>`;
     }
   }
 
@@ -2110,6 +2339,7 @@ g.setupDriveWorkspace = setupDriveWorkspace;
 g.createWebAppLinkLaunchers = createWebAppLinkLaunchers;
 g.listAvailableDriveSheets = listAvailableDriveSheets;
 g.getMasterRegistryData = getMasterRegistryData;
+g.saveMasterSettings = saveMasterSettings;
 g.getIntakeData = getIntakeData;
 g.loadExistingScheduleFromSheet = loadExistingScheduleFromSheet;
 g.solveSchedule = solveSchedule;

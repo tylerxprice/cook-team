@@ -79,9 +79,6 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
                 SAME_DAY_DIFF_TEAM (Same date, different team)
               </option>
               <option value="PAIR_WITH_ROLE">PAIR_WITH_ROLE (Assign together for role)</option>
-              <option value="PREF_SAME_DAY">
-                PREF_SAME_DAY (Allow Cook &amp; Clean on same date)
-              </option>
             </select>
           </div>
 

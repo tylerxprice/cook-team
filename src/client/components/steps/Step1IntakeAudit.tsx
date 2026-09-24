@@ -17,13 +17,14 @@ import {
   Search,
 } from "lucide-react";
 import { IntakePayload, Member } from "../../../server/types";
+import { formatLastActiveDisplay } from "../../../server/parser";
 
 export interface Step1IntakeAuditProps {
   sheetInput: string;
   setSheetInput: (val: string) => void;
   sheetSelectMode: string;
   handleSelectSheetOption: (val: string) => void;
-  fetchIntake: (sheetIdOrUrl: string) => void;
+  fetchIntake: (sheetIdOrUrl: string, masterId?: string, forceRefresh?: boolean) => void;
   loading: boolean;
   isDevMode: boolean;
   liveSheetsList: { id: string; name: string }[];
@@ -125,7 +126,7 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
               </a>
             )}
             <button
-              onClick={() => fetchIntake(sheetInput)}
+              onClick={() => fetchIntake(sheetInput, undefined, true)}
               disabled={loading || !sheetInput}
               className="min-h-[44px] px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm cursor-pointer"
             >
@@ -479,7 +480,7 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
                           <p className="text-xs sm:text-sm font-bold text-slate-900">{m.name}</p>
                           <p className="text-xs text-slate-600">
                             {m.google_email || "No email"} • Last active:{" "}
-                            {m.last_active_survey || "Never"}
+                            {formatLastActiveDisplay(m.last_active_survey)}
                           </p>
                         </div>
                       </div>

@@ -15,6 +15,7 @@ import {
   EmailDispatchInfo,
   EmailPayload,
   ManualSurveyResponsePayload,
+  AppSettings,
 } from "../../server/types";
 import {
   MOCK_INTAKE_PAYLOAD,
@@ -22,6 +23,7 @@ import {
   MOCK_MEMBERS,
   MOCK_EXCEPTIONS,
   MOCK_PRESETS,
+  MOCK_SETTINGS,
 } from "../../server/mockData";
 import { solveCookAndCleanSchedule } from "../../server/matchmaker";
 import { parseScheduleGridData, parseDateFromLabelOrKey } from "../../server/scheduleParser";
@@ -41,11 +43,13 @@ export const isGasEnvironment = (): boolean => {
 // Local mock state
 let localMembers = [...MOCK_MEMBERS];
 let localExceptions = [...MOCK_EXCEPTIONS];
+let mockMasterSettings: AppSettings = { ...MOCK_SETTINGS };
 const mockEmailDispatchLog: Record<string, EmailDispatchInfo> = {};
 let localIntake: IntakePayload = {
   ...MOCK_INTAKE_PAYLOAD,
   members: localMembers,
   exceptions: localExceptions,
+  settings: mockMasterSettings,
 };
 
 export async function callGas<T = any>(functionName: string, ...args: any[]): Promise<T> {
@@ -150,6 +154,20 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
           a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
         ),
         exceptions: isDev ? localExceptions : [],
+        settings: { ...mockMasterSettings },
+      } as unknown as T;
+    }
+
+    case "saveMasterSettings": {
+      const [updatedSettings] = args as [Partial<AppSettings>];
+      mockMasterSettings = {
+        ...mockMasterSettings,
+        ...updatedSettings,
+      };
+      return {
+        success: true,
+        message: "Master Registry settings updated successfully.",
+        settings: { ...mockMasterSettings },
       } as unknown as T;
     }
 
@@ -166,6 +184,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         ...preset.payload,
         members: localMembers,
         exceptions: localExceptions,
+        settings: { ...mockMasterSettings },
         emailDispatchInfo: mockEmailDispatchLog[monthKey] || undefined,
       };
       return localIntake as unknown as T;
@@ -179,6 +198,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
       const monthKey = localIntake.mealDates?.[0]?.dateKey?.slice(0, 7) || "2026-10";
       return {
         ...localIntake,
+        settings: { ...mockMasterSettings },
         emailDispatchInfo: mockEmailDispatchLog[monthKey] || undefined,
       } as unknown as T;
     }
@@ -611,13 +631,14 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         };
         mockEmailDispatchLog[monthKey] = dispatchInfo;
       }
+      const ccMsg = payload.cc ? ` (CC: ${payload.cc})` : "";
       return {
         success: true,
         mode: payload.mode,
         message:
           payload.mode === "draft"
-            ? `Draft created in your Gmail account for ${payload.to}!`
-            : `Announcement email successfully sent via Gmail to ${payload.to}!`,
+            ? `Draft created in your Gmail account for ${payload.to}${ccMsg}!`
+            : `Announcement email successfully sent via Gmail to ${payload.to}${ccMsg}!`,
         recipientCount: 1,
         emailDispatchInfo: dispatchInfo,
       } as unknown as T;

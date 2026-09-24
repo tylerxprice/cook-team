@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { formatHistoricalSheetTitle, extractMonthKey } from "../src/server/historical.ts";
+import { parseDateFromLabelOrKey } from "../src/server/scheduleParser.ts";
 
 test("Historical Naming - Real Tab Formats (Slash, No Separator, Spaces)", () => {
   const cases = [
@@ -122,9 +123,45 @@ Cleaning: Alice, Bob
 
 test("Email Announcement Formatter - Clean NO COMMUNITY MEAL for cancelled meals", () => {
   function formatEmailDateHeader(d) {
-    let label = d.dateLabel.trim();
-    const lowerLabel = label.toLowerCase();
-    const isBrunch = d.mealType === "BRUNCH" || lowerLabel.includes("brunch");
+    let dayOfWeek = "";
+    let monthName = "";
+    let dayNum = "";
+    const isBrunch = d.mealType === "BRUNCH";
+    const typeStr = isBrunch ? "Brunch" : "Dinner";
+
+    const parsed = parseDateFromLabelOrKey(d.dateLabel, d.dateKey);
+    if (parsed && !isNaN(parsed.getTime())) {
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "June",
+        "July",
+        "Aug",
+        "Sept",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+      dayOfWeek = days[parsed.getDay()];
+      monthName = months[parsed.getMonth()];
+      dayNum = String(parsed.getDate());
+    }
+
+    let headerBase = "";
+    if (dayOfWeek && monthName && dayNum) {
+      headerBase = `${dayOfWeek} ${monthName} ${dayNum} - ${typeStr}`;
+    } else {
+      let label = d.dateLabel.trim();
+      const lowerLabel = label.toLowerCase();
+      if (!lowerLabel.includes("brunch") && !lowerLabel.includes("dinner")) {
+        label = `${label} - ${typeStr}`;
+      }
+      headerBase = label;
+    }
 
     let note = d.specialNote?.trim();
     if (note) {
@@ -140,22 +177,17 @@ test("Email Announcement Formatter - Clean NO COMMUNITY MEAL for cancelled meals
         !note ||
         lowerNote === "brunch" ||
         lowerNote === "dinner" ||
-        lowerLabel.includes(lowerNote)
+        headerBase.toLowerCase().includes(lowerNote)
       ) {
         note = undefined;
       }
     }
 
-    if (!lowerLabel.includes("brunch") && !lowerLabel.includes("dinner")) {
-      const typeStr = isBrunch ? "Brunch" : "Dinner";
-      label = `${label} (${typeStr})`;
-    }
-
     if (note) {
-      label = `${label} - ${note}`;
+      headerBase = `${headerBase} (${note})`;
     }
 
-    return `📅 ${label}`;
+    return headerBase;
   }
 
   function generateEmailText(schedule) {
@@ -176,10 +208,16 @@ test("Email Announcement Formatter - Clean NO COMMUNITY MEAL for cancelled meals
 
       text += `${formatEmailDateHeader(d)}\n`;
       if (isNoMeal) {
-        text += `  NO COMMUNITY MEAL\n\n`;
+        text += `NO COMMUNITY MEAL\n\n`;
       } else {
-        text += `  • Cooks: ${d.cooks.join(", ") || "(Need Volunteers)"}\n`;
-        text += `  • Cleaners: ${d.cleaners.join(", ") || "(Need Volunteers)"}\n\n`;
+        if (d.cooks.length > 0) {
+          text += `${d.cooks.join("\n")}\n`;
+        } else {
+          text += `(Need Volunteers)\n`;
+        }
+        text += `\n`;
+        const cleanersList = d.cleaners.length > 0 ? d.cleaners.join(", ") : "(Need Volunteers)";
+        text += `Cleaning: ${cleanersList}\n\n`;
       }
     }
     text += "Thank you all for making our meals happen!\n\nBest,\nBrenda";
@@ -222,17 +260,26 @@ test("Email Announcement Formatter - Clean NO COMMUNITY MEAL for cancelled meals
 
   // Assert that auto-cancelled deficit note is stripped from header
   assert.ok(!email.includes("Auto-Cancelled: Volunteer Deficit"));
-  assert.ok(email.includes("Oct 15 (Thur) (Dinner)\n  NO COMMUNITY MEAL"));
+  assert.ok(email.includes("Thu Oct 15 - Dinner\nNO COMMUNITY MEAL"));
 
-  // Assert that active meals have cooks and cleaners
+  // Assert that active meals have cooks listed one per line, followed by blank line, followed by Cleaning: ...
   assert.ok(
     email.includes(
-      "Oct 1 (Thur) (Dinner)\n  • Cooks: Brenda, Alex, Michael\n  • Cleaners: Cyrena, Lisa, Tyler"
+      "Thu Oct 1 - Dinner\nBrenda\nAlex\nMichael\n\nCleaning: Cyrena, Lisa, Tyler\n\n"
     )
   );
   assert.ok(
-    email.includes("Oct 4 (Sun, Brunch)\n  • Cooks: Brenda, Sam\n  • Cleaners: Alex, Rose")
+    email.includes("Sun Oct 4 - Brunch\nBrenda\nSam\n\nCleaning: Alex, Rose\n\n")
   );
+
+  // Roundtrip parse test: ensure parseEmailScheduleAnnouncement parses the generated email announcement perfectly
+  const parsedFromEmail = parseEmailScheduleAnnouncement(email);
+  assert.equal(parsedFromEmail.length, 3);
+  assert.deepEqual(parsedFromEmail[0].cooks, ["Brenda", "Alex", "Michael"]);
+  assert.deepEqual(parsedFromEmail[0].cleaners, ["Cy", "Lisa", "Tyler"]);
+  assert.deepEqual(parsedFromEmail[1].cooks, ["Brenda", "Sam"]);
+  assert.deepEqual(parsedFromEmail[1].cleaners, ["Alex", "Rose"]);
+  assert.equal(parsedFromEmail[2].specialNote, "NO COMMUNITY MEAL");
 });
 
 test("Historical Import - Generates Email_Dispatch_Log metadata sheet marking email as sent", () => {

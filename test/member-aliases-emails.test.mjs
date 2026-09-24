@@ -6,7 +6,145 @@ import {
   findMatchingMember,
   parseSurveySheetData,
   parseSheetBoolean,
+  formatLastActiveSurvey,
+  formatLastActiveDisplay,
 } from "../src/server/parser.ts";
+
+test("formatLastActiveSurvey & formatLastActiveDisplay - Normalizes Dates, timestamps, and YYYY-MM strings", () => {
+  // Direct Date objects (from Google Sheets getValues())
+  const augDate = new Date(2026, 7, 1); // Aug 2026
+  assert.equal(formatLastActiveSurvey(augDate), "2026-08");
+  assert.equal(formatLastActiveDisplay(augDate), "Aug 2026");
+
+  const sepDate = new Date(2026, 8, 1); // Sep 2026
+  assert.equal(formatLastActiveSurvey(sepDate), "2026-09");
+  assert.equal(formatLastActiveDisplay(sepDate), "Sep 2026");
+
+  // Stringified Date objects from Google Sheets
+  assert.equal(
+    formatLastActiveSurvey("Tue Sep 01 2026 00:00:00 GMT-0400 (Eastern Daylight Time)"),
+    "2026-09"
+  );
+  assert.equal(
+    formatLastActiveDisplay("Tue Sep 01 2026 00:00:00 GMT-0400 (Eastern Daylight Time)"),
+    "Sep 2026"
+  );
+  assert.equal(
+    formatLastActiveSurvey("Sat Aug 01 2026 00:00:00 GMT-0400 (Eastern Daylight Time)"),
+    "2026-08"
+  );
+  assert.equal(
+    formatLastActiveDisplay("Sat Aug 01 2026 00:00:00 GMT-0400 (Eastern Daylight Time)"),
+    "Aug 2026"
+  );
+
+  // Standard YYYY-MM strings
+  assert.equal(formatLastActiveSurvey("2026-08"), "2026-08");
+  assert.equal(formatLastActiveDisplay("2026-08"), "Aug 2026");
+  assert.equal(formatLastActiveSurvey("2026-10"), "2026-10");
+  assert.equal(formatLastActiveDisplay("2026-10"), "Oct 2026");
+
+  // Null, empty, or "Never"
+  assert.equal(formatLastActiveSurvey(""), undefined);
+  assert.equal(formatLastActiveDisplay(""), "Never");
+  assert.equal(formatLastActiveSurvey(null), undefined);
+  assert.equal(formatLastActiveDisplay(null), "Never");
+  assert.equal(formatLastActiveSurvey(undefined), undefined);
+  assert.equal(formatLastActiveDisplay(undefined), "Never");
+  assert.equal(formatLastActiveSurvey("Never"), undefined);
+  assert.equal(formatLastActiveDisplay("Never"), "Never");
+  assert.equal(formatLastActiveSurvey("never"), undefined);
+  assert.equal(formatLastActiveDisplay("never"), "Never");
+});
+
+test("Member Normalization - First-name / Full-name matching and Marijean Day disambiguation", () => {
+  const members = [
+    {
+      name: "Marijean",
+      google_email: "marijeanday@gmail.com",
+      active: true,
+      last_active_survey: "2026-08",
+    },
+    {
+      name: "Tyler Price",
+      google_email: "tyler@example.com",
+      active: true,
+      last_active_survey: "2026-09",
+    },
+    {
+      name: "Brenda",
+      google_email: "brenda@example.com",
+      active: true,
+      last_active_survey: "2026-09",
+    },
+  ];
+
+  // 1. Respondent entered "Marijean Day" with email
+  const matchWithEmail = findMatchingMember("Marijean Day", "marijeanday@gmail.com", members);
+  assert.equal(matchWithEmail?.name, "Marijean");
+
+  // 2. Respondent entered "Marijean Day" without email -> Matches "Marijean" via first-name prefix
+  const matchWithoutEmail = findMatchingMember("Marijean Day", undefined, members);
+  assert.equal(matchWithoutEmail?.name, "Marijean");
+
+  // 3. Respondent entered "Tyler" (first name only) -> Matches "Tyler Price"
+  const matchTyler = findMatchingMember("Tyler", undefined, members);
+  assert.equal(matchTyler?.name, "Tyler Price");
+});
+
+test("parseSurveySheetData - Handles Marijean Day with email in rightmost column", () => {
+  const masterMembers = [
+    {
+      name: "Marijean",
+      google_email: "marijeanday@gmail.com",
+      active: true,
+      last_active_survey: "2026-08",
+    },
+  ];
+
+  // Simulated Google Form response grid where Email and Max Shifts questions were appended to the end of the sheet
+  const grid = [
+    [
+      "Timestamp",
+      "What is your name?",
+      "How many meals can you cook this month?",
+      "How many meals can you clean this month?",
+      "Cook Team Size Preference",
+      "Can you cook and clean on the same day?",
+      "Select your available dates [Oct 1 (Thur)]",
+      "Special instructions / dietary preferences / notes",
+      "Email Address",
+      "Maximum total shifts (cooking + cleaning combined) this month?",
+    ],
+    [
+      "9/21/2026 13:49:28",
+      "Marijean Day",
+      "1",
+      "1",
+      "Dinner = 3, Brunch = 2 (Preferred)",
+      "No",
+      "Available",
+      "Gluten free. I’m not sure about my fall schedule with Abi yet but I will get that sorted soon I hope.",
+      "marijeanday@gmail.com",
+      "No set limit (sum of cooks and cleans above)",
+    ],
+  ];
+
+  const parsed = parseSurveySheetData(grid, masterMembers, "2026-10 Cook Team Survey");
+
+  // Verify matched member is Marijean
+  assert.equal(parsed.responses.length, 1);
+  assert.equal(parsed.responses[0].name, "Marijean");
+  assert.equal(parsed.responses[0].email, "marijeanday@gmail.com");
+  assert.equal(parsed.responses[0].cookQuota, 1);
+  assert.equal(parsed.responses[0].cleanQuota, 1);
+  assert.equal(parsed.responses[0].maxTotalShifts, 2);
+
+  // Verify completeness audit has 0 missing members and 0 unrecognized respondents
+  assert.equal(parsed.audit.missingMembers.length, 0);
+  assert.equal(parsed.audit.unrecognizedRespondents.length, 0);
+  assert.equal(parsed.audit.respondentCount, 1);
+});
 
 test("parseSheetBoolean - Accurately parses boolean values from sheet cells without false || '' bug", () => {
   // Boolean primitives

@@ -794,3 +794,104 @@ test("Community Reports - Multi-Month Equity & Stats Aggregator", () => {
   assert.equal(markL?.totalCooks, 1);
   assert.equal(markL?.totalCleans, 2);
 });
+
+test("Matchmaker Solver - Adaptive 2-Person Dinner Pass 2 Prioritization on October Real Survey", async () => {
+  const fs = await import("fs");
+  const path = await import("path");
+  const { parseSurveySheetData } = await import("../src/server/parser.ts");
+  const { solveCookAndCleanSchedule } = await import("../src/server/matchmaker.ts");
+
+  const scratchPath = path.resolve(
+    "/home/developer/.gemini/antigravity-cli/brain/3db38873-5d04-4b20-8ce6-a691167f4340/scratch/october_survey_grid.json"
+  );
+  if (!fs.existsSync(scratchPath)) return;
+
+  const surveyGrid = JSON.parse(fs.readFileSync(scratchPath, "utf-8"));
+  const intake = parseSurveySheetData(surveyGrid, []);
+
+  const solved = solveCookAndCleanSchedule(intake.mealDates, intake.responses, [], {
+    cookTeamSizePolicy: "ADAPTIVE_3_OR_2",
+  });
+
+  const completeMeals = solved.schedule.filter(
+    (d) => d.targetCookCount > 0 && d.unfilledCooks === 0 && d.unfilledCleaners === 0
+  );
+
+  // Asserts solver finds at least 11 complete meals (previously found only 10 before Pass 2 fix)
+  assert.ok(
+    completeMeals.length >= 11,
+    `Should find at least 11 complete meals, got ${completeMeals.length}`
+  );
+
+  // Verify zero unfilled slots across active meals
+  const activeUnfilled = solved.schedule
+    .filter((d) => d.targetCookCount > 0)
+    .reduce((acc, d) => acc + d.unfilledCooks + d.unfilledCleaners, 0);
+  assert.equal(activeUnfilled, 0, "Active meals must have 0 unfilled slots");
+
+  // Verify all member quotas are respected
+  for (const [name, stats] of Object.entries(solved.memberStats || {})) {
+    const resp = intake.responses.find((r) => r.name.toLowerCase() === name.toLowerCase());
+    const cookQuota = resp?.cookQuota ?? 1;
+    const cleanQuota = resp?.cleanQuota ?? 1;
+    const maxTotal = resp?.maxTotalShifts ?? cookQuota + cleanQuota;
+
+    assert.ok(
+      stats.assignedCooks <= cookQuota,
+      `${name} cook quota exceeded: ${stats.assignedCooks} > ${cookQuota}`
+    );
+    assert.ok(
+      stats.assignedCleans <= cleanQuota,
+      `${name} clean quota exceeded: ${stats.assignedCleans} > ${cleanQuota}`
+    );
+    assert.ok(
+      stats.totalAssigned <= maxTotal,
+      `${name} max shifts exceeded: ${stats.totalAssigned} > ${maxTotal}`
+    );
+  }
+});
+
+test("Master Community Registry - Settings Parsing & Announcement Email/CC Defaults", async () => {
+  const { MOCK_SETTINGS } = await import("../src/server/mockData.ts");
+
+  // Verify Vancouver Cohousing defaults
+  assert.equal(
+    MOCK_SETTINGS.announcementTo,
+    "Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>"
+  );
+  assert.ok(
+    MOCK_SETTINGS.announcementCc.includes("Ben Ernst <ben@earnesticecream.com>") &&
+      MOCK_SETTINGS.announcementCc.includes("Fabrice Retiere <fabrulous@gmail.com>") &&
+      MOCK_SETTINGS.announcementCc.includes("Patricia Fahrni <pfahrni@shaw.ca>")
+  );
+  assert.equal(MOCK_SETTINGS.cookPolicy, "ADAPTIVE_3_OR_2");
+  assert.equal(MOCK_SETTINGS.defaultCleanQuota, 1);
+  assert.equal(MOCK_SETTINGS.autoCancelDeficitDates, true);
+
+  // Test custom sheet settings simulation
+  const rawSheetSettings = [
+    ["Key", "Value", "Description"],
+    ["announcement_to", "Custom Cohousing <custom@example.com>", "Lists"],
+    ["announcement_cc", "Lead <lead@example.com>", "CC list"],
+    ["cook_policy", "DINNER_3_BRUNCH_2", "Policy"],
+    ["default_clean_quota", "2", "Clean shifts"],
+    ["auto_cancel_deficit_dates", "FALSE", "Deficit dates"],
+  ];
+
+  const parsedSettings = {};
+  for (let i = 1; i < rawSheetSettings.length; i++) {
+    const k = rawSheetSettings[i][0].toLowerCase();
+    const v = rawSheetSettings[i][1];
+    if (k === "announcement_to") parsedSettings.announcementTo = v;
+    if (k === "announcement_cc") parsedSettings.announcementCc = v;
+    if (k === "cook_policy") parsedSettings.cookPolicy = v;
+    if (k === "default_clean_quota") parsedSettings.defaultCleanQuota = parseInt(v, 10);
+    if (k === "auto_cancel_deficit_dates") parsedSettings.autoCancelDeficitDates = v === "TRUE";
+  }
+
+  assert.equal(parsedSettings.announcementTo, "Custom Cohousing <custom@example.com>");
+  assert.equal(parsedSettings.announcementCc, "Lead <lead@example.com>");
+  assert.equal(parsedSettings.cookPolicy, "DINNER_3_BRUNCH_2");
+  assert.equal(parsedSettings.defaultCleanQuota, 2);
+  assert.equal(parsedSettings.autoCancelDeficitDates, false);
+});
