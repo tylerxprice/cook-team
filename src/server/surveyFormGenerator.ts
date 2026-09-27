@@ -209,7 +209,26 @@ export function executeCreateSurveyForm(payload: CreateSurveyFormPayload): Creat
       .setChoiceValues(["No", "Yes", "Yes, prefer same day"])
       .setRequired(true);
 
-    // Generate Pre-filled Form URL with community default selections
+    // 7. Question 6: Date Availability Grid (Multiple Choice Grid)
+    const gridRows = activeDates.map((d) => buildFormGridRowLabel(d));
+    const gridColumns = ["Available", "Cook only", "Clean only", "Not Available"];
+
+    const gridItem = form.addGridItem();
+    gridItem
+      .setTitle("Select your available dates")
+      .setHelpText("Select your availability for each meal date.")
+      .setRows(gridRows)
+      .setColumns(gridColumns)
+      .setRequired(true);
+
+    // 8. Question 7: Special Instructions (Paragraph Text)
+    form
+      .addParagraphTextItem()
+      .setTitle("Special instructions, dietary restrictions, or notes")
+      .setHelpText("e.g. Pairing preferences, dietary notes, specific schedule constraints...")
+      .setRequired(false);
+
+    // Generate Pre-filled Form URL with community default selections (including all dates prefilled as 'Not Available')
     let formPrefilledUrl: string | undefined = undefined;
     try {
       const prefillResp = form.createResponse();
@@ -222,29 +241,13 @@ export function executeCreateSurveyForm(payload: CreateSurveyFormPayload): Creat
         cookSizeItem.createResponse("Dinner = 3, Brunch = 2 (Preferred)")
       );
       prefillResp.withItemResponse(sameDayItem.createResponse("No"));
+      prefillResp.withItemResponse(
+        gridItem.createResponse(gridRows.map(() => "Not Available"))
+      );
       formPrefilledUrl = prefillResp.toPrefilledUrl();
     } catch (prefErr) {
       console.warn("Could not generate prefilled form URL:", prefErr);
     }
-
-    // 7. Question 6: Date Availability Grid (Multiple Choice Grid)
-    const gridRows = activeDates.map((d) => buildFormGridRowLabel(d));
-    const gridColumns = ["Available", "Cook only", "Clean only"];
-
-    const gridItem = form.addGridItem();
-    gridItem
-      .setTitle("Select your available dates")
-      .setHelpText("Select your availability for each meal date. Leave blank if unavailable.")
-      .setRows(gridRows)
-      .setColumns(gridColumns)
-      .setRequired(false);
-
-    // 8. Question 7: Special Instructions (Paragraph Text)
-    form
-      .addParagraphTextItem()
-      .setTitle("Special instructions, dietary restrictions, or notes")
-      .setHelpText("e.g. Pairing preferences, dietary notes, specific schedule constraints...")
-      .setRequired(false);
 
     // 9. Create Linked Response Spreadsheet
     const responseSheetTitle = `${title} (Responses)`;

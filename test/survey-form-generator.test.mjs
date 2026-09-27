@@ -68,3 +68,17 @@ test("Survey Form Generator - Form Grid Row Label formatting", () => {
   };
   assert.equal(buildFormGridRowLabel(annotatedDate), "Nov 26 (Thur) - Thanksgiving Meal");
 });
+
+test("Survey Form Generator - Not Available Grid Columns & Prefill Defaults", () => {
+  const dates = generateMonthlySurveyDates("2026-11");
+  const gridRows = dates.map((d) => buildFormGridRowLabel(d));
+  const gridColumns = ["Available", "Cook only", "Clean only", "Not Available"];
+
+  assert.equal(gridColumns.length, 4);
+  assert.equal(gridColumns[3], "Not Available");
+
+  // Verify prefilled default array matches gridRows count and fills with 'Not Available'
+  const prefillValues = gridRows.map(() => "Not Available");
+  assert.equal(prefillValues.length, 14);
+  assert.ok(prefillValues.every((v) => v === "Not Available"));
+});

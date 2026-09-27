@@ -302,7 +302,7 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
                 7. Same-Day Shift (Prefilled No)
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                8. Date Availability Grid
+                8. Date Grid (Prefilled &apos;Not Available&apos;, Required)
               </div>
               <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
                 9. Notes &amp; Instructions
@@ -319,7 +319,10 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
                 ✓ View Results Summary
               </span>
               <span className="bg-violet-100/70 border border-violet-200/80 px-2 py-0.5 rounded-md">
-                ✓ Required Questions
+                ✓ Required Response in Each Row
+              </span>
+              <span className="bg-violet-100/70 border border-violet-200/80 px-2 py-0.5 rounded-md">
+                ✓ All Dates Prefilled &apos;Not Available&apos;
               </span>
             </div>
           </div>
