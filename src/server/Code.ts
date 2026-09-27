@@ -2274,7 +2274,18 @@ function getMealSignupWorkbookInfo(
   targetSpreadsheetId?: string,
   defaultMonthTab?: string
 ): MealSignupWorkbookInfo {
-  return inspectMealSignupWorkbook(targetSpreadsheetId, defaultMonthTab);
+  let target = targetSpreadsheetId;
+  if (!target || !target.trim()) {
+    try {
+      const masterData = getMasterRegistryData();
+      if (masterData.settings && masterData.settings.signupWorkbookId) {
+        target = masterData.settings.signupWorkbookId;
+      }
+    } catch (e) {
+      console.warn("Could not load signupWorkbookId from Master Registry:", e);
+    }
+  }
+  return inspectMealSignupWorkbook(target, defaultMonthTab);
 }
 
 /**
@@ -2285,6 +2296,18 @@ function exportToMealSignupWorkbook(
   sourceScheduleOrSheetId: any,
   options?: MealSignupExportOptions
 ): MealSignupExportResult {
+  let target = targetSpreadsheetId;
+  if (!target || !target.trim()) {
+    try {
+      const masterData = getMasterRegistryData();
+      if (masterData.settings && masterData.settings.signupWorkbookId) {
+        target = masterData.settings.signupWorkbookId;
+      }
+    } catch (e) {
+      console.warn("Could not load signupWorkbookId from Master Registry:", e);
+    }
+  }
+
   let schedule: DaySchedule[] = [];
 
   if (Array.isArray(sourceScheduleOrSheetId)) {
@@ -2301,7 +2324,7 @@ function exportToMealSignupWorkbook(
     throw new Error("Invalid source schedule provided for sign-up sheet export.");
   }
 
-  return executeCreateMealSignupTab(targetSpreadsheetId, schedule, options);
+  return executeCreateMealSignupTab(target, schedule, options);
 }
 
 /**

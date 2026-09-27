@@ -876,6 +876,7 @@ test("Master Community Registry - Settings Parsing & Announcement Email/CC Defau
     ["cook_policy", "DINNER_3_BRUNCH_2", "Policy"],
     ["default_clean_quota", "2", "Clean shifts"],
     ["auto_cancel_deficit_dates", "FALSE", "Deficit dates"],
+    ["signup_workbook_id", "https://docs.google.com/spreadsheets/d/1coho-signup-sheet-id/edit", "Sign up workbook"],
   ];
 
   const parsedSettings = {};
@@ -887,6 +888,9 @@ test("Master Community Registry - Settings Parsing & Announcement Email/CC Defau
     if (k === "cook_policy") parsedSettings.cookPolicy = v;
     if (k === "default_clean_quota") parsedSettings.defaultCleanQuota = parseInt(v, 10);
     if (k === "auto_cancel_deficit_dates") parsedSettings.autoCancelDeficitDates = v === "TRUE";
+    if (["signup_workbook_id", "common_meal_signup_id", "signup_sheet_id", "signup_sheet_url"].includes(k)) {
+      parsedSettings.signupWorkbookId = v;
+    }
   }
 
   assert.equal(parsedSettings.announcementTo, "Custom Cohousing <custom@example.com>");
@@ -894,4 +898,8 @@ test("Master Community Registry - Settings Parsing & Announcement Email/CC Defau
   assert.equal(parsedSettings.cookPolicy, "DINNER_3_BRUNCH_2");
   assert.equal(parsedSettings.defaultCleanQuota, 2);
   assert.equal(parsedSettings.autoCancelDeficitDates, false);
+  assert.equal(
+    parsedSettings.signupWorkbookId,
+    "https://docs.google.com/spreadsheets/d/1coho-signup-sheet-id/edit"
+  );
 });

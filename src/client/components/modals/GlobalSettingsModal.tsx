@@ -11,6 +11,7 @@ import {
   RefreshCw,
   CheckCircle2,
   Mail,
+  ClipboardList,
 } from "lucide-react";
 import { CookTeamPolicy } from "../../../server/types";
 
@@ -31,6 +32,8 @@ export interface GlobalSettingsModalProps {
   DEFAULT_ANNOUNCEMENT_CC: string;
   masterSheetInput: string;
   setMasterSheetInput: (val: string) => void;
+  signupWorkbookId?: string;
+  setSignupWorkbookId?: (val: string) => void;
   driveFolderId: string;
   setDriveFolderId: (val: string) => void;
   handleCreateLaunchers: () => void;
@@ -57,6 +60,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   DEFAULT_ANNOUNCEMENT_CC,
   masterSheetInput,
   setMasterSheetInput,
+  signupWorkbookId,
+  setSignupWorkbookId,
   driveFolderId,
   setDriveFolderId,
   handleCreateLaunchers,
@@ -345,7 +350,35 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
             </div>
           </div>
 
-          {/* 6. Google Drive Workspace & Master Community Registry */}
+          {/* 6. Common Meal Sign-Up Workbook (Rose's Workflow) */}
+          <div className="space-y-3 pt-3 border-t border-slate-200">
+            <span className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+              <ClipboardList className="w-4 h-4 text-teal-600" />
+              Common Meal Sign-Up Workbook (Rose&apos;s Workflow)
+            </span>
+            <p className="text-slate-700 text-xs">
+              Google Sheet URL or ID for the community&apos;s Common Meal Sign-Up workbook where monthly tabs and volunteer rosters are exported (saved in the Master Community Registry Settings sheet under <code className="bg-slate-100 text-slate-800 px-1 py-0.5 rounded font-mono text-[11px]">signup_workbook_id</code>).
+            </p>
+
+            <div>
+              <label
+                htmlFor="settings-signup-workbook-id"
+                className="text-xs font-bold text-slate-800 block mb-1"
+              >
+                Sign-Up Sheet URL or ID:
+              </label>
+              <input
+                id="settings-signup-workbook-id"
+                type="text"
+                value={signupWorkbookId || ""}
+                onChange={(e) => setSignupWorkbookId && setSignupWorkbookId(e.target.value)}
+                placeholder="https://docs.google.com/spreadsheets/d/1... or Sheet ID"
+                className="w-full min-h-[44px] px-3.5 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 bg-white text-slate-900 font-medium font-mono"
+              />
+            </div>
+          </div>
+
+          {/* 7. Google Drive Workspace & Master Community Registry */}
           <div className="space-y-3 pt-3 border-t border-slate-200">
             <span className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
               <Folder className="w-4 h-4 text-emerald-600" />

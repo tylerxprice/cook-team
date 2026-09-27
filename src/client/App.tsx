@@ -731,6 +731,9 @@ function MainApp() {
     if (typeof settings.autoCancelDeficitDates === "boolean") {
       setAutoCancelDeficitDates(settings.autoCancelDeficitDates);
     }
+    if (settings.signupWorkbookId) {
+      setMealSignupTargetWorkbookId(settings.signupWorkbookId);
+    }
   };
 
   // Synchronize default email subject whenever survey or schedule changes
@@ -2875,6 +2878,8 @@ function MainApp() {
         DEFAULT_ANNOUNCEMENT_CC={DEFAULT_ANNOUNCEMENT_CC}
         masterSheetInput={masterSheetInput}
         setMasterSheetInput={setMasterSheetInput}
+        signupWorkbookId={mealSignupTargetWorkbookId}
+        setSignupWorkbookId={setMealSignupTargetWorkbookId}
         driveFolderId={driveFolderId}
         setDriveFolderId={setDriveFolderId}
         handleCreateLaunchers={handleCreateLaunchers}
@@ -2892,6 +2897,7 @@ function MainApp() {
                 cookPolicy,
                 defaultCleanQuota,
                 autoCancelDeficitDates,
+                signupWorkbookId: mealSignupTargetWorkbookId,
               },
               masterSheetInput
             );
