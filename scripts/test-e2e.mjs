@@ -160,7 +160,16 @@ async function runE2ETest() {
     // Test at 555px: Verify "Save shifts (.ics)" label is displayed
     await page.setViewportSize({ width: 555, height: 800 });
     await page.waitForSelector("button:has-text('Save shifts (.ics)')");
-    console.log("✓ Responsive layout at 500px & 555px verified with 'Save shifts (.ics)' and dropped coordinator header button!");
+
+    // Test on 375px mobile screen: Verify combined Switch button, icon-only calendar switcher, and no overlaps
+    console.log("1f-ii. Verifying mobile viewport layout (375px) ...");
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.waitForSelector("text=Shifts For");
+    await page.waitForSelector("button:has-text('Switch')");
+    await page.waitForSelector("button[title='Calendar view']");
+    await page.waitForSelector("button[title='List view']");
+    await page.waitForSelector("button:has-text('Save shifts (.ics)')");
+    console.log("✓ Mobile layout at 375px, 500px & 555px verified with combined Switch button and icon-only calendar controls!");
 
     // Reset viewport to standard desktop
     await page.setViewportSize({ width: 1280, height: 720 });

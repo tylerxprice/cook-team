@@ -782,12 +782,12 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
 
             {/* Reusable Month Dropdown */}
             <div className="relative inline-flex items-center">
-              <Calendar className="w-3.5 h-3.5 text-orange-600 absolute left-2.5 pointer-events-none" />
+              <Calendar className="w-3.5 h-3.5 text-orange-600 absolute left-2 sm:left-2.5 pointer-events-none" />
               <select
                 value={monthKey || ""}
                 onChange={(e) => onSelectMonth && onSelectMonth(e.target.value)}
                 aria-label="Select meal month"
-                className="text-xs sm:text-sm font-black text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl pl-8 pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500/20 cursor-pointer appearance-none transition-colors"
+                className="text-xs sm:text-sm font-black text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl pl-7 sm:pl-8 pr-6 sm:pr-7 py-1 sm:py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500/20 cursor-pointer appearance-none transition-colors"
               >
                 {displayMonths.map((m) => (
                   <option key={m} value={m}>
@@ -795,41 +795,33 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                   </option>
                 ))}
               </select>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2 pointer-events-none" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-1.5 sm:right-2 pointer-events-none" />
             </div>
           </div>
 
           {/* Right: Showing Shifts For Member Chip (if selected) */}
           {selectedMember && !isChangingMember && (
-            <div className="flex items-center gap-1.5 sm:gap-2 bg-orange-50/90 border border-orange-200 rounded-xl px-2 sm:px-2.5 py-1 text-xs shadow-2xs min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-orange-50/90 border border-orange-200 rounded-xl px-2 sm:px-2.5 py-1 text-xs shadow-2xs min-w-0 shrink-0">
               <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-orange-600 text-white flex items-center justify-center font-black text-[10px] sm:text-xs shrink-0">
                 {selectedMember.charAt(0).toUpperCase()}
               </div>
-              <div className="min-w-0">
-                <span className="text-[9px] sm:text-[10px] font-bold text-orange-700 uppercase tracking-wider block leading-tight whitespace-nowrap">
-                  Showing Shifts For
+              <div className="min-w-0 overflow-hidden">
+                <span className="text-[9px] sm:text-[10px] font-bold text-orange-700 uppercase tracking-wider block leading-tight truncate">
+                  <span className="hidden sm:inline">Showing </span>Shifts For
                 </span>
-                <h2 className="text-xs sm:text-sm font-black text-slate-900 truncate leading-tight m-0 max-w-[140px] sm:max-w-[200px]">
+                <h2 className="text-xs sm:text-sm font-black text-slate-900 truncate leading-tight m-0 max-w-[85px] sm:max-w-[200px]">
                   {selectedMember}
                 </h2>
               </div>
-              <div className="flex items-center gap-1 ml-0.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsChangingMember(true)}
-                  className="px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer"
-                >
-                  Switch
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearMember}
-                  title="Clear remembered name"
-                  className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-white/80 transition-colors cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleClearMember}
+                title="Switch or clear resident"
+                className="px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer shrink-0 flex items-center gap-1 ml-0.5 shadow-2xs"
+              >
+                <span>Switch</span>
+                <X className="w-3 h-3 text-slate-400" />
+              </button>
             </div>
           )}
         </div>
@@ -926,7 +918,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
             ) : (
               <>
                 {/* Compact Shifts Summary Bar + Calendar/List Switcher + Download */}
-                <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200 p-2 sm:p-3 shadow-2xs">
+                <div className="flex items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200 p-2 sm:p-3 shadow-2xs">
                   {/* Left: Shift Counters */}
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-xs sm:text-sm font-extrabold text-slate-900 shrink-0">
@@ -955,7 +947,9 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                           setDisplayFormat("calendar");
                           setUserToggledFormat(true);
                         }}
-                        className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer ${
+                        title="Calendar view"
+                        aria-label="Calendar view"
+                        className={`p-1.5 sm:px-3 sm:py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer ${
                           displayFormat === "calendar"
                             ? "bg-white text-orange-950 font-black shadow-xs border border-slate-200"
                             : "text-slate-600 hover:text-slate-900"
@@ -963,7 +957,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                         aria-pressed={displayFormat === "calendar"}
                       >
                         <LayoutGrid className="w-3.5 h-3.5" />
-                        <span>Calendar</span>
+                        <span className="hidden sm:inline">Calendar</span>
                       </button>
                       <button
                         type="button"
@@ -971,7 +965,9 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                           setDisplayFormat("list");
                           setUserToggledFormat(true);
                         }}
-                        className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer ${
+                        title="List view"
+                        aria-label="List view"
+                        className={`p-1.5 sm:px-3 sm:py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer ${
                           displayFormat === "list"
                             ? "bg-white text-orange-950 font-black shadow-xs border border-slate-200"
                             : "text-slate-600 hover:text-slate-900"
@@ -979,7 +975,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                         aria-pressed={displayFormat === "list"}
                       >
                         <List className="w-3.5 h-3.5" />
-                        <span>List</span>
+                        <span className="hidden sm:inline">List</span>
                       </button>
                     </div>
 
@@ -989,7 +985,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                       onClick={handleDownloadCalendar}
                       disabled={memberShifts.length === 0}
                       title="Add All My Shifts to Calendar (.ics)"
-                      className={`min-h-[32px] sm:min-h-[36px] px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer ${
+                      className={`min-h-[30px] sm:min-h-[36px] px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer ${
                         memberShifts.length > 0
                           ? "bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white shadow-orange-600/20 active:scale-[0.99]"
                           : "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
@@ -1016,7 +1012,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
             ) : (
               <>
                 {/* Header + Calendar/List View Toggle Bar */}
-                <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200 p-2 sm:p-3 shadow-2xs">
+                <div className="flex items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200 p-2 sm:p-3 shadow-2xs">
                   <div className="text-xs sm:text-sm font-extrabold text-slate-900 truncate min-w-0">
                     <span className="hidden md:inline">
                       Showing all {schedule.length} community meals for {monthTitle}
@@ -1039,7 +1035,9 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                           setDisplayFormat("calendar");
                           setUserToggledFormat(true);
                         }}
-                        className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer ${
+                        title="Calendar view"
+                        aria-label="Calendar view"
+                        className={`p-1.5 sm:px-3 sm:py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer ${
                           displayFormat === "calendar"
                             ? "bg-white text-orange-950 font-black shadow-xs border border-slate-200"
                             : "text-slate-600 hover:text-slate-900"
@@ -1047,7 +1045,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                         aria-pressed={displayFormat === "calendar"}
                       >
                         <LayoutGrid className="w-3.5 h-3.5" />
-                        <span>Calendar</span>
+                        <span className="hidden sm:inline">Calendar</span>
                       </button>
                       <button
                         type="button"
@@ -1055,7 +1053,9 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                           setDisplayFormat("list");
                           setUserToggledFormat(true);
                         }}
-                        className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer ${
+                        title="List view"
+                        aria-label="List view"
+                        className={`p-1.5 sm:px-3 sm:py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer ${
                           displayFormat === "list"
                             ? "bg-white text-orange-950 font-black shadow-xs border border-slate-200"
                             : "text-slate-600 hover:text-slate-900"
@@ -1063,7 +1063,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                         aria-pressed={displayFormat === "list"}
                       >
                         <List className="w-3.5 h-3.5" />
-                        <span>List</span>
+                        <span className="hidden sm:inline">List</span>
                       </button>
                     </div>
 
@@ -1078,7 +1078,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                             ? "Add All My Shifts to Calendar (.ics)"
                             : `No shifts assigned to ${selectedMember} to download`
                         }
-                        className={`min-h-[32px] sm:min-h-[36px] px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer ${
+                        className={`min-h-[30px] sm:min-h-[36px] px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer ${
                           memberShifts.length > 0
                             ? "bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white shadow-orange-600/20 active:scale-[0.99]"
                             : "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
