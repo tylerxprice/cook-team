@@ -31,7 +31,7 @@ export interface ResidentScheduleViewProps {
   communityName?: string;
   onSelectMonth?: (monthKey: string) => void;
   onBackToHome: () => void;
-  onOpenCoordinator: () => void;
+  onOpenCoordinator?: () => void;
   initialMemberName?: string;
   isLoading?: boolean;
 }
@@ -86,7 +86,6 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
   communityName = "Vancouver Cohousing",
   onSelectMonth,
   onBackToHome,
-  onOpenCoordinator,
   initialMemberName,
   isLoading = false,
 }) => {
@@ -769,9 +768,9 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
 
       {/* Top Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2 sm:py-2.5 flex flex-wrap items-center justify-between gap-2">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-2">
           {/* Left: Home + Month selector */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               type="button"
               onClick={onBackToHome}
@@ -800,49 +799,39 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
             </div>
           </div>
 
-          {/* Right: Showing Shifts For Member Chip (if selected) + Coordinator Button */}
-          <div className="flex items-center gap-2">
-            {selectedMember && !isChangingMember && (
-              <div className="flex items-center gap-1.5 sm:gap-2 bg-orange-50/90 border border-orange-200 rounded-xl px-2.5 py-1 text-xs shadow-2xs">
-                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-orange-600 text-white flex items-center justify-center font-black text-[10px] sm:text-xs shrink-0">
-                  {selectedMember.charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0 max-w-[120px] sm:max-w-[160px]">
-                  <span className="text-[9px] sm:text-[10px] font-bold text-orange-700 uppercase tracking-wider block leading-tight">
-                    Showing Shifts For
-                  </span>
-                  <h2 className="text-xs sm:text-sm font-black text-slate-900 truncate leading-tight m-0">
-                    {selectedMember}
-                  </h2>
-                </div>
-                <div className="flex items-center gap-1 ml-0.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setIsChangingMember(true)}
-                    className="px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer"
-                  >
-                    Switch
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleClearMember}
-                    title="Clear remembered name"
-                    className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-white/80 transition-colors cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+          {/* Right: Showing Shifts For Member Chip (if selected) */}
+          {selectedMember && !isChangingMember && (
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-orange-50/90 border border-orange-200 rounded-xl px-2 sm:px-2.5 py-1 text-xs shadow-2xs min-w-0">
+              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-orange-600 text-white flex items-center justify-center font-black text-[10px] sm:text-xs shrink-0">
+                {selectedMember.charAt(0).toUpperCase()}
               </div>
-            )}
-
-            <button
-              type="button"
-              onClick={onOpenCoordinator}
-              className="text-xs text-blue-700 hover:text-blue-900 font-bold px-2.5 sm:px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer shrink-0"
-            >
-              Coordinator
-            </button>
-          </div>
+              <div className="min-w-0 max-w-[100px] xs:max-w-[140px] sm:max-w-[180px]">
+                <span className="text-[9px] sm:text-[10px] font-bold text-orange-700 uppercase tracking-wider block leading-tight">
+                  Showing Shifts For
+                </span>
+                <h2 className="text-xs sm:text-sm font-black text-slate-900 truncate leading-tight m-0">
+                  {selectedMember}
+                </h2>
+              </div>
+              <div className="flex items-center gap-1 ml-0.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsChangingMember(true)}
+                  className="px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                >
+                  Switch
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearMember}
+                  title="Clear remembered name"
+                  className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-white/80 transition-colors cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
@@ -937,21 +926,21 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
             ) : (
               <>
                 {/* Compact Shifts Summary Bar + Calendar/List Switcher + Download */}
-                <div className="flex items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200 p-2 sm:p-3 shadow-2xs">
+                <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200 p-2 sm:p-3 shadow-2xs">
                   {/* Left: Shift Counters */}
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-xs sm:text-sm font-extrabold text-slate-900 shrink-0">
                       {memberShifts.length} Shift{memberShifts.length === 1 ? "" : "s"}
-                      <span className="hidden sm:inline"> Assigned</span>
+                      <span className="hidden md:inline"> Assigned</span>
                     </span>
                     <div className="flex items-center gap-1 text-xs font-bold shrink-0">
                       <span className="px-1.5 sm:px-2 py-0.5 rounded-lg bg-orange-50 text-orange-800 border border-orange-200 text-[11px] sm:text-xs">
                         🍳 {cookCount}
-                        <span className="hidden sm:inline"> Cook</span>
+                        <span className="hidden md:inline"> Cook</span>
                       </span>
                       <span className="px-1.5 sm:px-2 py-0.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200 text-[11px] sm:text-xs">
                         🧼 {cleanCount}
-                        <span className="hidden sm:inline"> Clean</span>
+                        <span className="hidden md:inline"> Clean</span>
                       </span>
                     </div>
                   </div>
@@ -1007,8 +996,8 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                       }`}
                     >
                       <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                      <span className="hidden sm:inline">Add All My Shifts to Calendar (.ics)</span>
-                      <span className="sm:hidden font-black">.ics</span>
+                      <span className="hidden lg:inline">Add All My Shifts to Calendar (.ics)</span>
+                      <span className="lg:hidden">Save shifts (.ics)</span>
                     </button>
                   </div>
                 </div>
@@ -1027,13 +1016,16 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
             ) : (
               <>
                 {/* Header + Calendar/List View Toggle Bar */}
-                <div className="flex items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200 p-2 sm:p-3 shadow-2xs">
-                  <div className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
-                    <span className="hidden sm:inline">
+                <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200 p-2 sm:p-3 shadow-2xs">
+                  <div className="text-xs sm:text-sm font-extrabold text-slate-900 truncate min-w-0">
+                    <span className="hidden md:inline">
                       Showing all {schedule.length} community meals for {monthTitle}
                     </span>
+                    <span className="hidden sm:inline md:hidden">
+                      {schedule.length} meals ({monthTitle})
+                    </span>
                     <span className="sm:hidden">
-                      Showing all {schedule.length} meals
+                      {schedule.length} meals
                     </span>
                   </div>
 
@@ -1093,8 +1085,8 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                         }`}
                       >
                         <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                        <span className="hidden sm:inline">Add All My Shifts to Calendar (.ics)</span>
-                        <span className="sm:hidden font-black">.ics</span>
+                        <span className="hidden lg:inline">Add All My Shifts to Calendar (.ics)</span>
+                        <span className="lg:hidden">Save shifts (.ics)</span>
                       </button>
                     )}
                   </div>

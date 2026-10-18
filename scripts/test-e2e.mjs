@@ -145,11 +145,34 @@ async function runE2ETest() {
     await page.waitForSelector("h2:has-text('Rose')");
     console.log("✓ Successfully loaded Resident View directly with Rose pre-selected!");
 
-    // Click Coordinator button to enter 4-step wizard
-    const coordBtn = page.locator("button:has-text('Coordinator')").first();
+    // Test responsive viewport at 500px and 555px
+    console.log("1f. Verifying responsive mobile/tablet layout (500px & 555px) ...");
+    await page.setViewportSize({ width: 500, height: 800 });
+    // Verify Coordinator button is dropped from header
+    const coordInHeader = await page.locator("header button:has-text('Coordinator')").count();
+    if (coordInHeader > 0) {
+      throw new Error("Coordinator button should not be present in top header!");
+    }
+    // Verify Home button and month dropdown remain visible
+    await page.waitForSelector("header button[title='Return to Hub Home']");
+    await page.waitForSelector("header select[aria-label='Select meal month']");
+
+    // Test at 555px: Verify "Save shifts (.ics)" label is displayed
+    await page.setViewportSize({ width: 555, height: 800 });
+    await page.waitForSelector("button:has-text('Save shifts (.ics)')");
+    console.log("✓ Responsive layout at 500px & 555px verified with 'Save shifts (.ics)' and dropped coordinator header button!");
+
+    // Reset viewport to standard desktop
+    await page.setViewportSize({ width: 1280, height: 720 });
+
+    // Navigate to Coordinator Planning Wizard via Hub Home button
+    const homeBtn2 = page.locator("button[title='Return to Hub Home']").first();
+    await homeBtn2.click();
+    await page.waitForSelector("text=Coordinator Planning Wizard");
+    const coordBtn = page.locator("button:has-text('Coordinator Planning Wizard')").first();
     await coordBtn.click();
     await page.waitForSelector("text=Community Cook Team App");
-    console.log("✓ Successfully navigated to Coordinator Planning Wizard!");
+    console.log("✓ Successfully navigated to Coordinator Planning Wizard via Hub Home!");
 
     // Verify Step 1: Intake & Audit
     console.log("2. Verifying Step 1: Intake & Audit ...");
