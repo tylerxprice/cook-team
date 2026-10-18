@@ -14,10 +14,8 @@ import {
   ClipboardList,
   Menu,
   X,
-  Home,
-  Sparkles,
 } from "lucide-react";
-import { callGas, isGasEnvironment } from "./utils/gas";
+import { callGas, isGasEnvironment, getBootstrapData, getPublicWebAppUrl } from "./utils/gas";
 import { parseAndDisambiguateGoogleGroupRoster } from "./utils/nameParser";
 import {
   IntakePayload,
@@ -91,25 +89,7 @@ export const DEFAULT_AVAILABLE_MONTHS = [
   "2026-01",
 ];
 
-let cachedBootstrapData: any = null;
-
-export function getBootstrapData(): any {
-  if (cachedBootstrapData) return cachedBootstrapData;
-  if (typeof window === "undefined") return null;
-  try {
-    const bootstrapEl = document.getElementById("bootstrap-data");
-    if (bootstrapEl && bootstrapEl.textContent) {
-      const raw = bootstrapEl.textContent.trim();
-      if (raw && raw.startsWith("{") && raw !== "{}") {
-        cachedBootstrapData = JSON.parse(raw);
-        return cachedBootstrapData;
-      }
-    }
-  } catch (err) {
-    console.warn("Could not read bootstrap data:", err);
-  }
-  return null;
-}
+export { getBootstrapData, getPublicWebAppUrl };
 
 export function getAppUrlParams(): URLSearchParams {
   if (typeof window === "undefined") return new URLSearchParams();
@@ -344,6 +324,7 @@ function MainApp() {
   const [surveyFormLoadingCreate, setSurveyFormLoadingCreate] = useState(false);
   const [surveyFormResult, setSurveyFormResult] = useState<CreateSurveyFormResult | null>(null);
   const [surveyFormCopiedLink, setSurveyFormCopiedLink] = useState(false);
+  const [deploymentUrl, setDeploymentUrl] = useState<string>("");
   const surveyFormModalBodyRef = useRef<HTMLDivElement>(null);
 
   // Modal: Manual Survey Response Entry (Brenda's Coordinator Workflow)
@@ -1464,6 +1445,8 @@ function MainApp() {
           if (raw && raw.startsWith("{") && raw !== "{}") {
             const boot = JSON.parse(raw);
             if (boot && boot.userInfo) {
+              const deployUrl = boot.deploymentUrl || boot.userInfo.deploymentUrl;
+              if (deployUrl) setDeploymentUrl(deployUrl);
               const devMode =
                 typeof boot.userInfo.isDevMode === "boolean"
                   ? boot.userInfo.isDevMode
@@ -1532,6 +1515,9 @@ function MainApp() {
       if (!bootstrapped) {
         try {
           const info = await callGas<any>("getUserInfo");
+          if (info && info.deploymentUrl) {
+            setDeploymentUrl(info.deploymentUrl);
+          }
           const devMode =
             info && typeof info.isDevMode === "boolean" ? info.isDevMode : !isGasEnvironment();
           setIsDevMode(devMode);
@@ -2830,8 +2816,7 @@ function MainApp() {
       return "";
     })();
 
-    const webAppBaseUrl =
-      typeof window !== "undefined" ? window.location.href.split("?")[0].split("#")[0] : "";
+    const webAppBaseUrl = getPublicWebAppUrl(deploymentUrl);
     const calendarLink = webAppBaseUrl
       ? `${webAppBaseUrl}?view=schedule${monthKey ? `&month=${monthKey}` : ""}`
       : "";
@@ -2839,7 +2824,7 @@ function MainApp() {
     let text =
       "Hi precious friends & neighbours,\n\nHere is the community cook and clean team schedule for next month:\n";
     if (calendarLink) {
-      text += `👉 View your shifts & add to phone calendar: ${calendarLink}\n\n`;
+      text += `View your shifts & add to phone calendar: ${calendarLink}\n\n`;
     } else {
       text += "\n";
     }
@@ -3191,68 +3176,6 @@ function MainApp() {
                         <div className="text-xs text-slate-600">
                           Solver policy & Google Drive links
                         </div>
-                      </div>
-                    </button>
-
-                    <button
-                      role="menuitem"
-                      onClick={() => {
-                        setShowMainMenu(false);
-                        navigateToView("resident");
-                      }}
-                      className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-orange-50 text-left transition-colors group cursor-pointer"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <Calendar className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-orange-950">
-                          Member Shift Calendar
-                        </div>
-                        <div className="text-xs text-slate-600">
-                          Personal shifts &amp; .ics download
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      role="menuitem"
-                      onClick={() => {
-                        setShowMainMenu(false);
-                        navigateToView("survey");
-                      }}
-                      className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-violet-50 text-left transition-colors group cursor-pointer"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <Sparkles className="w-5 h-5 text-violet-600" />
-                      </div>
-                      <div>
-                        <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-violet-950 flex items-center gap-1.5">
-                          <span>Resident Availability Sign-Up</span>
-                          <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded border border-amber-300">
-                            Beta
-                          </span>
-                        </div>
-                        <div className="text-xs text-slate-600">Direct sign-up form view</div>
-                      </div>
-                    </button>
-
-                    <button
-                      role="menuitem"
-                      onClick={() => {
-                        setShowMainMenu(false);
-                        navigateToView("portal");
-                      }}
-                      className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-slate-50 text-left transition-colors group cursor-pointer"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <Home className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs sm:text-sm font-bold text-slate-900">
-                          Hub Home Portal
-                        </div>
-                        <div className="text-xs text-slate-600">Return to welcome screen</div>
                       </div>
                     </button>
                   </div>
@@ -3658,6 +3581,7 @@ function MainApp() {
         onSaveDatesAndOpen={handleSaveMonthDatesAndOpen}
         savingDates={surveyFormSavingDates}
         onSetMonthStatus={handleSetMonthStatus}
+        deploymentUrl={deploymentUrl}
       />
 
       <NearCompleteOpportunityModal

@@ -71,6 +71,7 @@ function saveMonthDatesAndOpen(payload) { return globalThis.saveMonthDatesAndOpe
 function setMonthStatus(monthKey, status) { return globalThis.setMonthStatus ? globalThis.setMonthStatus(monthKey, status) : null; }
 function saveWebSurveyResponse(payload) { return globalThis.saveWebSurveyResponse ? globalThis.saveWebSurveyResponse(payload) : null; }
 function sendBetaSurveyInvitations(payload) { return globalThis.sendBetaSurveyInvitations ? globalThis.sendBetaSurveyInvitations(payload) : null; }
+function getDeploymentUrl() { return globalThis.getDeploymentUrl ? globalThis.getDeploymentUrl() : null; }
 `;
   fs.appendFileSync(codeDest, gasStubs, "utf8");
   console.log("✓ Appended top-level GAS entrypoint functions to dist/Code.js");

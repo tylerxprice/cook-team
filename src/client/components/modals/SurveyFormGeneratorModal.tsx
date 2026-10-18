@@ -32,7 +32,7 @@ import {
   SendBetaInvitesResult,
   MonthStatus,
 } from "../../../server/types";
-import { callGas } from "../../utils/gas";
+import { callGas, getPublicWebAppUrl } from "../../utils/gas";
 
 export interface SurveyFormGeneratorModalProps {
   show: boolean;
@@ -61,6 +61,7 @@ export interface SurveyFormGeneratorModalProps {
   onSaveDatesAndOpen?: () => Promise<void>;
   savingDates?: boolean;
   onSetMonthStatus?: (status: MonthStatus) => Promise<void>;
+  deploymentUrl?: string;
 }
 
 export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> = ({
@@ -90,6 +91,7 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
   onSaveDatesAndOpen,
   savingDates = false,
   onSetMonthStatus,
+  deploymentUrl = "",
 }) => {
   const [activeTab, setActiveTab] = useState<"form" | "beta">("form");
   const [betaSubject, setBetaSubject] = useState<string>(
@@ -97,7 +99,7 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
   );
   const [betaReplyTo, setBetaReplyTo] = useState<string>(coordinatorEmail);
   const [betaBodyTemplate, setBetaBodyTemplate] = useState<string>(
-    `Hi {{name}},\n\nIt's time to set up our community meal teams for {{month}}!\n\nAs part of our beta pilot group testing our new sign-up page, you can submit your meal shift preferences and available dates directly here:\n👉 {{link}}\n\nYour preferences will be saved immediately to our community meal planning system.\n\nQuestions or feedback? Just reply to this email!\n\nWarmly,\nBrenda & Tyler`
+    `Hi {{name}},\n\nIt's time to set up our community meal teams for {{month}}!\n\nAs part of our beta pilot group testing our new sign-up page, you can submit your meal shift preferences and available dates directly here:\n{{link}}\n\nYour preferences will be saved immediately to our community meal planning system.\n\nQuestions or feedback? Just reply to this email!\n\nWarmly,\nBrenda & Tyler`
   );
   const [selectedBetaMembers, setSelectedBetaMembers] = useState<Set<string>>(() => {
     const s = new Set<string>();
@@ -131,10 +133,7 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
   }, [members]);
 
   const getPersonalizedLink = (memberName: string) => {
-    const baseUrl =
-      typeof window !== "undefined"
-        ? `${window.location.origin}${window.location.pathname}`
-        : "https://script.google.com/macros/s/exec";
+    const baseUrl = getPublicWebAppUrl(deploymentUrl);
     const sheetParam = spreadsheetId ? `&sheetId=${encodeURIComponent(spreadsheetId)}` : "";
     return `${baseUrl}?view=survey&month=${encodeURIComponent(
       surveyFormMonthKey

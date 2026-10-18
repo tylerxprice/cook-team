@@ -318,6 +318,38 @@ function populatePublishedMonthsInMaster(customMasterSpreadsheetIdOrUrl?: string
   };
 }
 
+// -------------------------------------------------------------
+// Canonical Deployment URLs & Helper
+// -------------------------------------------------------------
+export const PROD_WEB_APP_URL =
+  "https://script.google.com/macros/s/AKfycbwFUo53qovtiFScRr8UufB62fdjjZiCQINHbkpj0U0nuJ6drjxkrJMj7LbJAPPQYN-8lQ/exec";
+export const DEV_WEB_APP_URL =
+  "https://script.google.com/macros/s/AKfycbw9ebwRim3jjSVaN6Pm6QeOvNmujB1nnc2MCkBhM7qs/dev";
+
+function getDeploymentUrl(): string {
+  try {
+    const url = ScriptApp.getService().getUrl();
+    if (url && typeof url === "string" && url.trim().startsWith("http")) {
+      return url.trim();
+    }
+  } catch (e) {
+    console.warn("Could not retrieve ScriptApp service URL:", e);
+  }
+
+  try {
+    const propUrl =
+      PropertiesService.getScriptProperties().getProperty("DEPLOYMENT_URL") ||
+      PropertiesService.getScriptProperties().getProperty("WEB_APP_URL");
+    if (propUrl && propUrl.trim().startsWith("http")) {
+      return propUrl.trim();
+    }
+  } catch {
+    // ignore
+  }
+
+  return PROD_WEB_APP_URL;
+}
+
 /**
  * Generates server-side bootstrap payload for zero-RPC instant client hydration on load.
  */
@@ -331,6 +363,7 @@ function getInitialBootstrapData(paramsOrEvent?: any): {
   publicMonthTitle?: string;
   availableMonths?: string[];
   publicScheduleSuccess?: boolean;
+  deploymentUrl: string;
 } {
   const urlParameters = paramsOrEvent?.parameter ? paramsOrEvent.parameter : paramsOrEvent;
   const cleanParams: Record<string, string> = {};
@@ -343,6 +376,8 @@ function getInitialBootstrapData(paramsOrEvent?: any): {
       }
     }
   }
+
+  const deploymentUrl = getDeploymentUrl();
 
   try {
     const userInfo = getUserInfo();
@@ -378,6 +413,7 @@ function getInitialBootstrapData(paramsOrEvent?: any): {
       availableMonths:
         availableMonths && availableMonths.length > 0 ? availableMonths : DEFAULT_COMPLETED_MONTHS,
       publicScheduleSuccess: publicScheduleRes?.success ?? false,
+      deploymentUrl,
     };
   } catch (err) {
     console.warn("Bootstrap data generation failed:", err);
@@ -387,6 +423,7 @@ function getInitialBootstrapData(paramsOrEvent?: any): {
       driveSheets: [],
       urlParameters: cleanParams,
       availableMonths: DEFAULT_COMPLETED_MONTHS,
+      deploymentUrl,
     };
   }
 }
@@ -536,11 +573,12 @@ function getUserInfo(): {
   timezone: string;
   timestamp: string;
   isDevMode: boolean;
+  deploymentUrl: string;
 } {
+  const deploymentUrl = getDeploymentUrl();
   let isDevMode = false;
   try {
-    const url = ScriptApp.getService().getUrl() || "";
-    isDevMode = url.endsWith("/dev");
+    isDevMode = deploymentUrl.endsWith("/dev");
   } catch {
     isDevMode = false;
   }
@@ -553,6 +591,7 @@ function getUserInfo(): {
       timezone: Session.getScriptTimeZone(),
       timestamp: new Date().toISOString(),
       isDevMode,
+      deploymentUrl,
     };
   } catch {
     return {
@@ -561,6 +600,7 @@ function getUserInfo(): {
       timezone: "America/Los_Angeles",
       timestamp: new Date().toISOString(),
       isDevMode: false,
+      deploymentUrl,
     };
   }
 }
@@ -1457,6 +1497,7 @@ function sendBetaSurveyInvitations(payload: SendBetaInvitesPayload): SendBetaInv
     };
   }
 
+  const deploymentUrl = getDeploymentUrl();
   let dispatched = 0;
   let failed = 0;
   const details: Array<{ name: string; email: string; success: boolean; error?: string }> = [];
@@ -1469,10 +1510,26 @@ function sendBetaSurveyInvitations(payload: SendBetaInvitesPayload): SendBetaInv
     }
 
     try {
+      // Build / sanitize the personalized survey link to ensure it uses the official deployment URL
+      let personalizedLink = (r.link || "").trim();
+      if (
+        !personalizedLink ||
+        personalizedLink.includes("googleusercontent.com") ||
+        personalizedLink.includes("userCodeAppPanel") ||
+        !personalizedLink.startsWith("http")
+      ) {
+        const queryParams = personalizedLink.includes("?")
+          ? personalizedLink.substring(personalizedLink.indexOf("?"))
+          : `?view=survey&month=${encodeURIComponent(monthKey)}&m=${encodeURIComponent(r.name)}${
+              payload.spreadsheetId ? `&sheetId=${encodeURIComponent(payload.spreadsheetId)}` : ""
+            }`;
+        personalizedLink = `${deploymentUrl}${queryParams}`;
+      }
+
       // Replace template placeholders: {{name}}, {{link}}, {{month}}
       const personalizedBody = (bodyTemplate || "")
         .replace(/\{\{\s*name\s*\}\}/gi, r.name)
-        .replace(/\{\{\s*link\s*\}\}/gi, r.link)
+        .replace(/\{\{\s*link\s*\}\}/gi, personalizedLink)
         .replace(/\{\{\s*month\s*\}\}/gi, monthKey);
 
       const personalizedSubject = (subject || "")
@@ -3533,3 +3590,4 @@ g.authorizeAllPermissions = authorizeAllPermissions;
 g.updateUserGuideDoc = updateUserGuideDoc;
 g.getPublicSchedule = getPublicSchedule;
 g.populatePublishedMonthsInMaster = populatePublishedMonthsInMaster;
+g.getDeploymentUrl = getDeploymentUrl;

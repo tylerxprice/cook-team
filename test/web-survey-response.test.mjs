@@ -158,3 +158,53 @@ test("Web Survey - Handles ISO timestamps and localized slash timestamps cleanly
   assert.equal(merged[0].cookQuota, 3);
   assert.equal(merged[0].source, "web");
 });
+
+test("Deployment URL Resolution - getPublicWebAppUrl rejects sandboxed iframe URLs and returns canonical deployment URL", async () => {
+  const { getPublicWebAppUrl, CANONICAL_PROD_WEB_APP_URL } =
+    await import("../src/client/utils/gas.ts");
+
+  // 1. When explicit deployment URL is passed, it is used
+  const customUrl = "https://script.google.com/macros/s/CUSTOM_DEPLOYMENT_ID/exec";
+  assert.equal(getPublicWebAppUrl(customUrl), customUrl);
+
+  // 2. When internal iframe sandboxed URL is passed (userCodeAppPanel / googleusercontent.com),
+  // it is rejected and falls back to canonical production URL
+  const iframeUrl =
+    "https://n-tlnx7mkcgvph6rka336pj2wzivwnr4sefgfiney-0lu-script.googleusercontent.com/userCodeAppPanel";
+  assert.equal(getPublicWebAppUrl(iframeUrl), CANONICAL_PROD_WEB_APP_URL);
+
+  const iframeUrlWithQuery =
+    "https://n-tlnx7mkcgvph6rka336pj2wzivwnr4sefgfiney-0lu-script.googleusercontent.com/userCodeAppPanel?view=survey&month=2026-12&m=Tyler";
+  assert.equal(getPublicWebAppUrl(iframeUrlWithQuery), CANONICAL_PROD_WEB_APP_URL);
+
+  // 3. Fallback without arguments produces canonical production URL (outside browser/localhost)
+  assert.equal(getPublicWebAppUrl(), CANONICAL_PROD_WEB_APP_URL);
+});
+
+test("Beta Survey Link Sanitization - Strips internal iframe userCodeAppPanel host and preserves query params", () => {
+  const PROD_WEB_APP_URL =
+    "https://script.google.com/macros/s/AKfycbwFUo53qovtiFScRr8UufB62fdjjZiCQINHbkpj0U0nuJ6drjxkrJMj7LbJAPPQYN-8lQ/exec";
+  const rawIframeLink =
+    "https://n-tlnx7mkcgvph6rka336pj2wzivwnr4sefgfiney-0lu-script.googleusercontent.com/userCodeAppPanel?view=survey&month=2026-12&m=Tyler";
+
+  // Replicate server-side sanitization logic in sendBetaSurveyInvitations
+  let personalizedLink = rawIframeLink.trim();
+  if (
+    !personalizedLink ||
+    personalizedLink.includes("googleusercontent.com") ||
+    personalizedLink.includes("userCodeAppPanel") ||
+    !personalizedLink.startsWith("http")
+  ) {
+    const queryParams = personalizedLink.includes("?")
+      ? personalizedLink.substring(personalizedLink.indexOf("?"))
+      : `?view=survey&month=2026-12&m=Tyler`;
+    personalizedLink = `${PROD_WEB_APP_URL}${queryParams}`;
+  }
+
+  assert.equal(
+    personalizedLink,
+    "https://script.google.com/macros/s/AKfycbwFUo53qovtiFScRr8UufB62fdjjZiCQINHbkpj0U0nuJ6drjxkrJMj7LbJAPPQYN-8lQ/exec?view=survey&month=2026-12&m=Tyler"
+  );
+  assert.ok(!personalizedLink.includes("userCodeAppPanel"));
+  assert.ok(!personalizedLink.includes("googleusercontent.com"));
+});

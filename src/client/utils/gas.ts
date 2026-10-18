@@ -38,6 +38,85 @@ import { computeCommunityReportSummary } from "../../server/reports";
 import { getBaselineHistoricalSchedules } from "../../server/historicalArchiveData";
 import { generateMonthlySurveyDates, deriveFormTitle } from "../../server/surveyFormGenerator";
 
+export const CANONICAL_PROD_WEB_APP_URL =
+  "https://script.google.com/macros/s/AKfycbwFUo53qovtiFScRr8UufB62fdjjZiCQINHbkpj0U0nuJ6drjxkrJMj7LbJAPPQYN-8lQ/exec";
+export const CANONICAL_DEV_WEB_APP_URL =
+  "https://script.google.com/macros/s/AKfycbw9ebwRim3jjSVaN6Pm6QeOvNmujB1nnc2MCkBhM7qs/dev";
+
+let cachedBootstrapData: any = null;
+
+export function getBootstrapData(): any {
+  if (cachedBootstrapData) return cachedBootstrapData;
+  if (typeof window === "undefined") return null;
+  try {
+    const bootstrapEl = document.getElementById("bootstrap-data");
+    if (bootstrapEl && bootstrapEl.textContent) {
+      const raw = bootstrapEl.textContent.trim();
+      if (raw && raw.startsWith("{") && raw !== "{}") {
+        cachedBootstrapData = JSON.parse(raw);
+        return cachedBootstrapData;
+      }
+    }
+  } catch (err) {
+    console.warn("Could not read bootstrap data:", err);
+  }
+  return null;
+}
+
+/**
+ * Resolves the public, shareable Web App deployment URL.
+ * In GAS, window.location inside iframes evaluates to internal sandbox URLs
+ * (e.g. googleusercontent.com/userCodeAppPanel). This helper guarantees that
+ * links shared with members always point to the official Google Apps Script deployment URL.
+ */
+export function getPublicWebAppUrl(explicitDeploymentUrl?: string): string {
+  // 1. If explicit URL is passed (from server or props) and is not an internal iframe sandbox
+  if (
+    explicitDeploymentUrl &&
+    typeof explicitDeploymentUrl === "string" &&
+    explicitDeploymentUrl.startsWith("http") &&
+    !explicitDeploymentUrl.includes("googleusercontent.com") &&
+    !explicitDeploymentUrl.includes("userCodeAppPanel")
+  ) {
+    return explicitDeploymentUrl.split("?")[0].split("#")[0];
+  }
+
+  // 2. Check bootstrap data injected by server doGet()
+  try {
+    const boot = getBootstrapData();
+    const bootUrl = boot?.deploymentUrl || boot?.userInfo?.deploymentUrl;
+    if (
+      bootUrl &&
+      typeof bootUrl === "string" &&
+      bootUrl.startsWith("http") &&
+      !bootUrl.includes("googleusercontent.com") &&
+      !bootUrl.includes("userCodeAppPanel")
+    ) {
+      return bootUrl.split("?")[0].split("#")[0];
+    }
+  } catch {
+    // ignore
+  }
+
+  // 3. In local development or Playwright E2E browser tests (localhost / 127.0.0.1)
+  if (typeof window !== "undefined" && window.location) {
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") {
+      return `${window.location.origin}${window.location.pathname}`;
+    }
+    // Direct top-level browser navigation on script.google.com
+    if (
+      window.location.origin.includes("script.google.com") &&
+      !window.location.pathname.includes("userCodeAppPanel")
+    ) {
+      return `${window.location.origin}${window.location.pathname}`;
+    }
+  }
+
+  // 4. Default fallback to canonical production deployment URL
+  return CANONICAL_PROD_WEB_APP_URL;
+}
+
 export const isGasEnvironment = (): boolean => {
   return (
     typeof window !== "undefined" &&
@@ -143,6 +222,10 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         timestamp: new Date().toISOString(),
         isDevMode: true,
+        deploymentUrl:
+          typeof window !== "undefined" && window.location
+            ? `${window.location.origin}${window.location.pathname}`
+            : "http://localhost:5173",
       } as unknown as T;
 
     case "getMasterRegistryData": {
