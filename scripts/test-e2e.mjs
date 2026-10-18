@@ -559,6 +559,17 @@ async function runE2ETest() {
     await copyTesterLinkBtn.click();
     console.log("✓ Copy personal survey link button tested successfully!");
 
+    // Test sending beta invites via mock
+    const sendBetaInvitesBtn = page.locator(".fixed button:has-text('Send Beta Invitations')").first();
+    await sendBetaInvitesBtn.click();
+    await page.waitForSelector("text=Successfully dispatched");
+    // Assert [object Object] is NOT displayed
+    const objectObjectCount = await page.locator("text=[object Object]").count();
+    if (objectObjectCount > 0) {
+      throw new Error("Found '[object Object]' in beta dispatch result banner!");
+    }
+    console.log("✓ Send Beta Invitations executed and alert rendered cleanly (no [object Object])!");
+
     // Switch back to standard Google Form tab
     const standardTabBtn = page.locator(".fixed button:has-text('Google Form (Standard)')").first();
     await standardTabBtn.click();

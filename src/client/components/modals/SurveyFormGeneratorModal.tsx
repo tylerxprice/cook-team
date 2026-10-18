@@ -752,10 +752,29 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
                   <div className="flex-1 text-xs sm:text-sm">
                     <div className="font-bold">{betaDispatchResult.message}</div>
                     {betaDispatchResult.details && betaDispatchResult.details.length > 0 && (
-                      <div className="text-xs mt-1 text-slate-600">
-                        {betaDispatchResult.details.slice(0, 5).join(" • ")}
-                        {betaDispatchResult.details.length > 5 &&
-                          ` (+${betaDispatchResult.details.length - 5} more)`}
+                      <div className="text-xs mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-slate-600">
+                        {betaDispatchResult.details.slice(0, 10).map((d, idx) => (
+                          <span
+                            key={idx}
+                            className={`inline-flex items-center gap-1 ${
+                              d.success ? "text-emerald-800" : "text-rose-700 font-semibold"
+                            }`}
+                          >
+                            <span>{d.success ? "✓" : "✗"}</span>
+                            <span>{d.name}</span>
+                            {d.email && (
+                              <span className="text-slate-400 font-normal">({d.email})</span>
+                            )}
+                            {d.error && (
+                              <span className="text-rose-600 font-normal">: {d.error}</span>
+                            )}
+                          </span>
+                        ))}
+                        {betaDispatchResult.details.length > 10 && (
+                          <span className="text-slate-500 font-medium">
+                            (+{betaDispatchResult.details.length - 10} more)
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
