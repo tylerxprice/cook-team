@@ -10,6 +10,7 @@ import {
   X,
   Info,
   Home,
+  Loader2,
 } from "lucide-react";
 import { DaySchedule, Member } from "../../../server/types";
 import {
@@ -29,9 +30,24 @@ export interface ResidentScheduleViewProps {
   onBackToHome: () => void;
   onOpenCoordinator: () => void;
   initialMemberName?: string;
+  isLoading?: boolean;
 }
 
 const STORAGE_KEY = "cookteam_resident_name";
+
+export const DEFAULT_RESIDENT_MONTHS = [
+  "2026-11",
+  "2026-10",
+  "2026-09",
+  "2026-08",
+  "2026-07",
+  "2026-06",
+  "2026-05",
+  "2026-04",
+  "2026-03",
+  "2026-02",
+  "2026-01",
+];
 
 function formatMonthDisplay(mKey: string): string {
   const parts = mKey.split("-");
@@ -96,7 +112,20 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
   onBackToHome,
   onOpenCoordinator,
   initialMemberName,
+  isLoading = false,
 }) => {
+  const displayMonths = useMemo(() => {
+    const set = new Set<string>();
+    if (availableMonths && availableMonths.length > 0) {
+      availableMonths.forEach((m) => set.add(m));
+    }
+    DEFAULT_RESIDENT_MONTHS.forEach((m) => set.add(m));
+    if (monthKey) set.add(monthKey);
+    const arr = Array.from(set);
+    arr.sort((a, b) => b.localeCompare(a));
+    return arr;
+  }, [availableMonths, monthKey]);
+
   // 1. Initial Member Resolution (URL param -> LocalStorage -> empty)
   const [selectedMember, setSelectedMember] = useState<string>(() => {
     if (initialMemberName && initialMemberName.trim()) {
@@ -235,7 +264,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
               <Home className="w-4 h-4" />
             </button>
             <div>
-              {availableMonths && availableMonths.length > 1 ? (
+              {displayMonths && displayMonths.length > 1 ? (
                 <div className="relative inline-flex items-center">
                   <select
                     value={monthKey || ""}
@@ -243,7 +272,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                     aria-label="Select meal month"
                     className="text-sm sm:text-base font-black text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl px-2.5 py-1 pr-7 focus:outline-none focus:ring-2 focus:ring-orange-500/20 cursor-pointer appearance-none"
                   >
-                    {availableMonths.map((m) => (
+                    {displayMonths.map((m) => (
                       <option key={m} value={m}>
                         {formatMonthDisplay(m)}
                       </option>
@@ -275,14 +304,14 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
       {/* Main Content Area */}
       <main className="max-w-2xl mx-auto px-4 py-6 flex-1 w-full space-y-5">
         {/* Month Selector Pills */}
-        {availableMonths && availableMonths.length > 1 && (
+        {displayMonths && displayMonths.length > 1 && (
           <section className="bg-white rounded-2xl border border-slate-200 p-3 shadow-2xs flex items-center justify-between gap-2 overflow-hidden">
             <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5 shrink-0">
               <Calendar className="w-3.5 h-3.5 text-orange-600" />
               <span className="hidden sm:inline">Select Month:</span>
             </span>
             <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
-              {availableMonths.map((m) => {
+              {displayMonths.map((m) => {
                 const isSelected = m === monthKey;
                 return (
                   <button
@@ -301,6 +330,13 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
               })}
             </div>
           </section>
+        )}
+
+        {isLoading && (
+          <div className="bg-orange-50/70 border border-orange-200 rounded-2xl p-4 flex items-center justify-center gap-2.5 text-sm font-bold text-orange-950 shadow-2xs">
+            <Loader2 className="w-4 h-4 animate-spin text-orange-600" />
+            <span>Loading schedule for {formatMonthDisplay(monthKey || "")}...</span>
+          </div>
         )}
         {/* Member Selector Bar / Card */}
         <section className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
@@ -473,17 +509,25 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
             ) : memberShifts.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
                 <Sparkles className="w-10 h-10 text-amber-500 mx-auto" />
-                <h3 className="text-base font-bold text-slate-900">No shifts scheduled for {selectedMember}</h3>
+                <h3 className="text-base font-bold text-slate-900">
+                  {schedule.length === 0
+                    ? `No schedule published yet for ${monthTitle}`
+                    : `No shifts scheduled for ${selectedMember}`}
+                </h3>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  You are not assigned to any cook or clean shifts in {monthTitle}. Enjoy the community meals, or browse the full schedule below!
+                  {schedule.length === 0
+                    ? `The meal team schedule for ${monthTitle} has not been published yet. Select another month above or check back once finalized!`
+                    : `You are not assigned to any cook or clean shifts in ${monthTitle}. Enjoy the community meals, or browse the full schedule below!`}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("full_schedule")}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 hover:underline pt-2"
-                >
-                  <span>View Full Community Schedule</span>
-                </button>
+                {schedule.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("full_schedule")}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 hover:underline pt-2"
+                  >
+                    <span>View Full Community Schedule</span>
+                  </button>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
@@ -539,8 +583,8 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                               key={name}
                               className={`px-2.5 py-1 rounded-lg font-bold border ${
                                 name.toLowerCase() === selectedMember.toLowerCase()
-                                  ? "bg-orange-600 text-white border-orange-700 shadow-2xs"
-                                  : "bg-slate-100 text-slate-800 border-slate-200"
+                                    ? "bg-orange-600 text-white border-orange-700 shadow-2xs"
+                                    : "bg-slate-100 text-slate-800 border-slate-200"
                               }`}
                             >
                               {name} {name.toLowerCase() === selectedMember.toLowerCase() && "(You)"}
@@ -559,8 +603,8 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                               key={name}
                               className={`px-2.5 py-1 rounded-lg font-bold border ${
                                 name.toLowerCase() === selectedMember.toLowerCase()
-                                  ? "bg-sky-600 text-white border-sky-700 shadow-2xs"
-                                  : "bg-slate-100 text-slate-800 border-slate-200"
+                                    ? "bg-sky-600 text-white border-sky-700 shadow-2xs"
+                                    : "bg-slate-100 text-slate-800 border-slate-200"
                               }`}
                             >
                               {name} {name.toLowerCase() === selectedMember.toLowerCase() && "(You)"}
@@ -590,7 +634,18 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
               Showing all {schedule.length} community meals for {monthTitle}
             </div>
 
-            {schedule.map((day, idx) => {
+            {schedule.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
+                <Calendar className="w-10 h-10 text-slate-300 mx-auto" />
+                <h3 className="text-base font-bold text-slate-900">
+                  No published schedule found for {monthTitle}
+                </h3>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  The schedule for this month has not been published yet. Select another month above to view past schedules.
+                </p>
+              </div>
+            ) : (
+              schedule.map((day, idx) => {
               const isUserCook = (day.cooks || []).some(
                 (c) => c.toLowerCase() === selectedMember.toLowerCase()
               );
@@ -665,7 +720,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                   )}
                 </div>
               );
-            })}
+            }))}
           </div>
         )}
       </main>

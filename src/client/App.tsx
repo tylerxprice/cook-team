@@ -72,7 +72,39 @@ import { ResidentScheduleView } from "./components/views/ResidentScheduleView";
 
 export type AppView = "portal" | "coordinator" | "resident";
 
-let cachedBootstrapParams: Record<string, string> | null = null;
+export const DEFAULT_AVAILABLE_MONTHS = [
+  "2026-11",
+  "2026-10",
+  "2026-09",
+  "2026-08",
+  "2026-07",
+  "2026-06",
+  "2026-05",
+  "2026-04",
+  "2026-03",
+  "2026-02",
+  "2026-01",
+];
+
+let cachedBootstrapData: any = null;
+
+export function getBootstrapData(): any {
+  if (cachedBootstrapData) return cachedBootstrapData;
+  if (typeof window === "undefined") return null;
+  try {
+    const bootstrapEl = document.getElementById("bootstrap-data");
+    if (bootstrapEl && bootstrapEl.textContent) {
+      const raw = bootstrapEl.textContent.trim();
+      if (raw && raw.startsWith("{") && raw !== "{}") {
+        cachedBootstrapData = JSON.parse(raw);
+        return cachedBootstrapData;
+      }
+    }
+  } catch (err) {
+    console.warn("Could not read bootstrap data:", err);
+  }
+  return null;
+}
 
 export function getAppUrlParams(): URLSearchParams {
   if (typeof window === "undefined") return new URLSearchParams();
@@ -85,24 +117,9 @@ export function getAppUrlParams(): URLSearchParams {
 
   // 2. In Google Apps Script Web App iframes, window.location.search is empty!
   // We read parameters passed from doGet(e.parameter) via the bootstrap JSON script tag.
-  if (cachedBootstrapParams) {
-    return new URLSearchParams(cachedBootstrapParams);
-  }
-
-  try {
-    const bootstrapEl = document.getElementById("bootstrap-data");
-    if (bootstrapEl && bootstrapEl.textContent) {
-      const raw = bootstrapEl.textContent.trim();
-      if (raw && raw.startsWith("{") && raw !== "{}") {
-        const boot = JSON.parse(raw);
-        if (boot && boot.urlParameters && typeof boot.urlParameters === "object") {
-          cachedBootstrapParams = boot.urlParameters;
-          return new URLSearchParams(boot.urlParameters);
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("Could not read urlParameters from bootstrap data:", err);
+  const boot = getBootstrapData();
+  if (boot && boot.urlParameters && typeof boot.urlParameters === "object") {
+    return new URLSearchParams(boot.urlParameters);
   }
 
   return windowParams;
@@ -135,17 +152,43 @@ function MainApp() {
     const p = getAppUrlParams();
     return p.get("name") || p.get("user") || "";
   });
-  const [publicSchedule, setPublicSchedule] = useState<DaySchedule[]>([]);
-  const [publicMonthTitle, setPublicMonthTitle] = useState<string>("Community Meals");
   const [publicMonthKey, setPublicMonthKey] = useState<string>(() => {
     const params = getAppUrlParams();
     const m = params.get("month");
     if (m && /^\d{4}-\d{2}$/.test(m)) return m;
+    const boot = getBootstrapData();
+    if (boot?.publicMonthKey && /^\d{4}-\d{2}$/.test(boot.publicMonthKey)) return boot.publicMonthKey;
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
-  const [publicAvailableMonths, setPublicAvailableMonths] = useState<string[]>([]);
-  const [_loadingPublicSchedule, setLoadingPublicSchedule] = useState<boolean>(false);
+  const [publicSchedule, setPublicSchedule] = useState<DaySchedule[]>(() => {
+    const boot = getBootstrapData();
+    if (
+      boot?.publicSchedule &&
+      Array.isArray(boot.publicSchedule) &&
+      boot.publicSchedule.length > 0
+    ) {
+      return boot.publicSchedule;
+    }
+    return [];
+  });
+  const [publicMonthTitle, setPublicMonthTitle] = useState<string>(() => {
+    const boot = getBootstrapData();
+    if (boot?.publicMonthTitle) return boot.publicMonthTitle;
+    return "Community Meals";
+  });
+  const [publicAvailableMonths, setPublicAvailableMonths] = useState<string[]>(() => {
+    const boot = getBootstrapData();
+    if (
+      boot?.availableMonths &&
+      Array.isArray(boot.availableMonths) &&
+      boot.availableMonths.length > 0
+    ) {
+      return boot.availableMonths;
+    }
+    return DEFAULT_AVAILABLE_MONTHS;
+  });
+  const [loadingPublicSchedule, setLoadingPublicSchedule] = useState<boolean>(false);
   const [notification, setNotification] = useState<{
     msg: string;
     type: "success" | "error";
@@ -1227,6 +1270,26 @@ function MainApp() {
                 boot.driveSheets.length > 0
               ) {
                 setDriveSheets(boot.driveSheets);
+              }
+              if (
+                boot.publicSchedule &&
+                Array.isArray(boot.publicSchedule) &&
+                boot.publicSchedule.length > 0
+              ) {
+                setPublicSchedule(boot.publicSchedule);
+              }
+              if (boot.publicMonthTitle) {
+                setPublicMonthTitle(boot.publicMonthTitle);
+              }
+              if (boot.publicMonthKey) {
+                setPublicMonthKey(boot.publicMonthKey);
+              }
+              if (
+                boot.availableMonths &&
+                Array.isArray(boot.availableMonths) &&
+                boot.availableMonths.length > 0
+              ) {
+                setPublicAvailableMonths(boot.availableMonths);
               }
               bootstrapped = true;
               setInitialLoading(false);
@@ -2676,6 +2739,7 @@ function MainApp() {
         communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
         onSelectMonth={handleSelectPublicMonth}
         initialMemberName={initialName}
+        isLoading={loadingPublicSchedule}
         onBackToHome={() => {
           setAppView("portal");
           if (typeof window !== "undefined") {

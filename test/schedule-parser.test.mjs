@@ -903,3 +903,99 @@ test("Master Community Registry - Settings Parsing & Announcement Email/CC Defau
     "https://docs.google.com/spreadsheets/d/1coho-signup-sheet-id/edit"
   );
 });
+
+test("Schedule Parser - Google Sheets numeric serial dates & October schedule with Rose", () => {
+  // 1. Numeric serial date conversion (e.g. 46296.0 = Thu Oct 1, 2026; 46299.0 = Sun Oct 4, 2026)
+  const label1 = formatScheduleDateLabel("46296.0", "DINNER");
+  assert.equal(label1, "Oct 1 (Thu)");
+
+  const label2 = formatScheduleDateLabel("46299.0", "DINNER");
+  assert.equal(label2, "Oct 4 (Sun)");
+
+  const labelBrunch = formatScheduleDateLabel("46299.0", "BRUNCH");
+  assert.equal(labelBrunch, "Oct 4 (Sun, Brunch)");
+
+  const parsedDate1 = parseDateFromLabelOrKey("Oct 1 (Thu)", "2026-10-01");
+  assert.ok(parsedDate1);
+  assert.equal(parsedDate1.getUTCFullYear(), 2026);
+  assert.equal(parsedDate1.getUTCMonth(), 9); // 0-indexed, 9 = October
+  assert.equal(parsedDate1.getUTCDate(), 1);
+
+  const parsedSerial = parseDateFromLabelOrKey("46296.0", "46296.0");
+  assert.ok(parsedSerial);
+  assert.equal(parsedSerial.getUTCFullYear(), 2026);
+  assert.equal(parsedSerial.getUTCMonth(), 9);
+  assert.equal(parsedSerial.getUTCDate(), 1);
+
+  // 2. Parse actual October schedule grid
+  const octGrid = [
+    [
+      "Date",
+      "Meal Type",
+      "Special Note",
+      "Cook 1",
+      "Cook 2",
+      "Cook 3",
+      "Clean 1",
+      "Clean 2",
+      "Clean 3",
+      "Status / Notes",
+    ],
+    [
+      "46296.0",
+      "DINNER",
+      "",
+      "Olive",
+      "Saje",
+      "Ian",
+      "Beth",
+      "Marijean",
+      "Hillary",
+      "✅ Complete",
+    ],
+    [
+      "46299.0",
+      "DINNER",
+      "",
+      "Dane",
+      "Olive",
+      "Cy",
+      "Dane",
+      "Rose",
+      "Wei",
+      "✅ Complete",
+    ],
+    [
+      "46300.0",
+      "DINNER",
+      "",
+      "Nancy",
+      "Sandra",
+      "Mark L",
+      "Wei",
+      "Kitty",
+      "Stacey",
+      "✅ Complete",
+    ],
+  ];
+
+  const parsed = parseScheduleGridData(octGrid);
+  assert.equal(parsed.success, true);
+  assert.equal(parsed.schedule.length, 3);
+
+  // Day 1: Oct 1 (Thu)
+  assert.equal(parsed.schedule[0].dateKey, "2026-10-01");
+  assert.equal(parsed.schedule[0].dateLabel, "Oct 1 (Thu)");
+  assert.deepEqual(parsed.schedule[0].cooks, ["Olive", "Saje", "Ian"]);
+  assert.deepEqual(parsed.schedule[0].cleaners, ["Beth", "Marijean", "Hillary"]);
+
+  // Day 2: Oct 4 (Sun)
+  assert.equal(parsed.schedule[1].dateKey, "2026-10-04");
+  assert.equal(parsed.schedule[1].dateLabel, "Oct 4 (Sun)");
+  assert.deepEqual(parsed.schedule[1].cooks, ["Dane", "Olive", "Cy"]);
+  assert.deepEqual(parsed.schedule[1].cleaners, ["Dane", "Rose", "Wei"]);
+
+  // Rose must be in cleaners for Oct 4
+  assert.ok(parsed.schedule[1].cleaners.includes("Rose"));
+});
+

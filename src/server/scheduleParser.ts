@@ -171,6 +171,39 @@ export function formatScheduleDateLabel(val: any, mealType?: MealType): string {
 
   const str = String(val).trim();
 
+  // 1b. If it's a numeric Google Sheets serial date number (e.g. 46296 or 46296.0 for Oct 1, 2026)
+  const serialMatch = str.match(/^(\d{5})(?:\.0+)?$/);
+  if (serialMatch) {
+    const serial = parseInt(serialMatch[1], 10);
+    const ms = (serial - 25569) * 86400 * 1000;
+    const d = new Date(ms);
+    const year = d.getUTCFullYear();
+    const month = d.getUTCMonth();
+    const dateNum = d.getUTCDate();
+    const localDate = new Date(year, month, dateNum);
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const dow = days[localDate.getDay()];
+    const mon = months[month];
+    if (mealType === "BRUNCH") {
+      return `${mon} ${dateNum} (${dow}, Brunch)`;
+    }
+    return `${mon} ${dateNum} (${dow})`;
+  }
+
   // 2. If it's a messy JavaScript Date.toString() (e.g. "Mon Aug 03 2026 00:00:00 GMT-0400 (Eastern Daylight Time)")
   const jsDateMatch = str.match(
     /^([A-Za-z]{3})\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})\s+\d{2}:\d{2}:\d{2}/
@@ -299,6 +332,14 @@ export function parseDateFromLabelOrKey(
     if (m) {
       return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
     }
+  }
+
+  const serialMatch = String(dateLabel || dateKey || "").trim().match(/^(\d{5})(?:\.0+)?$/);
+  if (serialMatch) {
+    const serial = parseInt(serialMatch[1], 10);
+    const ms = (serial - 25569) * 86400 * 1000;
+    const d = new Date(ms);
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
   }
 
   const jsDateMatch = (dateLabel || "").match(

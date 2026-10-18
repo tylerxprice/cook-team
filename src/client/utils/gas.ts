@@ -593,7 +593,19 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
       const [monthKey, customSheetId] = args as [string | undefined, string | undefined];
       const now = new Date();
       const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-      const availableMonths = ["2026-11", "2026-10", "2026-09", "2026-08", "2026-07"];
+      const availableMonths = [
+        "2026-11",
+        "2026-10",
+        "2026-09",
+        "2026-08",
+        "2026-07",
+        "2026-06",
+        "2026-05",
+        "2026-04",
+        "2026-03",
+        "2026-02",
+        "2026-01",
+      ];
       if (!availableMonths.includes(currentMonthKey)) {
         availableMonths.unshift(currentMonthKey);
       }

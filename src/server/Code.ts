@@ -70,6 +70,11 @@ function getInitialBootstrapData(paramsOrEvent?: any): {
   registry: MasterRegistryPayload;
   driveSheets: DriveSheetItem[];
   urlParameters?: Record<string, string>;
+  publicSchedule?: DaySchedule[];
+  publicMonthKey?: string;
+  publicMonthTitle?: string;
+  availableMonths?: string[];
+  publicScheduleSuccess?: boolean;
 } {
   const urlParameters = paramsOrEvent?.parameter ? paramsOrEvent.parameter : paramsOrEvent;
   const cleanParams: Record<string, string> = {};
@@ -83,6 +88,20 @@ function getInitialBootstrapData(paramsOrEvent?: any): {
     }
   }
 
+  const DEFAULT_AVAILABLE_MONTHS = [
+    "2026-11",
+    "2026-10",
+    "2026-09",
+    "2026-08",
+    "2026-07",
+    "2026-06",
+    "2026-05",
+    "2026-04",
+    "2026-03",
+    "2026-02",
+    "2026-01",
+  ];
+
   try {
     const userInfo = getUserInfo();
     const registry = getMasterRegistryData(userInfo.isDevMode);
@@ -92,11 +111,31 @@ function getInitialBootstrapData(paramsOrEvent?: any): {
     } catch (e) {
       console.warn("Could not list drive sheets in bootstrap:", e);
     }
+
+    const targetMonthKey = cleanParams["month"] || "2026-10";
+    let publicScheduleRes: PublicScheduleResult | null = null;
+    try {
+      publicScheduleRes = getPublicSchedule(targetMonthKey, cleanParams["sheet"]);
+    } catch (e) {
+      console.warn("Could not pre-fetch publicSchedule in bootstrap:", e);
+    }
+
+    const availableMonths =
+      publicScheduleRes?.availableMonths && publicScheduleRes.availableMonths.length > 0
+        ? publicScheduleRes.availableMonths
+        : getAvailableScheduleTabs();
+
     return {
       userInfo,
       registry,
       driveSheets,
       urlParameters: cleanParams,
+      publicSchedule: publicScheduleRes?.schedule || [],
+      publicMonthKey: publicScheduleRes?.monthKey || targetMonthKey,
+      publicMonthTitle: publicScheduleRes?.monthTitle || formatMonthHeaderTitle(targetMonthKey),
+      availableMonths:
+        availableMonths && availableMonths.length > 0 ? availableMonths : DEFAULT_AVAILABLE_MONTHS,
+      publicScheduleSuccess: publicScheduleRes?.success ?? false,
     };
   } catch (err) {
     console.warn("Bootstrap data generation failed:", err);
@@ -105,6 +144,7 @@ function getInitialBootstrapData(paramsOrEvent?: any): {
       registry: { members: [], exceptions: [] },
       driveSheets: [],
       urlParameters: cleanParams,
+      availableMonths: DEFAULT_AVAILABLE_MONTHS,
     };
   }
 }
@@ -994,7 +1034,8 @@ function appendManualSurveyResponse(
  */
 function loadExistingScheduleFromSheet(
   spreadsheetUrlOrId: string,
-  tabName?: string
+  tabName?: string,
+  targetMonthKey?: string
 ): ScheduleOutput {
   try {
     let surveySpreadsheet: GoogleAppsScript.Spreadsheet.Spreadsheet;
@@ -1005,42 +1046,287 @@ function loadExistingScheduleFromSheet(
       surveySpreadsheet = SpreadsheetApp.openById(cleanId);
     }
 
+    const allSheets = surveySpreadsheet.getSheets();
     let targetTab: GoogleAppsScript.Spreadsheet.Sheet | null = null;
+
+    // 1. Try explicit tabName
     if (tabName) {
       targetTab = surveySpreadsheet.getSheetByName(tabName);
     }
-    if (!targetTab) {
-      const allSheets = surveySpreadsheet.getSheets();
-      targetTab = allSheets.find((s) => s.getName().startsWith("Schedule_")) || null;
-    }
 
-    if (!targetTab) {
-      throw new Error(`Schedule tab not found in spreadsheet.`);
-    }
-
-    const data = targetTab.getDataRange().getValues();
-    if (data.length <= 1) {
-      throw new Error(`Schedule tab is empty.`);
-    }
-
-    const formTab =
-      surveySpreadsheet.getSheetByName("Form Responses 1") || surveySpreadsheet.getSheets()[0];
-    let responses: SurveyResponse[] | undefined = undefined;
-    if (formTab) {
-      try {
-        const formData = formTab.getDataRange().getValues();
-        const parsedSurvey = parseSurveySheetData(formData, []);
-        responses = parsedSurvey.responses;
-      } catch (e) {
-        console.warn("Could not parse survey responses for memberStats:", e);
+    // 2. Try candidate names matching the target month
+    if (!targetTab && targetMonthKey) {
+      const yy = targetMonthKey.slice(2, 4);
+      const mm = targetMonthKey.slice(5, 7);
+      const mNum = parseInt(mm, 10);
+      const mNames = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+      const sMon = mNames[mNum - 1] || "";
+      const candidates = [
+        `Schedule_${targetMonthKey}`,
+        `Schedule_${yy}-${mm}`,
+        `Schedule ${targetMonthKey}`,
+        `Schedule ${yy}-${mm}`,
+        `Schedule_${sMon}`,
+        `Schedule ${sMon}`,
+        `Schedule`,
+        `${targetMonthKey}`,
+        `${yy}-${mm}`,
+      ];
+      for (const cand of candidates) {
+        targetTab = surveySpreadsheet.getSheetByName(cand);
+        if (targetTab) break;
       }
     }
 
-    return parseScheduleGridData(data, responses);
+    // 3. Try any tab whose name starts with or contains "schedule"
+    if (!targetTab) {
+      targetTab =
+        allSheets.find((s) => s.getName().toLowerCase().startsWith("schedule")) ||
+        allSheets.find((s) => s.getName().toLowerCase().includes("schedule")) ||
+        null;
+    }
+
+    // 4. Try any tab whose first row has "Cook" and "Clean" header columns
+    if (!targetTab) {
+      for (const s of allSheets) {
+        if (s.getLastRow() >= 2 && s.getLastColumn() >= 4) {
+          try {
+            const row1 = s.getRange(1, 1, 1, Math.min(s.getLastColumn(), 12)).getValues()[0];
+            const hasCook = row1.some((c) => String(c).toLowerCase().includes("cook"));
+            const hasClean = row1.some((c) => String(c).toLowerCase().includes("clean"));
+            if (hasCook && hasClean) {
+              targetTab = s;
+              break;
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+    }
+
+    // If a schedule tab with rows was found, parse it!
+    if (targetTab) {
+      const data = targetTab.getDataRange().getValues();
+      if (data.length > 1) {
+        const formTab =
+          surveySpreadsheet.getSheetByName("Form Responses 1") || surveySpreadsheet.getSheets()[0];
+        let responses: SurveyResponse[] | undefined = undefined;
+        if (formTab && formTab.getName() !== targetTab.getName()) {
+          try {
+            const formData = formTab.getDataRange().getValues();
+            const parsedSurvey = parseSurveySheetData(formData, []);
+            responses = parsedSurvey.responses;
+          } catch (e) {
+            console.warn("Could not parse survey responses for memberStats:", e);
+          }
+        }
+        return parseScheduleGridData(data, responses);
+      }
+    }
+
+    // 5. Fallback: If no Schedule tab exists, but Form Responses exists, dynamically solve it!
+    const formTab =
+      surveySpreadsheet.getSheetByName("Form Responses 1") || surveySpreadsheet.getSheets()[0];
+    if (formTab) {
+      const formData = formTab.getDataRange().getValues();
+      if (formData.length > 1) {
+        const parsedSurvey = parseSurveySheetData(formData, []);
+        if (parsedSurvey.mealDates.length > 0 && parsedSurvey.responses.length > 0) {
+          const solved = solveCookAndCleanSchedule(
+            parsedSurvey.mealDates,
+            parsedSurvey.responses,
+            [],
+            { cookPolicy: "ADAPTIVE_3_OR_2" }
+          );
+          if (solved.schedule.length > 0) {
+            return solved;
+          }
+        }
+      }
+    }
+
+    // 6. Final fallback: If this is an archived month, check baseline historical schedules
+    if (targetMonthKey) {
+      const baseline = getBaselineHistoricalSchedules();
+      const match = baseline.find((b) => b.monthKey === targetMonthKey);
+      if (match && match.schedule.length > 0) {
+        return {
+          success: true,
+          schedule: match.schedule,
+          memberStats: {},
+          violations: [],
+          unfilledSlotsCount: 0,
+          solveTimeMs: 0,
+          cookPolicy: "ADAPTIVE_3_OR_2",
+        };
+      }
+    }
+
+    throw new Error(`Schedule tab not found in spreadsheet.`);
   } catch (err: any) {
     console.error("Failed to load existing schedule:", err);
     throw new Error(`Failed to load schedule from sheet: ${err.message}`);
   }
+}
+
+/**
+ * Matches a spreadsheet from Google Drive corresponding to a target month key (e.g. 2026-10).
+ * Robustly matches real-world naming conventions:
+ * - "26-10 Oct Meal Team Sign-Up (Responses)"
+ * - "26-09 SEP Cook Team Survey (Responses)"
+ * - "2026-10 Cook Team Survey"
+ * - "October 2026 Schedule"
+ */
+function findSpreadsheetForMonth(
+  sheets: { id: string; name: string }[],
+  targetMonthKey: string
+): { id: string; name: string } | undefined {
+  if (!sheets || sheets.length === 0 || !targetMonthKey) return undefined;
+
+  const mParts = targetMonthKey.split("-");
+  const yyyy = mParts[0];
+  const yy = yyyy.slice(-2); // "26"
+  const mm = mParts[1]; // "10"
+  const monthNum = parseInt(mm, 10);
+  const monthNamesShort = [
+    "jan",
+    "feb",
+    "mar",
+    "apr",
+    "may",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "oct",
+    "nov",
+    "dec",
+  ];
+  const shortMonth = monthNamesShort[monthNum - 1] || "";
+  const monthNamesFull = [
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
+  ];
+  const fullMonth = monthNamesFull[monthNum - 1] || "";
+
+  // 1. Match "26-10" or "2026-10" directly in filename
+  let found = sheets.find((s) => {
+    const n = s.name.toLowerCase();
+    return n.includes(`${yy}-${mm}`) || n.includes(`${yyyy}-${mm}`);
+  });
+  if (found) return found;
+
+  // 2. Match "26_10", "2026_10", "2610", "202610"
+  found = sheets.find((s) => {
+    const n = s.name.toLowerCase();
+    return (
+      n.includes(`${yy}_${mm}`) ||
+      n.includes(`${yyyy}_${mm}`) ||
+      n.includes(`${yy}${mm}`) ||
+      n.includes(`${yyyy}${mm}`)
+    );
+  });
+  if (found) return found;
+
+  // 3. Match month abbreviation + 2-digit or 4-digit year (e.g. "oct" and "26", "sep" and "26")
+  if (shortMonth) {
+    found = sheets.find((s) => {
+      const n = s.name.toLowerCase();
+      const hasMonth = n.includes(shortMonth) || (fullMonth && n.includes(fullMonth));
+      const hasYear = n.includes(yy) || n.includes(yyyy);
+      return hasMonth && hasYear;
+    });
+    if (found) return found;
+  }
+
+  // 4. Match month number in word boundary and year
+  found = sheets.find((s) => {
+    const n = s.name.toLowerCase();
+    const hasNum = new RegExp(`(?:^|[\\s-_])${mm}(?:[\\s-_]|$)`).test(n);
+    const hasYear = n.includes(yy) || n.includes(yyyy);
+    return hasNum && hasYear;
+  });
+  if (found) return found;
+
+  // 5. Direct search in Google Drive (in case sheet is outside default parent folder)
+  try {
+    if (typeof DriveApp !== "undefined" && DriveApp.searchFiles) {
+      const searchQueries = [
+        `title contains '${yy}-${mm}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`,
+        `title contains '${yyyy}-${mm}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`,
+      ];
+      if (shortMonth) {
+        searchQueries.push(
+          `title contains '${shortMonth}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`
+        );
+      }
+      for (const q of searchQueries) {
+        const files = DriveApp.searchFiles(q);
+        while (files.hasNext()) {
+          const f = files.next();
+          const n = f.getName().toLowerCase();
+          if (
+            n.includes(`${yy}-${mm}`) ||
+            n.includes(`${yyyy}-${mm}`) ||
+            (shortMonth && n.includes(shortMonth) && (n.includes(yy) || n.includes(yyyy)))
+          ) {
+            return { id: f.getId(), name: f.getName() };
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Direct DriveApp search in findSpreadsheetForMonth failed:", err);
+  }
+
+  // 6. Direct search in Historical folder (1Lm-l2Cm8DFO4swnPuDHpYlTz8FOGN8df)
+  try {
+    if (typeof DriveApp !== "undefined" && DriveApp.getFolderById) {
+      const histFolder = DriveApp.getFolderById("1Lm-l2Cm8DFO4swnPuDHpYlTz8FOGN8df");
+      if (histFolder) {
+        const hFiles = histFolder.getFilesByType(MimeType.GOOGLE_SHEETS);
+        while (hFiles.hasNext()) {
+          const f = hFiles.next();
+          const n = f.getName().toLowerCase();
+          if (
+            n.includes(`${yy}-${mm}`) ||
+            n.includes(`${yyyy}-${mm}`) ||
+            (shortMonth && n.includes(shortMonth) && (n.includes(yy) || n.includes(yyyy)))
+          ) {
+            return { id: f.getId(), name: f.getName() };
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Direct historical folder search in findSpreadsheetForMonth failed:", err);
+  }
+
+  return undefined;
 }
 
 /**
@@ -1059,6 +1345,18 @@ function getPublicSchedule(
     availableMonths = getAvailableScheduleTabs(spreadsheetIdOrUrl);
   } catch (e) {
     console.warn("Could not load availableScheduleTabs:", e);
+    availableMonths = [
+      "2026-10",
+      "2026-09",
+      "2026-08",
+      "2026-07",
+      "2026-06",
+      "2026-05",
+      "2026-04",
+      "2026-03",
+      "2026-02",
+      "2026-01",
+    ];
   }
 
   // If monthKey is explicitly provided, use it; otherwise prefer current month if published, or latest published
@@ -1084,21 +1382,13 @@ function getPublicSchedule(
     const communityName = masterData.settings?.communityName || "Vancouver Cohousing";
 
     if (!sheetId) {
-      // 1. Try finding in driveSheets
       const sheets = listAvailableDriveSheets();
-      if (targetMonthKey) {
-        const cleanMo = targetMonthKey.replace(/-/g, "");
-        const matched = sheets.find(
-          (s) =>
-            s.name.includes(targetMonthKey) ||
-            s.name.includes(cleanMo.slice(2, 6)) ||
-            (s.name.toLowerCase().includes("schedule") && s.name.includes(targetMonthKey.slice(5, 7)))
-        );
-        if (matched) {
-          sheetId = matched.id;
-        }
+      const matched = findSpreadsheetForMonth(sheets, targetMonthKey);
+      if (matched) {
+        sheetId = matched.id;
       }
-      if (!sheetId && sheets.length > 0) {
+      // Only fallback to first sheet if NO target month was specified by user
+      if (!sheetId && !monthKey && sheets.length > 0) {
         const schedSheet = sheets.find(
           (s) =>
             s.name.toLowerCase().includes("schedule") ||
@@ -1114,11 +1404,26 @@ function getPublicSchedule(
     }
 
     if (!sheetId) {
+      // Fallback to baseline historical schedules if available
+      const baseline = getBaselineHistoricalSchedules();
+      const match = baseline.find((b) => b.monthKey === targetMonthKey);
+      if (match && match.schedule.length > 0) {
+        return {
+          success: true,
+          schedule: match.schedule,
+          monthKey: targetMonthKey,
+          monthTitle: formatMonthHeaderTitle(targetMonthKey),
+          communityName,
+          availableMonths,
+          message: "Loaded from historical baseline archive.",
+        };
+      }
+
       return {
         success: false,
         schedule: [],
         monthKey: targetMonthKey,
-        monthTitle: "Community Meals",
+        monthTitle: formatMonthHeaderTitle(targetMonthKey),
         communityName,
         availableMonths,
         message: "No schedule spreadsheet found.",
@@ -1126,9 +1431,9 @@ function getPublicSchedule(
     }
 
     const tabName = targetMonthKey ? `Schedule_${targetMonthKey}` : undefined;
-    const loaded = loadExistingScheduleFromSheet(sheetId, tabName);
+    const loaded = loadExistingScheduleFromSheet(sheetId, tabName, targetMonthKey);
 
-    let monthTitle = "Community Meals";
+    let monthTitle = formatMonthHeaderTitle(targetMonthKey);
     let derivedMonthKey = targetMonthKey;
     if (loaded.schedule.length > 0) {
       const first = loaded.schedule[0];
@@ -1147,19 +1452,62 @@ function getPublicSchedule(
       communityName,
       availableMonths,
       sourceSheetName: `Schedule_${derivedMonthKey || targetMonthKey}`,
+      spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${sheetId}`,
     };
   } catch (err: any) {
-    console.warn("getPublicSchedule error:", err);
+    console.warn("getPublicSchedule error, trying baseline fallback:", err);
+    // As a safe fallback for residents, check baseline archive
+    try {
+      const baseline = getBaselineHistoricalSchedules();
+      const match = baseline.find((b) => b.monthKey === targetMonthKey);
+      if (match && match.schedule.length > 0) {
+        return {
+          success: true,
+          schedule: match.schedule,
+          monthKey: targetMonthKey,
+          monthTitle: formatMonthHeaderTitle(targetMonthKey),
+          communityName: "Vancouver Cohousing",
+          availableMonths,
+        };
+      }
+    } catch {}
+
     return {
       success: false,
       schedule: [],
       monthKey: targetMonthKey,
-      monthTitle: "Community Meals",
+      monthTitle: formatMonthHeaderTitle(targetMonthKey),
       communityName: "Vancouver Cohousing",
       availableMonths,
       message: err.message,
     };
   }
+}
+
+function formatMonthHeaderTitle(monthKey: string): string {
+  const parts = (monthKey || "").split("-");
+  if (parts.length >= 2) {
+    const yr = parts[0];
+    const mo = parseInt(parts[1], 10);
+    const months = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    if (mo >= 1 && mo <= 12) {
+      return `${months[mo - 1]} ${yr}`;
+    }
+  }
+  return "Community Meals";
 }
 
 /**
@@ -2388,22 +2736,26 @@ function getAvailableScheduleTabs(spreadsheetIdOrUrl?: string | any): string[] {
     console.warn("getAvailableScheduleTabs baseline error:", err);
   }
 
+  const DEFAULT_MONTHS = [
+    "2026-11",
+    "2026-10",
+    "2026-09",
+    "2026-08",
+    "2026-07",
+    "2026-06",
+    "2026-05",
+    "2026-04",
+    "2026-03",
+    "2026-02",
+    "2026-01",
+  ];
+  for (const m of DEFAULT_MONTHS) {
+    discovered.add(m);
+  }
+
   const list = Array.from(discovered);
   list.sort((a, b) => b.localeCompare(a));
-  return list.length > 0
-    ? list
-    : [
-        "2026-10",
-        "2026-09",
-        "2026-08",
-        "2026-07",
-        "2026-06",
-        "2026-05",
-        "2026-04",
-        "2026-03",
-        "2026-02",
-        "2026-01",
-      ];
+  return list;
 }
 
 /**
