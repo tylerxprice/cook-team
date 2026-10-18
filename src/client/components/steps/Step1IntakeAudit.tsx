@@ -94,7 +94,8 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
-              Survey Response Spreadsheet
+              <span>Survey Response Spreadsheet</span>
+              {loading && <RefreshCw className="w-4 h-4 text-orange-600 animate-spin shrink-0" />}
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
               Select a monthly survey response sheet from Google Drive or choose a test scenario
@@ -158,14 +159,6 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
                 <span>Open in Sheets</span>
               </a>
             )}
-            <button
-              onClick={() => fetchIntake(sheetInput, undefined, true)}
-              disabled={loading || !sheetInput}
-              className="min-h-[44px] px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm cursor-pointer"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-              <span>{loading ? "Loading..." : "Load Sheet"}</span>
-            </button>
           </div>
         </div>
 
@@ -181,7 +174,8 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
             id="survey-sheet-select"
             value={sheetSelectMode}
             onChange={(e) => handleSelectSheetOption(e.target.value)}
-            className="w-full min-h-[44px] px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 hover:bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 font-medium text-slate-900 transition-colors cursor-pointer"
+            disabled={loading}
+            className="w-full min-h-[44px] px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 hover:bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 font-medium text-slate-900 transition-colors cursor-pointer disabled:opacity-60"
           >
             <option value="" disabled>
               {isDevMode
@@ -221,21 +215,55 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
               >
                 Google Sheet URL or Document ID:
               </label>
-              <input
-                id="custom-sheet-url-input"
-                type="text"
-                value={sheetInput}
-                onChange={(e) => setSheetInput(e.target.value)}
-                placeholder="Paste Google Sheet URL or ID..."
-                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
-                autoFocus
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  id="custom-sheet-url-input"
+                  type="text"
+                  value={sheetInput}
+                  onChange={(e) => setSheetInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && sheetInput.trim()) {
+                      fetchIntake(sheetInput, undefined, true);
+                    }
+                  }}
+                  placeholder="Paste Google Sheet URL or ID and press Enter..."
+                  className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => fetchIntake(sheetInput, undefined, true)}
+                  disabled={loading || !sheetInput.trim()}
+                  className="min-h-[44px] px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold transition-colors disabled:opacity-50 shrink-0 cursor-pointer flex items-center gap-1.5"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+                  <span>Load</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {!intakeData ? (
+      {loading ? (
+        <div
+          data-testid="intake-loading-card"
+          className="bg-white p-12 sm:p-16 rounded-2xl border border-slate-200 shadow-sm text-center space-y-4 max-w-2xl mx-auto my-6 animate-fade-in"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center mx-auto shadow-inner">
+            <RefreshCw className="w-7 h-7 animate-spin text-orange-600" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900">
+              Loading Survey &amp; Availability Data...
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+              Reading survey responses, verifying meal dates, and running member completeness
+              audit...
+            </p>
+          </div>
+        </div>
+      ) : !intakeData ? (
         <div className="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center space-y-4 max-w-2xl mx-auto my-6">
           <div className="w-14 h-14 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center mx-auto shadow-inner">
             <FileSpreadsheet className="w-7 h-7" />
