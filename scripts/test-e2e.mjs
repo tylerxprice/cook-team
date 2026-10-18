@@ -92,6 +92,20 @@ async function runE2ETest() {
     await page.waitForSelector("text=Showing all");
     console.log("✓ Full Community Schedule tab verified!");
 
+    // Test Calendar / List View toggle
+    console.log("1c-ii. Testing Calendar / List View toggle in Full Schedule ...");
+    await page.waitForSelector("button:has-text('Calendar')");
+    await page.waitForSelector("button:has-text('List')");
+    const listBtn = page.locator("button:has-text('List')").first();
+    await listBtn.click();
+    await page.waitForSelector("text=Cooks:");
+    console.log("✓ Toggled to List view successfully!");
+
+    const calBtn = page.locator("button:has-text('Calendar')").first();
+    await calBtn.click();
+    await page.waitForSelector("text=Sun");
+    console.log("✓ Toggled back to Calendar view successfully!");
+
     // Click Home button to return to Portal Landing
     const homeBtn = page.locator("button[title='Return to Hub Home']").first();
     await homeBtn.click();
