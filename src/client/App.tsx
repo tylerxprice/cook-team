@@ -130,10 +130,22 @@ export function getAppUrlParams(): URLSearchParams {
   return windowParams;
 }
 
-export function getInitialAppView(): AppView {
+export function parseStepFromHash(hash?: string): 1 | 2 | 3 | 4 {
+  if (typeof window === "undefined") return 1;
+  const targetHash = hash !== undefined ? hash : window.location.hash;
+  const match = targetHash.match(/#step-([1-4])/);
+  if (match) {
+    const parsed = parseInt(match[1], 10);
+    if ([1, 2, 3, 4].includes(parsed)) return parsed as 1 | 2 | 3 | 4;
+  }
+  return 1;
+}
+
+export function getAppViewFromUrl(params?: URLSearchParams, hash?: string): AppView {
   if (typeof window === "undefined") return "portal";
-  const params = getAppUrlParams();
-  const viewParam = (params.get("view") || params.get("mode") || "").toLowerCase();
+  const urlParams = params || getAppUrlParams();
+  const currentHash = hash !== undefined ? hash : window.location.hash;
+  const viewParam = (urlParams.get("view") || urlParams.get("mode") || "").toLowerCase();
   if (viewParam === "survey" || viewParam === "signup") {
     return "survey";
   }
@@ -143,10 +155,17 @@ export function getInitialAppView(): AppView {
   if (viewParam === "coordinator" || viewParam === "admin" || viewParam === "wizard") {
     return "coordinator";
   }
-  if (window.location.hash && /#step-[1-4]/.test(window.location.hash)) {
+  if (viewParam === "portal" || viewParam === "home") {
+    return "portal";
+  }
+  if (currentHash && /#step-[1-4]/.test(currentHash)) {
     return "coordinator";
   }
   return "portal";
+}
+
+export function getInitialAppView(): AppView {
+  return getAppViewFromUrl();
 }
 
 function MainApp() {
@@ -459,16 +478,24 @@ function MainApp() {
   const goToStep = (step: 1 | 2 | 3 | 4, replace = false) => {
     setCurrentStepState(step);
     const hash = `#step-${step}`;
-    if (window.location.hash !== hash) {
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("view", "coordinator");
+      url.hash = hash;
+      const state = { view: "coordinator", step };
       if (replace) {
-        window.history.replaceState({ step }, "", hash);
+        window.history.replaceState(state, "", url.toString());
       } else {
-        window.history.pushState({ step }, "", hash);
+        window.history.pushState(state, "", url.toString());
       }
     }
     if (typeof (window as any).google !== "undefined" && (window as any).google?.script?.history) {
       try {
-        (window as any).google.script.history.push(null, { step: String(step) }, `step-${step}`);
+        (window as any).google.script.history.push(
+          { view: "coordinator", step },
+          { view: "coordinator" },
+          `step-${step}`
+        );
       } catch (err) {
         console.warn("GAS history push failed:", err);
       }
@@ -480,6 +507,132 @@ function MainApp() {
       handleExportSheet(solverResult);
     }
   };
+
+  // Centralized navigation router that synchronizes app views with URL query parameters and browser history
+  const navigateToView = useCallback(
+    (
+      targetView: AppView,
+      options?: {
+        replace?: boolean;
+        month?: string;
+        step?: 1 | 2 | 3 | 4;
+        member?: string;
+      }
+    ) => {
+      setAppView(targetView);
+
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        const replace = options?.replace ?? false;
+
+        if (targetView === "portal") {
+          url.searchParams.delete("view");
+          url.hash = "";
+          const state = { view: "portal" };
+          const newUrl = url.pathname + (url.search ? url.search : "");
+          if (replace) {
+            window.history.replaceState(state, "", newUrl);
+          } else {
+            window.history.pushState(state, "", newUrl);
+          }
+          if (
+            typeof (window as any).google !== "undefined" &&
+            (window as any).google?.script?.history
+          ) {
+            try {
+              (window as any).google.script.history.push({ view: "portal" }, {}, "");
+            } catch (err) {
+              console.warn("GAS history push failed:", err);
+            }
+          }
+        } else if (targetView === "resident") {
+          url.searchParams.set("view", "schedule");
+          const targetMonth = options?.month || publicMonthKey;
+          if (targetMonth) {
+            url.searchParams.set("month", targetMonth);
+          }
+          if (options?.member) {
+            url.searchParams.set("name", options.member);
+          }
+          url.hash = "";
+          const state = { view: "resident", month: targetMonth };
+          if (replace) {
+            window.history.replaceState(state, "", url.toString());
+          } else {
+            window.history.pushState(state, "", url.toString());
+          }
+          if (
+            typeof (window as any).google !== "undefined" &&
+            (window as any).google?.script?.history
+          ) {
+            try {
+              (window as any).google.script.history.push(
+                state,
+                { view: "schedule", ...(targetMonth ? { month: targetMonth } : {}) },
+                ""
+              );
+            } catch (err) {
+              console.warn("GAS history push failed:", err);
+            }
+          }
+        } else if (targetView === "coordinator") {
+          url.searchParams.set("view", "coordinator");
+          const targetStep = options?.step || currentStep || 1;
+          setCurrentStepState(targetStep);
+          url.hash = `#step-${targetStep}`;
+          const state = { view: "coordinator", step: targetStep };
+          if (replace) {
+            window.history.replaceState(state, "", url.toString());
+          } else {
+            window.history.pushState(state, "", url.toString());
+          }
+          if (
+            typeof (window as any).google !== "undefined" &&
+            (window as any).google?.script?.history
+          ) {
+            try {
+              (window as any).google.script.history.push(
+                state,
+                { view: "coordinator" },
+                `step-${targetStep}`
+              );
+            } catch (err) {
+              console.warn("GAS history push failed:", err);
+            }
+          }
+        } else if (targetView === "survey") {
+          url.searchParams.set("view", "survey");
+          const targetMonth = options?.month || surveyFormMonthKey || "2026-11";
+          url.searchParams.set("month", targetMonth);
+          if (options?.member) {
+            url.searchParams.set("m", options.member);
+          }
+          url.hash = "";
+          const state = { view: "survey", month: targetMonth };
+          if (replace) {
+            window.history.replaceState(state, "", url.toString());
+          } else {
+            window.history.pushState(state, "", url.toString());
+          }
+          if (
+            typeof (window as any).google !== "undefined" &&
+            (window as any).google?.script?.history
+          ) {
+            try {
+              (window as any).google.script.history.push(
+                state,
+                { view: "survey", month: targetMonth },
+                ""
+              );
+            } catch (err) {
+              console.warn("GAS history push failed:", err);
+            }
+          }
+        }
+      }
+    },
+    [publicMonthKey, surveyFormMonthKey, currentStep]
+  );
 
   const scanReportMonths = async () => {
     setLoadingReportMonths(true);
@@ -1418,28 +1571,41 @@ function MainApp() {
     };
     init();
 
-    // Check if initial URL has a step hash (e.g. #step-2)
-    const parseStepFromHash = (): 1 | 2 | 3 | 4 => {
-      const match = window.location.hash.match(/#step-([1-4])/);
-      if (match) {
-        const parsed = parseInt(match[1], 10);
-        if ([1, 2, 3, 4].includes(parsed)) return parsed as 1 | 2 | 3 | 4;
+    const initialView = getAppViewFromUrl();
+    if (initialView === "coordinator") {
+      const initialStep = parseStepFromHash();
+      setCurrentStepState(initialStep);
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.set("view", "coordinator");
+        url.hash = `#step-${initialStep}`;
+        window.history.replaceState({ view: "coordinator", step: initialStep }, "", url.toString());
       }
-      return 1;
-    };
-
-    const initialStep = parseStepFromHash();
-    setCurrentStepState(initialStep);
-    window.history.replaceState({ step: initialStep }, "", `#step-${initialStep}`);
+    }
 
     // Listen for browser Back & Forward button presses
     const handlePopState = (e: Event) => {
-      const popState = (e as PopStateEvent).state;
-      if (popState && typeof popState.step === "number" && [1, 2, 3, 4].includes(popState.step)) {
-        setCurrentStepState(popState.step as 1 | 2 | 3 | 4);
-      } else {
-        const step = parseStepFromHash();
-        setCurrentStepState(step);
+      const targetView = getAppViewFromUrl();
+      setAppView(targetView);
+
+      const params = getAppUrlParams();
+      const monthParam = params.get("month");
+      if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+        setPublicMonthKey(monthParam);
+      }
+      const memberParam = params.get("m") || params.get("name") || params.get("user");
+      if (memberParam !== null) {
+        setUrlMemberName(memberParam || "");
+      }
+
+      if (targetView === "coordinator") {
+        const popState = (e as PopStateEvent).state;
+        if (popState && typeof popState.step === "number" && [1, 2, 3, 4].includes(popState.step)) {
+          setCurrentStepState(popState.step as 1 | 2 | 3 | 4);
+        } else {
+          const step = parseStepFromHash();
+          setCurrentStepState(step);
+        }
       }
     };
 
@@ -1449,12 +1615,36 @@ function MainApp() {
     if (typeof (window as any).google !== "undefined" && (window as any).google?.script?.history) {
       try {
         (window as any).google.script.history.setChangeHandler((e: any) => {
-          const raw =
-            e.state?.step ||
-            (e.location?.hash ? e.location.hash.replace("#step-", "").replace("step-", "") : "");
-          const parsed = parseInt(raw, 10);
-          if ([1, 2, 3, 4].includes(parsed)) {
-            setCurrentStepState(parsed as 1 | 2 | 3 | 4);
+          const params = new URLSearchParams();
+          if (e.location?.parameters) {
+            for (const [k, v] of Object.entries(e.location.parameters)) {
+              if (Array.isArray(v)) {
+                params.set(k, v[0] || "");
+              } else if (typeof v === "string") {
+                params.set(k, v);
+              }
+            }
+          }
+          const targetView = getAppViewFromUrl(params, e.location?.hash || "");
+          setAppView(targetView);
+
+          const monthParam = params.get("month");
+          if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+            setPublicMonthKey(monthParam);
+          }
+          const memberParam = params.get("m") || params.get("name") || params.get("user");
+          if (memberParam !== null) {
+            setUrlMemberName(memberParam || "");
+          }
+
+          if (targetView === "coordinator") {
+            const raw =
+              e.state?.step ||
+              (e.location?.hash ? e.location.hash.replace("#step-", "").replace("step-", "") : "");
+            const parsed = parseInt(raw, 10);
+            if ([1, 2, 3, 4].includes(parsed)) {
+              setCurrentStepState(parsed as 1 | 2 | 3 | 4);
+            }
           }
         });
       } catch (err) {
@@ -2789,18 +2979,8 @@ function MainApp() {
       <PortalLandingView
         communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
         monthTitle={publicMonthTitle}
-        onSelectCoordinator={() => {
-          setAppView("coordinator");
-          if (!window.location.hash) window.location.hash = "#step-1";
-        }}
-        onSelectResident={() => {
-          setAppView("resident");
-          if (typeof window !== "undefined") {
-            const url = new URL(window.location.href);
-            url.searchParams.set("view", "schedule");
-            window.history.pushState(null, "", url.toString());
-          }
-        }}
+        onSelectCoordinator={() => navigateToView("coordinator", { step: 1 })}
+        onSelectResident={() => navigateToView("resident")}
       />
     );
   }
@@ -2819,18 +2999,8 @@ function MainApp() {
         onSelectMonth={handleSelectPublicMonth}
         initialMemberName={initialName}
         isLoading={loadingPublicSchedule}
-        onBackToHome={() => {
-          setAppView("portal");
-          if (typeof window !== "undefined") {
-            const url = new URL(window.location.href);
-            url.searchParams.delete("view");
-            window.history.pushState(null, "", url.toString());
-          }
-        }}
-        onOpenCoordinator={() => {
-          setAppView("coordinator");
-          if (!window.location.hash) window.location.hash = "#step-1";
-        }}
+        onBackToHome={() => navigateToView("portal")}
+        onOpenCoordinator={() => navigateToView("coordinator", { step: 1 })}
       />
     );
   }
@@ -2851,24 +3021,8 @@ function MainApp() {
         mealDates={intakeData?.mealDates || []}
         existingResponses={intakeData?.responses || []}
         communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
-        onBackToHome={() => {
-          setAppView("portal");
-          if (typeof window !== "undefined") {
-            const url = new URL(window.location.href);
-            url.searchParams.delete("view");
-            window.history.pushState(null, "", url.toString());
-          }
-        }}
-        onNavigateToSchedule={(month) => {
-          if (month) handleSelectPublicMonth(month);
-          setAppView("resident");
-          if (typeof window !== "undefined") {
-            const url = new URL(window.location.href);
-            url.searchParams.set("view", "schedule");
-            if (month) url.searchParams.set("month", month);
-            window.history.pushState(null, "", url.toString());
-          }
-        }}
+        onBackToHome={() => navigateToView("portal")}
+        onNavigateToSchedule={(month) => navigateToView("resident", { month })}
       />
     );
   }
@@ -2893,7 +3047,7 @@ function MainApp() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setAppView("resident")}
+              onClick={() => navigateToView("resident")}
               className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl text-xs font-bold bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-200 transition-colors cursor-pointer shadow-2xs"
               title="View and test the mobile member schedule & calendar download"
             >
@@ -3049,7 +3203,7 @@ function MainApp() {
                       role="menuitem"
                       onClick={() => {
                         setShowMainMenu(false);
-                        setAppView("resident");
+                        navigateToView("resident");
                       }}
                       className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-orange-50 text-left transition-colors group cursor-pointer"
                     >
@@ -3070,7 +3224,7 @@ function MainApp() {
                       role="menuitem"
                       onClick={() => {
                         setShowMainMenu(false);
-                        setAppView("survey");
+                        navigateToView("survey");
                       }}
                       className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-violet-50 text-left transition-colors group cursor-pointer"
                     >
@@ -3092,7 +3246,7 @@ function MainApp() {
                       role="menuitem"
                       onClick={() => {
                         setShowMainMenu(false);
-                        setAppView("portal");
+                        navigateToView("portal");
                       }}
                       className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-slate-50 text-left transition-colors group cursor-pointer"
                     >

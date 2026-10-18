@@ -147,7 +147,15 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
     return () => clearTimeout(timer);
   }, [toastMessage]);
 
-  // Save selected member to localStorage
+  // Sync with initialMemberName prop on URL changes
+  useEffect(() => {
+    if (initialMemberName && initialMemberName.trim()) {
+      setSelectedMember(initialMemberName.trim());
+      setIsChangingMember(false);
+    }
+  }, [initialMemberName]);
+
+  // Save selected member to localStorage and sync URL
   const handleSelectMember = (name: string) => {
     setSelectedMember(name);
     setIsChangingMember(false);
@@ -155,6 +163,12 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
       localStorage.setItem(STORAGE_KEY, name);
     } catch {
       // ignore
+    }
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("view", "schedule");
+      url.searchParams.set("name", name);
+      window.history.replaceState({ view: "resident", name }, "", url.toString());
     }
   };
 
@@ -165,6 +179,11 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
       localStorage.removeItem(STORAGE_KEY);
     } catch {
       // ignore
+    }
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("name");
+      window.history.replaceState({ view: "resident" }, "", url.toString());
     }
   };
 

@@ -145,10 +145,19 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
     setIsSubmittedSuccess(false);
     setErrorMessage(null);
 
-    if (typeof window !== "undefined" && targetName) {
+    if (typeof window !== "undefined") {
       try {
-        localStorage.setItem("cook_team_member_name", targetName);
+        if (targetName) {
+          localStorage.setItem("cook_team_member_name", targetName);
+        }
       } catch {}
+      const url = new URL(window.location.href);
+      if (targetName) {
+        url.searchParams.set("m", targetName);
+      } else {
+        url.searchParams.delete("m");
+      }
+      window.history.replaceState({ view: "survey", member: targetName }, "", url.toString());
     }
 
     if (!targetName) {

@@ -10,25 +10,59 @@ const rootDir = path.resolve(__dirname, "..");
 async function runE2ETest() {
   console.log("=== STARTING PLAYWRIGHT BROWSER E2E TEST ===");
 
-  // Spawn Vite dev server on dedicated test port 5174
-  const viteProcess = spawn("npx", ["vite", "--port", "5174", "--host"], {
-    cwd: rootDir,
-    stdio: "pipe",
-  });
+  // If running on host and chromium shared libraries are missing, auto-delegate to devcontainer if available
+  if (process.env.IN_CONTAINER !== "1") {
+    try {
+      const probe = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-setuid-sandbox"] });
+      await probe.close();
+    } catch (probeErr) {
+      if (probeErr.message.includes("error while loading shared libraries") || probeErr.message.includes("cannot open shared object file")) {
+        console.log("ℹ Host environment lacks browser shared libraries. Checking Docker devcontainer...");
+        try {
+          const { execSync } = await import("child_process");
+          const image = execSync("docker images --format '{{.Repository}}:{{.Tag}}' | grep -E 'vsc-cook-team|test-gas-devcontainer' | head -n 1", { encoding: "utf8" }).trim();
+          if (image) {
+            console.log(`🐳 Delegating E2E test execution to devcontainer image: ${image}`);
+            const child = spawn("docker", [
+              "run", "--rm",
+              "-e", "IN_CONTAINER=1",
+              "-v", `${rootDir}:/workspaces/cook-team`,
+              "-w", "/workspaces/cook-team",
+              image,
+              "node", "scripts/test-e2e.mjs"
+            ], { stdio: "inherit" });
+            child.on("exit", (code) => process.exit(code ?? 0));
+            return;
+          }
+        } catch {
+          // Fall through to normal launch
+        }
+      }
+    }
+  }
 
-  // Give Vite server time to initialize
-  await new Promise((resolve) => setTimeout(resolve, 2500));
-
-  const browser = await chromium.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
-
-  const context = await browser.newContext({
-    permissions: ["clipboard-read", "clipboard-write"],
-  });
-  const page = await context.newPage();
+  let viteProcess;
+  let browser;
   const errors = [];
+
+  // Spawn Vite dev server on dedicated test port 5174
+    viteProcess = spawn("npx", ["vite", "--port", "5174", "--host"], {
+      cwd: rootDir,
+      stdio: "pipe",
+    });
+
+    // Give Vite server time to initialize
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+
+    browser = await chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+
+    const context = await browser.newContext({
+      permissions: ["clipboard-read", "clipboard-write"],
+    });
+    const page = await context.newPage();
 
   page.on("pageerror", (err) => {
     console.error("❌ UNCAUGHT PAGE ERROR:", err.message);
@@ -64,6 +98,20 @@ async function runE2ETest() {
     await page.click("button:has-text('Open My Shifts')");
     await page.waitForSelector("text=Whose shifts are you looking for?");
     console.log("✓ Resident View loaded with member selector!");
+
+    // Verify URL args updated
+    await page.waitForFunction(() => window.location.search.includes("view=schedule"));
+    console.log("✓ URL args updated with ?view=schedule on selecting Resident view!");
+
+    // Test Browser Back button navigates back to landing page
+    await page.goBack();
+    await page.waitForSelector("text=What would you like to do?");
+    console.log("✓ Browser Back button returned from Resident View to Portal Landing View!");
+
+    // Test Browser Forward button returns to Resident view
+    await page.goForward();
+    await page.waitForSelector("text=Whose shifts are you looking for?");
+    console.log("✓ Browser Forward button returned to Resident View!");
 
     // Select Brenda from member names
     const brendaBtn = page.locator("button:has-text('Brenda')").first();
@@ -236,6 +284,20 @@ async function runE2ETest() {
     await coordBtn.click();
     await page.waitForSelector("text=Community Cook Team App");
     console.log("✓ Successfully navigated to Coordinator Planning Wizard via Hub Home!");
+
+    // Verify Coordinator selection updated URL args
+    await page.waitForFunction(() => window.location.search.includes("view=coordinator"));
+    console.log("✓ URL args updated with ?view=coordinator on selecting Coordinator Wizard!");
+
+    // Test Browser Back button navigates back to landing page
+    await page.goBack();
+    await page.waitForSelector("text=What would you like to do?");
+    console.log("✓ Browser Back button returned from Coordinator to Portal Landing View!");
+
+    // Re-enter Coordinator view via Forward button
+    await page.goForward();
+    await page.waitForSelector("text=Community Cook Team App");
+    console.log("✓ Browser Forward button returned to Coordinator Planning Wizard!");
 
     // Verify Step 1: Intake & Audit
     console.log("2. Verifying Step 1: Intake & Audit ...");
@@ -582,8 +644,8 @@ async function runE2ETest() {
     console.error("FATAL ERROR IN E2E TEST:", err);
     errors.push(err.message);
   } finally {
-    await browser.close();
-    viteProcess.kill();
+    await browser?.close();
+    viteProcess?.kill();
   }
 
   process.exit(errors.length === 0 ? 0 : 1);
