@@ -116,8 +116,8 @@ async function runE2ETest() {
     // Select Brenda from member names
     const brendaBtn = page.locator("button:has-text('Brenda')").first();
     await brendaBtn.click();
-    await page.waitForSelector("text=Showing Shifts For");
     await page.waitForSelector("text=Add All My Shifts to Calendar (.ics)");
+    await page.waitForSelector("button:has-text('Switch')");
     console.log("✓ Selected member Brenda and verified shifts & calendar export button!");
 
     // Test Calendar / List toggle on My Shifts tab
@@ -192,8 +192,9 @@ async function runE2ETest() {
     if (hasLandingTitle > 0) {
       throw new Error("Landing page was not bypassed when view=schedule was passed in query parameter!");
     }
-    await page.waitForSelector("text=Showing Shifts For");
-    await page.waitForSelector("h2:has-text('Rose')");
+    await page.waitForSelector("text=Add All My Shifts to Calendar (.ics)");
+    await page.waitForSelector("button:has-text('Switch')");
+    await page.waitForSelector("text=Rose");
     console.log("✓ Successfully loaded Resident View directly with Rose pre-selected!");
 
     // Test responsive viewport at 500px and 555px
@@ -215,7 +216,6 @@ async function runE2ETest() {
     // Test on 375px mobile screen: Verify combined Switch button, icon-only calendar switcher, and no overlaps
     console.log("1f-ii. Verifying mobile viewport layout (375px) ...");
     await page.setViewportSize({ width: 375, height: 800 });
-    await page.waitForSelector("text=Shifts For");
     await page.waitForSelector("button:has-text('Switch')");
     await page.waitForSelector("button[title='Calendar view']");
     await page.waitForSelector("button[title='List view']");
@@ -282,7 +282,7 @@ async function runE2ETest() {
     await page.waitForSelector("text=Coordinator Planning Wizard");
     const coordBtn = page.locator("button:has-text('Coordinator Planning Wizard')").first();
     await coordBtn.click();
-    await page.waitForSelector("text=Community Cook Team App");
+    await page.waitForSelector("text=CoHo CookTeam");
     console.log("✓ Successfully navigated to Coordinator Planning Wizard via Hub Home!");
 
     // Verify Coordinator selection updated URL args
@@ -296,7 +296,7 @@ async function runE2ETest() {
 
     // Re-enter Coordinator view via Forward button
     await page.goForward();
-    await page.waitForSelector("text=Community Cook Team App");
+    await page.waitForSelector("text=CoHo CookTeam");
     console.log("✓ Browser Forward button returned to Coordinator Planning Wizard!");
 
     // Verify Step 1: Intake & Audit

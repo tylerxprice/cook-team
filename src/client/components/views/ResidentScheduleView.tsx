@@ -9,10 +9,10 @@ import {
   Search,
   X,
   Info,
-  Home,
   Loader2,
   LayoutGrid,
   List,
+  Utensils,
 } from "lucide-react";
 import { DaySchedule, Member } from "../../../server/types";
 import { parseDateFromLabelOrKey } from "../../../server/scheduleParser";
@@ -67,7 +67,8 @@ function formatMonthDisplay(mKey: string): string {
       "December",
     ];
     if (mo >= 1 && mo <= 12) {
-      return `${months[mo - 1]} ${yr}`;
+      const yrShort = yr.length === 4 ? yr.slice(2) : yr;
+      return `${months[mo - 1]} ${yrShort}`;
     }
   }
   return mKey;
@@ -786,18 +787,27 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
 
       {/* Top Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-2">
-          {/* Left: Home + Month selector */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={onBackToHome}
-              title="Return to Hub Home"
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors cursor-pointer shrink-0"
-            >
-              <Home className="w-4 h-4" />
-            </button>
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
+          {/* Left: Brand / Return to Hub Home */}
+          <button
+            type="button"
+            onClick={onBackToHome}
+            title="Return to Hub Home"
+            className="flex items-center space-x-2 sm:space-x-2.5 text-left group cursor-pointer shrink-0 min-w-0"
+          >
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform shrink-0">
+              <Utensils className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-base md:text-lg font-black text-slate-900 tracking-tight group-hover:text-orange-600 transition-colors truncate">
+                <span className="hidden xs:inline">CoHo </span>CookTeam
+                <span className="hidden sm:inline"> App</span>
+              </h1>
+            </div>
+          </button>
 
+          {/* Right: Month Dropdown + Member Chip */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Reusable Month Dropdown */}
             <div className="relative inline-flex items-center">
               <Calendar className="w-3.5 h-3.5 text-orange-600 absolute left-2 sm:left-2.5 pointer-events-none" />
@@ -805,7 +815,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                 value={monthKey || ""}
                 onChange={(e) => onSelectMonth && onSelectMonth(e.target.value)}
                 aria-label="Select meal month"
-                className="text-xs sm:text-sm font-black text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl pl-7 sm:pl-8 pr-6 sm:pr-7 py-1 sm:py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500/20 cursor-pointer appearance-none transition-colors"
+                className="text-xs sm:text-sm font-black text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl pl-7 sm:pl-8 pr-6 sm:pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500/20 cursor-pointer appearance-none transition-colors"
               >
                 {displayMonths.map((m) => (
                   <option key={m} value={m}>
@@ -815,33 +825,29 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-1.5 sm:right-2 pointer-events-none" />
             </div>
-          </div>
 
-          {/* Right: Showing Shifts For Member Chip (if selected) */}
-          {selectedMember && !isChangingMember && (
-            <div className="flex items-center gap-1.5 sm:gap-2 bg-orange-50/90 border border-orange-200 rounded-xl px-2 sm:px-2.5 py-1 text-xs shadow-2xs min-w-0 shrink-0">
-              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-orange-600 text-white flex items-center justify-center font-black text-[10px] sm:text-xs shrink-0">
-                {selectedMember.charAt(0).toUpperCase()}
-              </div>
-              <div className="min-w-0 overflow-hidden">
-                <span className="text-[9px] sm:text-[10px] font-bold text-orange-700 uppercase tracking-wider block leading-tight truncate">
-                  <span className="hidden sm:inline">Showing </span>Shifts For
-                </span>
-                <h2 className="text-xs sm:text-sm font-black text-slate-900 truncate leading-tight m-0 max-w-[85px] sm:max-w-[200px]">
+            {/* Member Badge | T name X | */}
+            {selectedMember && !isChangingMember && (
+              <div className="inline-flex items-center gap-1 sm:gap-1.5 bg-orange-50/90 border border-orange-200 rounded-xl pl-1 pr-1.5 py-1 text-xs shadow-2xs min-w-0 shrink-0">
+                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-orange-600 text-white flex items-center justify-center font-black text-[10px] sm:text-xs shrink-0 shadow-2xs">
+                  {selectedMember.charAt(0).toUpperCase()}
+                </div>
+                <span className="font-black text-slate-900 truncate max-w-[80px] sm:max-w-[150px] pl-0.5">
                   {selectedMember}
-                </h2>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleClearMember}
+                  title={`Clear ${selectedMember} (switch resident)`}
+                  aria-label="Switch resident"
+                  className="w-5 h-5 rounded-md hover:bg-orange-200/80 text-orange-800 hover:text-orange-950 flex items-center justify-center transition-colors cursor-pointer shrink-0 ml-0.5"
+                >
+                  <span className="sr-only">Switch</span>
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleClearMember}
-                title="Switch or clear resident"
-                className="px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-[11px] font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer shrink-0 flex items-center gap-1 ml-0.5 shadow-2xs"
-              >
-                <span>Switch</span>
-                <X className="w-3 h-3 text-slate-400" />
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </header>
 

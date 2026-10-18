@@ -82,3 +82,34 @@ test("Survey Form Generator - Not Available Grid Columns & Prefill Defaults", ()
   assert.equal(prefillValues.length, 14);
   assert.ok(prefillValues.every((v) => v === "Not Available"));
 });
+
+test("Survey Form Generator - Continuous Sunday Alternating Pattern (Nov Brunch -> Dec Dinner)", () => {
+  // November 2026: 5 Sundays, ending on Nov 29 with Brunch
+  const novDates = generateMonthlySurveyDates("2026-11");
+  const novSundays = novDates.filter((d) => d.dayOfWeek === "Sunday");
+  assert.equal(novSundays.length, 5);
+  assert.equal(novSundays[0].dateKey, "2026-11-01");
+  assert.equal(novSundays[0].mealType, "BRUNCH");
+  assert.equal(novSundays[4].dateKey, "2026-11-29");
+  assert.equal(novSundays[4].mealType, "BRUNCH");
+
+  // December 2026: Since Nov 29 was Brunch, Dec 6 MUST BE DINNER
+  const decDates = generateMonthlySurveyDates("2026-12");
+  const decSundays = decDates.filter((d) => d.dayOfWeek === "Sunday");
+  assert.equal(decSundays[0].dateKey, "2026-12-06");
+  assert.equal(decSundays[0].mealType, "DINNER");
+  assert.equal(decSundays[0].dateLabel, "Dec 6 (Sun, Dinner)");
+  assert.equal(decSundays[1].dateKey, "2026-12-13");
+  assert.equal(decSundays[1].mealType, "BRUNCH");
+  assert.equal(decSundays[2].dateKey, "2026-12-20");
+  assert.equal(decSundays[2].mealType, "DINNER");
+  assert.equal(decSundays[3].dateKey, "2026-12-27");
+  assert.equal(decSundays[3].mealType, "BRUNCH");
+
+  // January 2027: Since Dec 27 was Brunch, Jan 3 MUST BE DINNER
+  const janDates = generateMonthlySurveyDates("2027-01");
+  const janSundays = janDates.filter((d) => d.dayOfWeek === "Sunday");
+  assert.equal(janSundays[0].dateKey, "2027-01-03");
+  assert.equal(janSundays[0].mealType, "DINNER");
+  assert.equal(janSundays[0].dateLabel, "Jan 3 (Sun, Dinner)");
+});

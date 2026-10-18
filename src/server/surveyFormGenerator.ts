@@ -47,6 +47,30 @@ export function deriveFormTitle(monthKey: string): string {
  * Automatically generates all standard Sundays (alternating Brunch/Dinner),
  * Mondays (Dinner), and Thursdays (Dinner) for a given monthKey (e.g. "2026-11").
  */
+/**
+ * Anchor date for Sunday alternating meal types:
+ * 2026-11-01 was Sunday Brunch (and November 2026 ended on Nov 29 with Sunday Brunch).
+ * Every Sunday alternates continuously across the months throughout the year:
+ * Even week offset from Nov 1, 2026 -> BRUNCH ("Sun, Brunch")
+ * Odd week offset from Nov 1, 2026 -> DINNER ("Sun, Dinner")
+ */
+const SUNDAY_ANCHOR_UTC = Date.UTC(2026, 10, 1); // 2026-11-01
+const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+
+export function getSundayMealType(
+  year: number,
+  monthZeroIndexed: number,
+  day: number
+): { mealType: MealType; typeLabel: string } {
+  const currentUtc = Date.UTC(year, monthZeroIndexed, day);
+  const diffWeeks = Math.round((currentUtc - SUNDAY_ANCHOR_UTC) / MS_PER_WEEK);
+  const isBrunch = ((diffWeeks % 2) + 2) % 2 === 0;
+  return {
+    mealType: isBrunch ? "BRUNCH" : "DINNER",
+    typeLabel: isBrunch ? "Sun, Brunch" : "Sun, Dinner",
+  };
+}
+
 export function generateMonthlySurveyDates(monthKey: string): SurveyFormDateConfig[] {
   const m = monthKey.match(/^(\d{4})[-_](\d{1,2})$/);
   if (!m) {
@@ -60,8 +84,6 @@ export function generateMonthlySurveyDates(monthKey: string): SurveyFormDateConf
   const monthShort = MONTH_NAMES[month];
 
   const dates: SurveyFormDateConfig[] = [];
-  let sundayCounter = 0;
-
   const totalDays = new Date(year, month + 1, 0).getDate();
 
   for (let day = 1; day <= totalDays; day++) {
@@ -70,11 +92,8 @@ export function generateMonthlySurveyDates(monthKey: string): SurveyFormDateConf
     const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
     if (dayOfWeek === 0) {
-      // Sunday: Alternate Brunch and Dinner
-      const isBrunch = sundayCounter % 2 === 0;
-      sundayCounter++;
-      const mealType: MealType = isBrunch ? "BRUNCH" : "DINNER";
-      const typeLabel = isBrunch ? "Sun, Brunch" : "Sun, Dinner";
+      // Sunday: Alternate Brunch and Dinner continuously throughout the year
+      const { mealType, typeLabel } = getSundayMealType(year, month, day);
       const dateLabel = `${monthShort} ${day} (${typeLabel})`;
 
       dates.push({

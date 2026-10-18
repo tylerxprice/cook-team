@@ -65,6 +65,12 @@ function dumpHistoricalRawDataOnly() { return globalThis.dumpHistoricalRawDataOn
 function updateUserGuideDoc(docId) { return globalThis.updateUserGuideDoc ? globalThis.updateUserGuideDoc(docId) : null; }
 function getPublicSchedule(monthKey, sheetId) { return globalThis.getPublicSchedule ? globalThis.getPublicSchedule(monthKey, sheetId) : null; }
 function populatePublishedMonthsInMaster(customMasterSpreadsheetIdOrUrl) { return globalThis.populatePublishedMonthsInMaster ? globalThis.populatePublishedMonthsInMaster(customMasterSpreadsheetIdOrUrl) : null; }
+function saveMasterSettings(settings, masterSheetId, isDevMode) { return globalThis.saveMasterSettings ? globalThis.saveMasterSettings(settings, masterSheetId, isDevMode) : null; }
+function getMonthConfig(monthKey) { return globalThis.getMonthConfig ? globalThis.getMonthConfig(monthKey) : null; }
+function saveMonthDatesAndOpen(payload) { return globalThis.saveMonthDatesAndOpen ? globalThis.saveMonthDatesAndOpen(payload) : null; }
+function setMonthStatus(monthKey, status) { return globalThis.setMonthStatus ? globalThis.setMonthStatus(monthKey, status) : null; }
+function saveWebSurveyResponse(payload) { return globalThis.saveWebSurveyResponse ? globalThis.saveWebSurveyResponse(payload) : null; }
+function sendBetaSurveyInvitations(payload) { return globalThis.sendBetaSurveyInvitations ? globalThis.sendBetaSurveyInvitations(payload) : null; }
 `;
   fs.appendFileSync(codeDest, gasStubs, "utf8");
   console.log("✓ Appended top-level GAS entrypoint functions to dist/Code.js");

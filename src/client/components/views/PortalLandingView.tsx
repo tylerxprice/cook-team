@@ -9,30 +9,26 @@ export interface PortalLandingViewProps {
 }
 
 export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
-  communityName = "Vancouver Cohousing",
+  communityName: _communityName = "Vancouver Cohousing",
   onSelectCoordinator,
   onSelectResident,
-  monthTitle = "Community Meals",
+  monthTitle: _monthTitle = "Community Meals",
 }) => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
       {/* Top Banner */}
-      <header className="bg-white border-b border-slate-200 py-4 px-6 sticky top-0 z-10 shadow-xs">
+      <header className="bg-white border-b border-slate-200 py-3 px-4 sm:px-6 sticky top-0 z-10 shadow-xs">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-600 text-white flex items-center justify-center font-black text-xl shadow-xs">
-              🍳
+          <div className="flex items-center space-x-2.5 sm:space-x-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20 shrink-0">
+              <Utensils className="w-5 h-5" />
             </div>
             <div>
               <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                {communityName}
+                CoHo CookTeam
               </h1>
-              <p className="text-xs text-slate-500 font-medium">Common Meal &amp; Team Hub</p>
             </div>
           </div>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-orange-50 text-orange-800 border border-orange-200">
-            {monthTitle}
-          </span>
         </div>
       </header>
 
