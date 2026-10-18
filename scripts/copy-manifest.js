@@ -63,6 +63,8 @@ function appendManualSurveyResponse(spreadsheetUrlOrId, payload, isDevMode) { re
 function runHistoricalImportOnce() { return globalThis.runHistoricalImportOnce ? globalThis.runHistoricalImportOnce() : null; }
 function dumpHistoricalRawDataOnly() { return globalThis.dumpHistoricalRawDataOnly ? globalThis.dumpHistoricalRawDataOnly() : null; }
 function updateUserGuideDoc(docId) { return globalThis.updateUserGuideDoc ? globalThis.updateUserGuideDoc(docId) : null; }
+function getPublicSchedule(monthKey, sheetId) { return globalThis.getPublicSchedule ? globalThis.getPublicSchedule(monthKey, sheetId) : null; }
+function populatePublishedMonthsInMaster(customMasterSpreadsheetIdOrUrl) { return globalThis.populatePublishedMonthsInMaster ? globalThis.populatePublishedMonthsInMaster(customMasterSpreadsheetIdOrUrl) : null; }
 `;
   fs.appendFileSync(codeDest, gasStubs, "utf8");
   console.log("✓ Appended top-level GAS entrypoint functions to dist/Code.js");

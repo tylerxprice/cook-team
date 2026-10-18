@@ -162,6 +162,140 @@ function recordPublishedMonthInMaster(monthKey: string): void {
 }
 
 /**
+ * Standalone helper runnable from Google Apps Script project editor.
+ * Initializes or updates 'published_months' in the Master Registry spreadsheet's 'Settings' tab.
+ */
+function populatePublishedMonthsInMaster(customMasterSpreadsheetIdOrUrl?: string): {
+  success: boolean;
+  updatedSheets: Array<{ env: string; name: string; id: string; row: number; value: string }>;
+  publishedMonths: string[];
+  message: string;
+} {
+  Logger.log("=======================================================");
+  Logger.log("  POPULATE PUBLISHED MONTHS IN MASTER SPREADSHEET");
+  Logger.log("=======================================================");
+
+  // 1. Gather all completed months
+  const monthsSet = new Set<string>();
+  DEFAULT_COMPLETED_MONTHS.forEach((m) => monthsSet.add(m));
+
+  // Also discover any additional completed schedule months from Drive
+  try {
+    const driveItems = listDriveSpreadsheets();
+    for (const item of driveItems) {
+      const mMatch = item.name.match(/(?:20)?(\d{2})[-_](\d{2})/);
+      if (mMatch) {
+        monthsSet.add(`20${mMatch[1]}-${mMatch[2]}`);
+      }
+    }
+  } catch (driveErr) {
+    Logger.log("Notice: listDriveSpreadsheets skipped during month scan: " + driveErr);
+  }
+
+  // Filter valid YYYY-MM and sort descending
+  const sortedMonths = Array.from(monthsSet)
+    .filter((m) => /^\d{4}-\d{2}$/.test(m))
+    .sort((a, b) => b.localeCompare(a));
+  const monthsStr = sortedMonths.join(",");
+
+  Logger.log("Target published months to write: " + monthsStr);
+
+  const results: Array<{ env: string; name: string; id: string; row: number; value: string }> = [];
+
+  // Determine target spreadsheets
+  const targets: Array<{ label: string; sheet: GoogleAppsScript.Spreadsheet.Spreadsheet | null }> = [];
+  if (customMasterSpreadsheetIdOrUrl && customMasterSpreadsheetIdOrUrl.trim()) {
+    targets.push({
+      label: "Custom",
+      sheet: getMasterRegistrySpreadsheet(customMasterSpreadsheetIdOrUrl.trim()),
+    });
+  } else {
+    targets.push({
+      label: "Production",
+      sheet: getMasterRegistrySpreadsheet(undefined, false),
+    });
+    targets.push({
+      label: "Dev / Testing",
+      sheet: getMasterRegistrySpreadsheet(undefined, true),
+    });
+  }
+
+  const seenIds = new Set<string>();
+
+  for (const target of targets) {
+    const master = target.sheet;
+    if (!master) {
+      Logger.log(`⚠️ Could not locate ${target.label} Master Registry Spreadsheet.`);
+      continue;
+    }
+
+    const sheetId = master.getId();
+    if (seenIds.has(sheetId)) {
+      continue;
+    }
+    seenIds.add(sheetId);
+
+    try {
+      Logger.log(`\nFound ${target.label} Master Registry: "${master.getName()}" (ID: ${sheetId})`);
+
+      let settingsSheet = master.getSheetByName("Settings");
+      if (!settingsSheet) {
+        settingsSheet = master.insertSheet("Settings");
+        settingsSheet.appendRow(["Key", "Value", "Description"]);
+        settingsSheet.getRange(1, 1, 1, 3).setFontWeight("bold");
+        Logger.log(`  + Created missing 'Settings' tab.`);
+      }
+
+      const data = settingsSheet.getDataRange().getValues();
+      let pubRow = -1;
+
+      for (let i = 1; i < data.length; i++) {
+        const k = String(data[i][0] || "").trim().toLowerCase().replace(/[\s-_]+/g, "_");
+        if (k === "published_months" || k === "publishedmonths") {
+          pubRow = i + 1;
+          break;
+        }
+      }
+
+      if (pubRow > 0) {
+        settingsSheet.getRange(pubRow, 2).setValue(monthsStr);
+        settingsSheet.getRange(pubRow, 3).setValue("Comma-separated list of months with finalized completed schedules");
+        Logger.log(`  ✓ Updated existing 'published_months' at row #${pubRow} to: ${monthsStr}`);
+      } else {
+        settingsSheet.appendRow([
+          "published_months",
+          monthsStr,
+          "Comma-separated list of months with finalized completed schedules",
+        ]);
+        pubRow = settingsSheet.getLastRow();
+        Logger.log(`  ✓ Appended new 'published_months' row #${pubRow} with: ${monthsStr}`);
+      }
+
+      results.push({
+        env: target.label,
+        name: master.getName(),
+        id: sheetId,
+        row: pubRow,
+        value: monthsStr,
+      });
+    } catch (sheetErr: any) {
+      Logger.log(`❌ Error updating ${target.label} Master Registry: ${sheetErr.message || sheetErr}`);
+    }
+  }
+
+  Logger.log("\n=======================================================");
+  Logger.log(`🎉 Finished! Successfully populated published_months in ${results.length} Master spreadsheet(s).`);
+  Logger.log("=======================================================");
+
+  return {
+    success: results.length > 0,
+    updatedSheets: results,
+    publishedMonths: sortedMonths,
+    message: `Successfully populated published_months in ${results.length} master spreadsheet(s).`,
+  };
+}
+
+/**
  * Generates server-side bootstrap payload for zero-RPC instant client hydration on load.
  */
 function getInitialBootstrapData(paramsOrEvent?: any): {
@@ -754,6 +888,11 @@ function saveMasterSettings(
       key: "signupWorkbookId",
       sheetKey: "signup_workbook_id",
       desc: "Master Common Meal Sign-Up Google Sheet ID or URL",
+    },
+    publishedMonths: {
+      key: "publishedMonths",
+      sheetKey: "published_months",
+      desc: "Comma-separated list of months with finalized completed schedules",
     },
   };
 
@@ -2907,3 +3046,4 @@ g.authorizeAppScopes = authorizeAppScopes;
 g.authorizeAllPermissions = authorizeAllPermissions;
 g.updateUserGuideDoc = updateUserGuideDoc;
 g.getPublicSchedule = getPublicSchedule;
+g.populatePublishedMonthsInMaster = populatePublishedMonthsInMaster;

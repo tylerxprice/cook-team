@@ -651,6 +651,36 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
       return res as unknown as T;
     }
 
+    case "populatePublishedMonthsInMaster": {
+      const targetMonths = [
+        "2026-10",
+        "2026-09",
+        "2026-08",
+        "2026-07",
+        "2026-06",
+        "2026-05",
+        "2026-04",
+        "2026-03",
+        "2026-02",
+        "2026-01",
+      ];
+      mockMasterSettings.published_months = targetMonths.join(",");
+      return {
+        success: true,
+        updatedSheets: [
+          {
+            env: "Mock",
+            name: "Mock Master Registry",
+            id: "mock-master-sheet",
+            row: 2,
+            value: mockMasterSettings.published_months,
+          },
+        ],
+        publishedMonths: targetMonths,
+        message: "Successfully populated published_months in mock master spreadsheet.",
+      } as unknown as T;
+    }
+
     case "exportScheduleToSheet": {
       const [spreadsheetId, scheduleOutput] = args as [string, ScheduleOutput];
       let monthSuffix = "";
