@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from "react";
 import {
-  Sparkles,
   User,
   CheckCircle2,
   Calendar,
   AlertCircle,
   RefreshCw,
-  Home,
   ChevronDown,
-  ArrowRight,
   Clock,
   Lock,
-  CalendarCheck,
+  Utensils,
+  ArrowLeft,
 } from "lucide-react";
 import {
   Member,
@@ -46,9 +44,11 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
   mealDates = [],
   existingResponses = [],
   onBackToHome,
-  onNavigateToSchedule,
+  onNavigateToSchedule: _onNavigateToSchedule,
   communityName = "Vancouver Cohousing",
 }) => {
+  const isLockedMember = Boolean(initialMemberName && initialMemberName.trim());
+
   // Member selection state
   const [selectedMemberName, setSelectedMemberName] = useState<string>(() => {
     if (initialMemberName && initialMemberName.trim()) {
@@ -327,43 +327,48 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
-      {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-800 border border-violet-200 flex items-center justify-center shrink-0">
-              <Sparkles className="w-5 h-5 text-violet-700" />
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16 font-sans">
+      {/* Top Navigation Bar - Standard CoHo CookTeam Header */}
+      <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-xs">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-3">
+          {/* Brand Logo & Title */}
+          <button
+            type="button"
+            onClick={onBackToHome}
+            title="Return to Hub Home"
+            className="flex items-center space-x-2.5 text-left group cursor-pointer shrink-0 min-w-0"
+          >
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform shrink-0">
+              <Utensils className="w-5 h-5" />
             </div>
-            <div>
-              <h1 className="text-sm sm:text-base font-black text-slate-900 leading-tight">
-                {communityName}
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-base md:text-lg font-black text-slate-900 tracking-tight group-hover:text-orange-600 transition-colors truncate">
+                <span className="hidden xs:inline">CoHo </span>CookTeam
               </h1>
-              <p className="text-xs text-violet-700 font-bold">Meal Team Sign-Up • {monthTitle}</p>
+              {communityName && (
+                <p className="text-[10px] text-slate-500 font-semibold truncate leading-none mt-0.5">
+                  {communityName}
+                </p>
+              )}
             </div>
-          </div>
+          </button>
 
+          {/* Right Header: Prominent Month Badge & Hub Home */}
           <div className="flex items-center gap-2">
-            {onNavigateToSchedule && (
-              <button
-                type="button"
-                onClick={() => onNavigateToSchedule(monthKey)}
-                className="min-h-[40px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
-                title="View finalized shifts for this month"
-              >
-                <Calendar className="w-4 h-4 text-slate-600" />
-                <span className="hidden sm:inline">View Shifts</span>
-              </button>
-            )}
+            <span className="px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-xl bg-orange-100 text-orange-950 border border-orange-300 inline-flex items-center gap-1.5 shadow-2xs">
+              <Calendar className="w-3.5 h-3.5 text-orange-700" />
+              <span>{monthTitle} Sign-Up</span>
+            </span>
+
             {onBackToHome && (
               <button
                 type="button"
                 onClick={onBackToHome}
-                className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                className="min-h-[38px] px-3.5 py-1.5 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 border border-slate-200 shadow-2xs"
                 title="Return to Hub Home"
-                aria-label="Home"
               >
-                <Home className="w-5 h-5" />
+                <ArrowLeft className="w-4 h-4 text-slate-500" />
+                <span className="hidden sm:inline">Hub Home</span>
               </button>
             )}
           </div>
@@ -430,14 +435,13 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
                 Edit Response
               </button>
 
-              {onNavigateToSchedule && (
+              {onBackToHome && (
                 <button
                   type="button"
-                  onClick={() => onNavigateToSchedule(monthKey)}
-                  className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-violet-700 hover:bg-violet-800 text-white font-bold rounded-xl text-xs sm:text-sm shadow-sm transition-colors cursor-pointer"
+                  onClick={onBackToHome}
+                  className="w-full sm:w-auto min-h-[44px] px-5 py-2 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                 >
-                  <span>View Shifts Schedule</span>
-                  <ArrowRight className="w-4 h-4" />
+                  Return to Hub Home
                 </button>
               )}
             </div>
@@ -474,17 +478,24 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
                 <span>
                   Signed in as: <strong>{selectedMemberName}</strong>
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setIsChangingMember(true)}
-                  className="text-violet-700 hover:text-violet-900 font-bold ml-1 cursor-pointer"
-                >
-                  (Switch)
-                </button>
+                {isLockedMember ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 bg-slate-200/80 px-2 py-0.5 rounded-md ml-1">
+                    <Lock className="w-3 h-3 text-slate-500" />
+                    Personal Link
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsChangingMember(true)}
+                    className="text-violet-700 hover:text-violet-900 font-bold ml-1 cursor-pointer"
+                  >
+                    (Switch)
+                  </button>
+                )}
               </div>
             )}
 
-            {isChangingMember && (
+            {!isLockedMember && isChangingMember && (
               <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl max-w-md mx-auto space-y-3 text-left">
                 <div className="flex items-center justify-between gap-2">
                   <label
@@ -529,18 +540,18 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
               </div>
             )}
 
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-              {onNavigateToSchedule && (
+            {onBackToHome && (
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
                   type="button"
-                  onClick={() => onNavigateToSchedule()}
-                  className="w-full sm:w-auto px-6 py-2.5 text-xs sm:text-sm font-bold text-white bg-violet-700 hover:bg-violet-800 rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  onClick={onBackToHome}
+                  className="w-full sm:w-auto px-6 py-2.5 text-xs sm:text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer border border-slate-200"
                 >
-                  <Calendar className="w-4 h-4" />
-                  <span>View Latest Published Shifts Schedule</span>
+                  <ArrowLeft className="w-4 h-4 text-slate-500" />
+                  <span>Return to Hub Home</span>
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         ) : (
           /* Main Survey Form Container */
@@ -574,25 +585,25 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-amber-200/80">
-                  {onNavigateToSchedule && (
-                    <button
-                      type="button"
-                      onClick={() => onNavigateToSchedule(monthKey)}
-                      className="px-4 py-2 text-xs font-bold text-white bg-violet-700 hover:bg-violet-800 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <CalendarCheck className="w-4 h-4" />
-                      <span>View Published Shifts Schedule →</span>
-                    </button>
-                  )}
-                  <span className="text-xs text-slate-500 italic">
+                  <span className="text-xs text-slate-600 italic">
                     Need to swap a shift? Please contact your Community Meal Coordinator directly.
                   </span>
+                  {onBackToHome && (
+                    <button
+                      type="button"
+                      onClick={onBackToHome}
+                      className="px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-amber-100/80 hover:bg-amber-200 border border-amber-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Return to Hub Home</span>
+                    </button>
+                  )}
                 </div>
               </div>
             )}
 
             {/* Resident Greeting & Member Switcher */}
-            <div className="bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="bg-gradient-to-r from-violet-50 via-indigo-50 to-purple-50 border border-violet-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
                 <div className="w-12 h-12 rounded-xl bg-violet-600 text-white flex items-center justify-center font-black text-lg shadow-xs shrink-0">
                   {selectedMemberName ? (
@@ -605,6 +616,9 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-bold text-violet-900 bg-violet-100 border border-violet-300 px-2.5 py-0.5 rounded-lg">
                       Community Member
+                    </span>
+                    <span className="text-xs font-black text-orange-950 bg-orange-100 border border-orange-300 px-2.5 py-0.5 rounded-lg shadow-2xs">
+                      Meal Team Sign-Up • {monthTitle}
                     </span>
                     {monthStatus === "OPEN" ? (
                       <span className="text-xs font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-lg flex items-center gap-1">
@@ -623,26 +637,33 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
                       </span>
                     )}
                   </div>
-                  <h2 className="text-lg sm:text-xl font-black text-slate-900 mt-0.5">
+                  <h2 className="text-lg sm:text-xl font-black text-slate-900 mt-1">
                     {selectedMemberName
-                      ? `Hi, ${selectedMemberName}!`
-                      : "Welcome! Please choose your name:"}
+                      ? `Hi, ${selectedMemberName}! Meal Team Sign-Up for ${monthTitle}`
+                      : `Welcome! Please choose your name for ${monthTitle} Meal Team Sign-Up:`}
                   </h2>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsChangingMember(!isChangingMember)}
-                className="min-h-[40px] inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-violet-900 bg-white hover:bg-violet-100/60 border border-violet-300 rounded-xl transition-colors cursor-pointer self-start sm:self-center"
-              >
-                <span>{selectedMemberName ? "Switch Person" : "Select Name"}</span>
-                <ChevronDown className="w-4 h-4" />
-              </button>
+              {isLockedMember ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-600 text-xs font-bold self-start sm:self-center shadow-2xs">
+                  <Lock className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Personal Link</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsChangingMember(!isChangingMember)}
+                  className="min-h-[40px] inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-violet-900 bg-white hover:bg-violet-100/60 border border-violet-300 rounded-xl transition-colors cursor-pointer self-start sm:self-center"
+                >
+                  <span>{selectedMemberName ? "Switch Person" : "Select Name"}</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             {/* In-Place Member Selector Drawer */}
-            {isChangingMember && (
+            {!isLockedMember && isChangingMember && (
               <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl space-y-3 animate-in fade-in duration-150">
                 <div className="flex items-center justify-between gap-2">
                   <label
@@ -727,6 +748,7 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
             {/* The Shared Availability & Preference Controls */}
             <form onSubmit={handleSubmit} className="space-y-6">
               <SurveyResponseForm
+                monthKey={monthKey}
                 mealDates={activeMealDates}
                 cookQuota={cookQuota}
                 setCookQuota={setCookQuota}

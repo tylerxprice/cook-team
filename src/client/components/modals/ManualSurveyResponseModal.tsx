@@ -41,6 +41,7 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const mealDates: MealDate[] = intakeData?.mealDates || [];
+  const derivedMonthKey = mealDates[0]?.dateKey ? mealDates[0].dateKey.slice(0, 7) : undefined;
 
   const populateFormForMember = (targetName: string) => {
     setSelectedMemberName(targetName);
@@ -335,6 +336,7 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
 
           {/* Shared Availability and Preferences Controls */}
           <SurveyResponseForm
+            monthKey={derivedMonthKey}
             mealDates={mealDates}
             cookQuota={cookQuota}
             setCookQuota={setCookQuota}

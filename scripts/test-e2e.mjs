@@ -238,6 +238,14 @@ async function runE2ETest() {
     // Select Same Day Preference: PREFERRED
     await page.selectOption("#survey-form-same-day-pref", "PREFERRED");
 
+    // Test Calendar / List toggle on Survey Availability
+    const surveyListBtn = page.locator("button:has-text('List')").first();
+    await surveyListBtn.click();
+    console.log("✓ Toggled survey availability to List view!");
+    const surveyCalBtn = page.locator("button:has-text('Calendar')").first();
+    await surveyCalBtn.click();
+    console.log("✓ Toggled survey availability back to Calendar view!");
+
     // Mark all dates available
     const allAvailBtn = page.locator("button:has-text('All Available')").first();
     await allAvailBtn.click();
@@ -265,7 +273,7 @@ async function runE2ETest() {
     await page.goto("http://localhost:5174/?view=survey&month=2026-10&m=Brenda", { waitUntil: "networkidle" });
     await page.waitForSelector("text=Sign-Ups Closed");
     await page.waitForSelector("text=Teams Have Been Scheduled");
-    await page.waitForSelector("text=View Published Shifts Schedule");
+    await page.waitForSelector("text=Are Finalized");
     await page.waitForSelector("button:has-text('Sign-Ups Closed (Schedule Published)')");
     console.log("✓ Closed month verified: Read-only submitted responses with disabled submit button!");
 
