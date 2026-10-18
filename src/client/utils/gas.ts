@@ -1049,9 +1049,13 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         closedAt: status === "CLOSED" ? new Date().toISOString() : undefined,
         isConfigured: true,
       };
+      const message =
+        status === "OPEN"
+          ? `Meal dates saved and sign-ups for ${monthKey} are now OPEN (${activeDates.length} meal dates included)!`
+          : `Meal dates draft saved for ${monthKey} (${activeDates.length} meal dates configured). Sign-ups remain draft.`;
       return {
         success: true,
-        message: `Meal dates saved and sign-ups for ${monthKey} are now ${status} (${activeDates.length} meal dates included)!`,
+        message,
         monthKey,
         status,
         dates: allDates,

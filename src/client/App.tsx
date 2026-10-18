@@ -73,8 +73,9 @@ import { ManualSurveyResponseModal } from "./components/modals/ManualSurveyRespo
 import { PortalLandingView } from "./components/views/PortalLandingView";
 import { ResidentScheduleView } from "./components/views/ResidentScheduleView";
 import { WebSurveySignupView } from "./components/views/WebSurveySignupView";
+import { SurveyFormGeneratorView } from "./components/views/SurveyFormGeneratorView";
 
-export type AppView = "portal" | "coordinator" | "resident" | "survey";
+export type AppView = "portal" | "coordinator" | "resident" | "survey" | "form-generator";
 
 export const DEFAULT_AVAILABLE_MONTHS = [
   "2026-11",
@@ -188,6 +189,14 @@ export function getAppViewFromUrl(params?: URLSearchParams, hash?: string): AppV
   }
   if (viewParam === "coordinator" || viewParam === "admin" || viewParam === "wizard") {
     return "coordinator";
+  }
+  if (
+    viewParam === "form-generator" ||
+    viewParam === "generator" ||
+    viewParam === "survey-generator" ||
+    viewParam === "launch"
+  ) {
+    return "form-generator";
   }
   if (viewParam === "portal" || viewParam === "home") {
     return "portal";
@@ -686,6 +695,31 @@ function MainApp() {
               console.warn("GAS history navigation failed:", err);
             }
           }
+        } else if (targetView === "form-generator") {
+          url.searchParams.set("view", "form-generator");
+          const targetMonth = options?.month || surveyFormMonthKey || "2026-11";
+          url.searchParams.set("month", targetMonth);
+          url.searchParams.delete("name");
+          url.searchParams.delete("m");
+          url.searchParams.delete("user");
+          url.hash = "";
+          const state = { view: "form-generator", month: targetMonth };
+          if (replace) {
+            window.history.replaceState(state, "", url.toString());
+          } else {
+            window.history.pushState(state, "", url.toString());
+          }
+          if (historyAction) {
+            try {
+              const gasParams: Record<string, string> = {
+                view: "form-generator",
+                month: targetMonth,
+              };
+              historyAction.call(gasHistory, state, gasParams, "");
+            } catch (err) {
+              console.warn("GAS history navigation failed:", err);
+            }
+          }
         }
       }
     },
@@ -967,6 +1001,30 @@ function MainApp() {
     } catch (err: any) {
       console.error("handleSaveMonthDatesAndOpen error:", err);
       showToast("Failed to save dates: " + err.message, "error");
+    } finally {
+      setSurveyFormSavingDates(false);
+    }
+  };
+
+  const handleSaveDraftDates = async () => {
+    const activeDates = surveyFormDates.filter((d) => d.included);
+    if (activeDates.length === 0) {
+      showToast("Please include at least one meal date.", "error");
+      return;
+    }
+
+    setSurveyFormSavingDates(true);
+    try {
+      const res = await callGas<SaveMonthDatesResult>("saveMonthDatesAndOpen", {
+        monthKey: surveyFormMonthKey,
+        title: surveyFormTitle.trim(),
+        dates: surveyFormDates,
+        status: surveyFormMonthStatus === "OPEN" ? "OPEN" : "NOT_OPEN",
+      });
+      showToast(res.message || "Meal dates draft saved successfully!");
+    } catch (err: any) {
+      console.error("handleSaveDraftDates error:", err);
+      showToast("Failed to save draft dates: " + err.message, "error");
     } finally {
       setSurveyFormSavingDates(false);
     }
@@ -1649,6 +1707,10 @@ function MainApp() {
     if (initialView === "coordinator") {
       const initialStep = parseStepFromHash();
       setCurrentStepState(initialStep);
+    } else if (initialView === "form-generator") {
+      const p = getAppUrlParams();
+      const m = p.get("month") || surveyFormMonthKey || "2026-11";
+      loadSurveyFormDatesPreview(m);
     }
 
     // URL Sanitization on mount: strip internal system parameters and corrupted hashes
@@ -1669,7 +1731,7 @@ function MainApp() {
             urlChanged = true;
           }
         } else {
-          // Resident, survey, or portal view should never have a hash
+          // Resident, survey, form-generator, or portal view should never have a hash
           if (url.hash) {
             url.hash = "";
             urlChanged = true;
@@ -1703,8 +1765,11 @@ function MainApp() {
       const monthParam = params.get("month");
       if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
         setPublicMonthKey(monthParam);
+        setSurveyFormMonthKey(monthParam);
         if (targetView === "resident") {
           fetchPublicSchedule(monthParam);
+        } else if (targetView === "form-generator") {
+          loadSurveyFormDatesPreview(monthParam);
         }
       }
       const memberParam = params.get("m") || params.get("name") || params.get("user");
@@ -1730,24 +1795,35 @@ function MainApp() {
       try {
         (window as any).google.script.history.setChangeHandler((e: any) => {
           const rawParams = new URLSearchParams();
-          if (e.location?.parameters) {
+          let hasIncomingParams = false;
+          if (e.location?.parameters && Object.keys(e.location.parameters).length > 0) {
             for (const [k, v] of Object.entries(e.location.parameters)) {
               if (Array.isArray(v)) {
                 rawParams.set(k, v[0] || "");
+                hasIncomingParams = true;
               } else if (typeof v === "string") {
                 rawParams.set(k, v);
+                hasIncomingParams = true;
               }
             }
           }
           const params = filterCleanUrlParams(rawParams);
-          const targetView = getAppViewFromUrl(params, e.location?.hash || "");
+          // If no clean parameters, hash, or state were provided in history event, preserve active view
+          if (!hasIncomingParams && !e.location?.hash && !e.state?.view) {
+            return;
+          }
+          const targetView =
+            (e.state?.view as AppView) || getAppViewFromUrl(params, e.location?.hash || "");
           setAppView(targetView);
 
           const monthParam = params.get("month");
           if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
             setPublicMonthKey(monthParam);
+            setSurveyFormMonthKey(monthParam);
             if (targetView === "resident") {
               fetchPublicSchedule(monthParam);
+            } else if (targetView === "form-generator") {
+              loadSurveyFormDatesPreview(monthParam);
             }
           }
           const memberParam = params.get("m") || params.get("name") || params.get("user");
@@ -3098,6 +3174,10 @@ function MainApp() {
         monthTitle={publicMonthTitle}
         onSelectCoordinator={() => navigateToView("coordinator", { step: 1 })}
         onSelectResident={() => navigateToView("resident")}
+        onSelectFormGenerator={() => {
+          loadSurveyFormDatesPreview(surveyFormMonthKey);
+          navigateToView("form-generator", { month: surveyFormMonthKey });
+        }}
       />
     );
   }
@@ -3118,6 +3198,46 @@ function MainApp() {
         isLoading={loadingPublicSchedule}
         onBackToHome={() => navigateToView("portal")}
         onOpenCoordinator={() => navigateToView("coordinator", { step: 1 })}
+      />
+    );
+  }
+
+  if (appView === "form-generator") {
+    return (
+      <SurveyFormGeneratorView
+        monthKey={surveyFormMonthKey}
+        setMonthKey={(mKey) => {
+          setSurveyFormMonthKey(mKey);
+          navigateToView("form-generator", { month: mKey, replace: true });
+        }}
+        loadDatesPreview={loadSurveyFormDatesPreview}
+        formTitle={surveyFormTitle}
+        setFormTitle={setSurveyFormTitle}
+        folderId={surveyFormFolderId}
+        setFolderId={setSurveyFormFolderId}
+        dates={surveyFormDates}
+        setDates={setSurveyFormDates}
+        loadingDates={surveyFormLoadingDates}
+        loadingCreate={surveyFormLoadingCreate}
+        formResult={surveyFormResult}
+        copiedLink={surveyFormCopiedLink}
+        onCopyLink={handleCopySurveyLink}
+        onAddCustomDate={handleAddCustomSurveyDate}
+        onExecuteCreateForm={handleExecuteCreateSurveyForm}
+        members={members}
+        coordinatorEmail={emailTo}
+        spreadsheetId={sheetInput}
+        driveSheets={driveSheets}
+        monthStatus={surveyFormMonthStatus}
+        onSaveDraftDates={handleSaveDraftDates}
+        onSaveDatesAndOpen={handleSaveMonthDatesAndOpen}
+        savingDates={surveyFormSavingDates}
+        onSetMonthStatus={handleSetMonthStatus}
+        deploymentUrl={deploymentUrl}
+        onBackToHome={() => navigateToView("portal")}
+        onOpenCoordinator={() => navigateToView("coordinator", { step: 1 })}
+        onOpenSchedule={() => navigateToView("resident", { month: surveyFormMonthKey })}
+        onToast={showToast}
       />
     );
   }
@@ -3710,6 +3830,7 @@ function MainApp() {
         coordinatorEmail={emailTo}
         spreadsheetId={sheetInput}
         monthStatus={surveyFormMonthStatus}
+        onSaveDraftDates={handleSaveDraftDates}
         onSaveDatesAndOpen={handleSaveMonthDatesAndOpen}
         savingDates={surveyFormSavingDates}
         onSetMonthStatus={handleSetMonthStatus}

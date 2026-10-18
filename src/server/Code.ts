@@ -101,7 +101,7 @@ function getPublishedMonthKeys(masterSettings?: any): string[] {
       const list = raw
         .split(",")
         .map((m: string) => m.trim())
-        .filter((m: string) => /^\d{4}-\d{2}$/.test(m));
+        .filter((m: string) => /^\d{4}-\d{2}$/.test(m) && !m.startsWith("2011"));
       if (list.length > 0) {
         list.sort((a: string, b: string) => b.localeCompare(a));
         return list;
@@ -151,7 +151,7 @@ function recordPublishedMonthInMaster(monthKey: string): void {
       existingVal
         .split(",")
         .map((m: string) => m.trim())
-        .filter((m: string) => /^\d{4}-\d{2}$/.test(m))
+        .filter((m: string) => /^\d{4}-\d{2}$/.test(m) && !m.startsWith("2011"))
         .forEach((m: string) => set.add(m));
     } else {
       DEFAULT_COMPLETED_MONTHS.forEach((m) => set.add(m));
@@ -159,6 +159,7 @@ function recordPublishedMonthInMaster(monthKey: string): void {
     set.add(cleanKey);
 
     const updatedList = Array.from(set)
+      .filter((m) => /^\d{4}-\d{2}$/.test(m) && !m.startsWith("2011"))
       .sort((a, b) => b.localeCompare(a))
       .join(",");
     if (pubRow > 0) {
@@ -197,18 +198,23 @@ function populatePublishedMonthsInMaster(customMasterSpreadsheetIdOrUrl?: string
   try {
     const driveItems = listDriveSpreadsheets();
     for (const item of driveItems) {
-      const mMatch = item.name.match(/(?:20)?(\d{2})[-_](\d{2})/);
+      // Skip survey response sheets or form responses - only completed schedules belong in published_months
+      if (/responses|survey|form/i.test(item.name)) continue;
+      const mMatch =
+        item.name.match(/\b(20(?:2[4-9]|3[0-5]))[-_](0[1-9]|1[0-2])\b/) ||
+        item.name.match(/\b(2[4-9])[-_](0[1-9]|1[0-2])\b/);
       if (mMatch) {
-        monthsSet.add(`20${mMatch[1]}-${mMatch[2]}`);
+        const yr = mMatch[1].length === 2 ? `20${mMatch[1]}` : mMatch[1];
+        monthsSet.add(`${yr}-${mMatch[2]}`);
       }
     }
   } catch (driveErr) {
     Logger.log("Notice: listDriveSpreadsheets skipped during month scan: " + driveErr);
   }
 
-  // Filter valid YYYY-MM and sort descending
+  // Filter valid YYYY-MM (strictly non-2011) and sort descending
   const sortedMonths = Array.from(monthsSet)
-    .filter((m) => /^\d{4}-\d{2}$/.test(m))
+    .filter((m) => /^\d{4}-\d{2}$/.test(m) && !m.startsWith("2011"))
     .sort((a, b) => b.localeCompare(a));
   const monthsStr = sortedMonths.join(",");
 
@@ -1009,6 +1015,33 @@ function saveMasterSettings(
     }
   }
 
+  // Also persist dynamic settings (e.g. month_status_YYYY-MM, month_dates_YYYY-MM, open_months)
+  for (const [rawKey, rawVal] of Object.entries(updatedSettings)) {
+    if (rawVal === undefined || rawVal === null) continue;
+    if (Object.keys(settingMeta).includes(rawKey)) continue;
+
+    const sheetKey = rawKey
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-_]+/g, "_");
+    const valStr = typeof rawVal === "object" ? JSON.stringify(rawVal) : String(rawVal);
+    const rowNum = keyRowMap[sheetKey];
+    if (rowNum) {
+      settingsSheet.getRange(rowNum, 2).setValue(valStr);
+    } else {
+      let desc = "Application configuration setting";
+      if (sheetKey.startsWith("month_status_")) {
+        desc = `Sign-up status for ${sheetKey.replace("month_status_", "")} (OPEN, CLOSED, NOT_OPEN)`;
+      } else if (sheetKey.startsWith("month_dates_")) {
+        desc = `Configured meal dates for ${sheetKey.replace("month_dates_", "")}`;
+      } else if (sheetKey === "open_months") {
+        desc = "Comma-separated list of currently open survey sign-up months";
+      }
+      settingsSheet.appendRow([sheetKey, valStr, desc]);
+      keyRowMap[sheetKey] = settingsSheet.getLastRow();
+    }
+  }
+
   const refreshed = getMasterRegistryData(masterUrlOrId, dev);
   return {
     success: true,
@@ -1481,12 +1514,14 @@ function saveWebSurveyResponse(
     try {
       const driveSheets = listAvailableDriveSheets();
       const monthPart = payload.monthKey || "";
-      const match = driveSheets.find(
-        (s) =>
-          (monthPart && s.name.includes(monthPart)) ||
-          s.name.toLowerCase().includes("meal team sign-up") ||
-          s.name.toLowerCase().includes("responses")
-      );
+      const yyMm = monthPart && monthPart.length >= 7 ? monthPart.slice(2) : "";
+      const match = driveSheets.find((s) => {
+        const n = s.name.toLowerCase();
+        if (monthPart) {
+          return n.includes(monthPart.toLowerCase()) || (yyMm && n.includes(yyMm));
+        }
+        return n.includes("meal team sign-up") || n.includes("responses");
+      });
       if (match) {
         targetId = match.id;
       }
@@ -3612,7 +3647,41 @@ function getMonthConfig(monthKey: string): MonthConfig {
 }
 
 /**
- * Saves configured meal dates/types/notes and marks the month as OPEN for sign-ups.
+ * Synchronizes the summary "open_months" setting row in Master Settings with currently open months.
+ */
+function syncOpenMonthsSetting(): void {
+  try {
+    const master = getMasterRegistrySpreadsheet();
+    if (!master) return;
+    const settingsSheet = master.getSheetByName("Settings");
+    if (!settingsSheet) return;
+    const data = settingsSheet.getDataRange().getValues();
+    const openSet = new Set<string>();
+
+    for (let i = 1; i < data.length; i++) {
+      const k = String(data[i][0] || "")
+        .trim()
+        .toLowerCase();
+      const v = String(data[i][1] || "")
+        .trim()
+        .toUpperCase();
+      const match = k.match(/^month_status_(\d{4}-\d{2})$/);
+      if (match && v === "OPEN") {
+        openSet.add(match[1]);
+      }
+    }
+
+    const openList = Array.from(openSet)
+      .sort((a, b) => b.localeCompare(a))
+      .join(",");
+    saveMasterSettings({ open_months: openList } as any);
+  } catch (err) {
+    console.warn("Could not sync open_months setting:", err);
+  }
+}
+
+/**
+ * Saves configured meal dates/types/notes as draft or marks the month as OPEN for sign-ups.
  */
 function saveMonthDatesAndOpen(payload: SaveMonthDatesPayload): SaveMonthDatesResult {
   const monthKey = (payload.monthKey || "").trim();
@@ -3625,7 +3694,7 @@ function saveMonthDatesAndOpen(payload: SaveMonthDatesPayload): SaveMonthDatesRe
   const allDates = payload.dates || [];
   const activeDates = allDates.filter((d) => d.included !== false);
   if (activeDates.length === 0) {
-    throw new Error("Cannot open sign-ups with 0 meal dates. Please include at least one date.");
+    throw new Error("Cannot save dates with 0 meal dates. Please include at least one date.");
   }
 
   const status: MonthStatus = payload.status || "OPEN";
@@ -3655,13 +3724,19 @@ function saveMonthDatesAndOpen(payload: SaveMonthDatesPayload): SaveMonthDatesRe
       [`month_status_${monthKey}`]: status,
       [`month_dates_${monthKey}`]: JSON.stringify(allDates),
     } as any);
+    syncOpenMonthsSetting();
   } catch (masterErr) {
     console.warn("Could not save month config to Master Settings:", masterErr);
   }
 
+  const message =
+    status === "OPEN"
+      ? `Meal dates saved and sign-ups for ${monthKey} are now OPEN (${activeDates.length} meal dates included)!`
+      : `Meal dates draft saved for ${monthKey} (${activeDates.length} meal dates configured). Sign-ups remain draft.`;
+
   return {
     success: true,
-    message: `Meal dates saved and sign-ups for ${monthKey} are now ${status === "OPEN" ? "OPEN" : status} (${activeDates.length} meal dates included)!`,
+    message,
     monthKey,
     status,
     dates: allDates,
@@ -3698,6 +3773,7 @@ function setMonthStatus(monthKey: string, status: MonthStatus): SetMonthStatusRe
     saveMasterSettings({
       [`month_status_${cleanMonth}`]: status,
     } as any);
+    syncOpenMonthsSetting();
   } catch (e) {
     console.warn("Could not update status in Master Settings:", e);
   }

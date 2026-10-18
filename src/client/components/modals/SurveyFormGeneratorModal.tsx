@@ -58,6 +58,7 @@ export interface SurveyFormGeneratorModalProps {
   coordinatorEmail?: string;
   spreadsheetId?: string;
   monthStatus?: MonthStatus;
+  onSaveDraftDates?: () => Promise<void>;
   onSaveDatesAndOpen?: () => Promise<void>;
   savingDates?: boolean;
   onSetMonthStatus?: (status: MonthStatus) => Promise<void>;
@@ -88,6 +89,7 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
   coordinatorEmail = "",
   spreadsheetId = "",
   monthStatus = "NOT_OPEN",
+  onSaveDraftDates,
   onSaveDatesAndOpen,
   savingDates = false,
   onSetMonthStatus,
@@ -134,7 +136,8 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
 
   const getPersonalizedLink = (memberName: string) => {
     const baseUrl = getPublicWebAppUrl(deploymentUrl);
-    const sheetParam = spreadsheetId ? `&sheetId=${encodeURIComponent(spreadsheetId)}` : "";
+    const effectiveSheetId = surveyFormResult?.spreadsheetId || "";
+    const sheetParam = effectiveSheetId ? `&sheetId=${encodeURIComponent(effectiveSheetId)}` : "";
     return `${baseUrl}?view=survey&month=${encodeURIComponent(
       surveyFormMonthKey
     )}&m=${encodeURIComponent(memberName)}${sheetParam}`;
@@ -446,268 +449,298 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
                 </div>
               </div>
 
-              {/* Standard Question Suite Preview Summary */}
-              <div className="bg-violet-50/80 border border-violet-200 rounded-2xl p-4 space-y-2">
-                <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-violet-950">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-violet-600 shrink-0" />
-                    <span>Standard 8-Question Suite Included</span>
+              {surveyFormLoadingDates ? (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-16 flex flex-col items-center justify-center text-center space-y-3 min-h-[320px] animate-in fade-in duration-150">
+                  <div className="w-14 h-14 rounded-2xl bg-violet-50 text-violet-600 border border-violet-200 flex items-center justify-center shadow-inner">
+                    <RefreshCw className="w-7 h-7 animate-spin" />
                   </div>
-                  <span className="text-xs font-bold text-violet-900 bg-violet-100 border border-violet-200 px-3 py-1 rounded-full">
-                    Community Standard
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-slate-700 pt-1">
-                  <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                    1. Verified Email (1-Click Consent)
-                  </div>
-                  <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                    2. Member Name (Text)
-                  </div>
-                  <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                    3. Cook Quota (Prefilled 1)
-                  </div>
-                  <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                    4. Clean Quota (Prefilled 1)
-                  </div>
-                  <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                    5. Max Total Shifts (Combined Cap)
-                  </div>
-                  <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                    6. Cook Team Size (Prefilled 3/2)
-                  </div>
-                  <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                    7. Same-Day Shift (Prefilled No)
-                  </div>
-                  <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                    8. Date Grid (Prefilled &apos;Not Available&apos;, Required)
-                  </div>
-                  <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                    9. Notes &amp; Instructions
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-violet-900 font-medium">
-                  <span className="bg-violet-100/70 border border-violet-200/80 px-2 py-0.5 rounded-md">
-                    ✓ Allow Response Editing
-                  </span>
-                  <span className="bg-violet-100/70 border border-violet-200/80 px-2 py-0.5 rounded-md">
-                    ✓ Limit to 1 Response
-                  </span>
-                  <span className="bg-violet-100/70 border border-violet-200/80 px-2 py-0.5 rounded-md">
-                    ✓ View Results Summary
-                  </span>
-                  <span className="bg-violet-100/70 border border-violet-200/80 px-2 py-0.5 rounded-md">
-                    ✓ Required Response in Each Row
-                  </span>
-                  <span className="bg-violet-100/70 border border-violet-200/80 px-2 py-0.5 rounded-md">
-                    ✓ All Dates Prefilled &apos;Not Available&apos;
-                  </span>
-                </div>
-              </div>
-
-              {/* Interactive Meal Dates Table */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden space-y-3 p-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                   <div>
-                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-violet-600" />
-                      Configure Meal Dates for Survey Grid
+                    <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                      Loading Configuration for {surveyFormMonthKey}...
                     </h3>
-                    <p className="text-xs text-slate-600 mt-0.5">
-                      Toggle dates on/off, change meal types, or add special notes (e.g.
-                      &apos;Thanksgiving&apos;, &apos;Community Meeting&apos;).
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm">
+                      Calculating meal dates, calendar day calculations, and Master Sheet settings.
                     </p>
                   </div>
+                </div>
+              ) : (
+                <>
+                  {/* Standard Question Suite Preview Summary */}
+                  <div className="bg-violet-50/80 border border-violet-200 rounded-2xl p-4 space-y-2">
+                    <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-violet-950">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-violet-600 shrink-0" />
+                        <span>Standard 8-Question Suite Included</span>
+                      </div>
+                      <span className="text-xs font-bold text-violet-900 bg-violet-100 border border-violet-200 px-3 py-1 rounded-full">
+                        Community Standard
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-slate-700 pt-1">
+                      <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
+                        1. Verified Email (1-Click Consent)
+                      </div>
+                      <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
+                        2. Member Name (Text)
+                      </div>
+                      <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
+                        3. Cook Quota (Prefilled 1)
+                      </div>
+                      <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
+                        4. Clean Quota (Prefilled 1)
+                      </div>
+                      <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
+                        5. Max Total Shifts (Combined Cap)
+                      </div>
+                      <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
+                        6. Cook Team Size (Prefilled 3/2)
+                      </div>
+                      <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
+                        7. Same-Day Shift (Prefilled No)
+                      </div>
+                      <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
+                        8. Date Grid (Prefilled &apos;Not Available&apos;, Required)
+                      </div>
+                      <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
+                        9. Notes &amp; Instructions
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-violet-900 font-medium">
+                      <span className="bg-violet-100/70 border border-violet-200/80 px-2 py-0.5 rounded-md">
+                        ✓ Allow Response Editing
+                      </span>
+                      <span className="bg-violet-100/70 border border-violet-200/80 px-2 py-0.5 rounded-md">
+                        ✓ Limit to 1 Response
+                      </span>
+                      <span className="bg-violet-100/70 border border-violet-200/80 px-2 py-0.5 rounded-md">
+                        ✓ View Results Summary
+                      </span>
+                      <span className="bg-violet-100/70 border border-violet-200/80 px-2 py-0.5 rounded-md">
+                        ✓ Required Response in Each Row
+                      </span>
+                      <span className="bg-violet-100/70 border border-violet-200/80 px-2 py-0.5 rounded-md">
+                        ✓ All Dates Prefilled &apos;Not Available&apos;
+                      </span>
+                    </div>
+                  </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const allIncluded = surveyFormDates.every((d) => d.included);
-                        setSurveyFormDates((prev) =>
-                          prev.map((d) => ({ ...d, included: !allIncluded }))
-                        );
-                      }}
-                      className="min-h-[38px] px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-colors cursor-pointer"
-                    >
-                      {surveyFormDates.every((d) => d.included) ? "Deselect All" : "Select All"}
-                    </button>
+                  {/* Interactive Meal Dates Table */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden space-y-3 p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                      <div>
+                        <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-violet-600" />
+                          Configure Meal Dates for Survey Grid
+                        </h3>
+                        <p className="text-xs text-slate-600 mt-0.5">
+                          Toggle dates on/off, change meal types, or add special notes (e.g.
+                          &apos;Thanksgiving&apos;, &apos;Community Meeting&apos;).
+                        </p>
+                      </div>
 
-                    <button
-                      type="button"
-                      onClick={handleAddCustomSurveyDate}
-                      className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-violet-800 hover:text-violet-950 bg-violet-50 hover:bg-violet-100 border border-violet-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Custom Date</span>
-                    </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const allIncluded = surveyFormDates.every((d) => d.included);
+                            setSurveyFormDates((prev) =>
+                              prev.map((d) => ({ ...d, included: !allIncluded }))
+                            );
+                          }}
+                          className="min-h-[38px] px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-colors cursor-pointer"
+                        >
+                          {surveyFormDates.every((d) => d.included) ? "Deselect All" : "Select All"}
+                        </button>
 
-                    {onSaveDatesAndOpen && (
-                      <button
-                        type="button"
-                        onClick={onSaveDatesAndOpen}
-                        disabled={
-                          savingDates || surveyFormDates.filter((d) => d.included).length === 0
-                        }
-                        className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
-                        title="Saves configured meal dates/types/notes and opens sign-ups"
-                      >
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span>
-                          {savingDates
-                            ? "Saving..."
-                            : monthStatus === "OPEN"
-                              ? "Save Dates (Open)"
-                              : "Save Dates & Open Sign-Ups"}
-                        </span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={handleAddCustomSurveyDate}
+                          className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-violet-800 hover:text-violet-950 bg-violet-50 hover:bg-violet-100 border border-violet-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Add Custom Date</span>
+                        </button>
+
+                        {onSaveDraftDates && (
+                          <button
+                            type="button"
+                            onClick={onSaveDraftDates}
+                            disabled={
+                              savingDates || surveyFormDates.filter((d) => d.included).length === 0
+                            }
+                            className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
+                            title="Saves configured meal dates/types/notes to Master Settings without opening sign-ups"
+                          >
+                            <Check className="w-4 h-4 text-slate-600" />
+                            <span>{savingDates ? "Saving Draft..." : "Save Draft Dates"}</span>
+                          </button>
+                        )}
+
+                        {onSaveDatesAndOpen && (
+                          <button
+                            type="button"
+                            onClick={onSaveDatesAndOpen}
+                            disabled={
+                              savingDates || surveyFormDates.filter((d) => d.included).length === 0
+                            }
+                            className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
+                            title="Saves configured meal dates/types/notes and opens sign-ups"
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span>
+                              {savingDates
+                                ? "Saving..."
+                                : monthStatus === "OPEN"
+                                  ? "Save Dates (Open)"
+                                  : "Save Dates & Open Sign-Ups"}
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {surveyFormDates.length === 0 ? (
+                      <div className="py-8 text-center text-xs sm:text-sm text-slate-500">
+                        No dates found for this month. Please select a valid month.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                        <table className="w-full text-left text-xs sm:text-sm border-collapse">
+                          <thead>
+                            <tr className="bg-slate-100/90 text-slate-700 font-bold border-b border-slate-200">
+                              <th scope="col" className="py-3 px-3 w-14 text-center">
+                                Include
+                              </th>
+                              <th scope="col" className="py-3 px-3 w-28">
+                                Date
+                              </th>
+                              <th scope="col" className="py-3 px-3 w-24">
+                                Day
+                              </th>
+                              <th scope="col" className="py-3 px-3 w-32">
+                                Meal Type
+                              </th>
+                              <th scope="col" className="py-3 px-3">
+                                Special Note (Optional)
+                              </th>
+                              <th scope="col" className="py-3 px-3">
+                                Form Grid Row Label Preview
+                              </th>
+                              <th scope="col" className="py-3 px-3 w-14 text-center"></th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {surveyFormDates.map((d, idx) => {
+                              let previewLabel = d.dateLabel;
+                              if (d.specialNote && d.specialNote.trim()) {
+                                previewLabel = `${previewLabel} - ${d.specialNote.trim()}`;
+                              }
+                              return (
+                                <tr
+                                  key={`date-${d.dateKey}-${idx}`}
+                                  className={`transition-colors ${
+                                    d.included
+                                      ? "hover:bg-violet-50/30"
+                                      : "bg-slate-50/50 opacity-60"
+                                  }`}
+                                >
+                                  <td className="py-2.5 px-3 text-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={d.included}
+                                      onChange={(e) => {
+                                        const checked = e.target.checked;
+                                        setSurveyFormDates((prev) =>
+                                          prev.map((item, i) =>
+                                            i === idx ? { ...item, included: checked } : item
+                                          )
+                                        );
+                                      }}
+                                      aria-label={`Include date ${d.dateKey}`}
+                                      className="w-5 h-5 rounded text-violet-600 focus:ring-violet-500 border-slate-300 cursor-pointer"
+                                    />
+                                  </td>
+                                  <td className="py-2.5 px-3 font-mono font-medium text-slate-800">
+                                    {d.dateKey}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-semibold text-slate-900">
+                                    {d.dayOfWeek}
+                                  </td>
+                                  <td className="py-2.5 px-3">
+                                    <select
+                                      value={d.mealType}
+                                      disabled={!d.included}
+                                      aria-label={`Meal type for ${d.dateKey}`}
+                                      onChange={(e) => {
+                                        const mType = e.target.value as MealType;
+                                        const shortName = d.dateLabel.split(" ")[0] || "Nov";
+                                        const dayNum = d.dateKey.split("-")[2] || "1";
+                                        let newLabel = d.dateLabel;
+                                        if (d.dayOfWeek === "Sunday") {
+                                          newLabel = `${shortName} ${parseInt(dayNum, 10)} (${mType === "BRUNCH" ? "Sun, Brunch" : "Sun, Dinner"})`;
+                                        }
+                                        setSurveyFormDates((prev) =>
+                                          prev.map((item, i) =>
+                                            i === idx
+                                              ? { ...item, mealType: mType, dateLabel: newLabel }
+                                              : item
+                                          )
+                                        );
+                                      }}
+                                      className="min-h-[38px] px-2.5 py-1 text-xs border border-slate-300 rounded-lg bg-white font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                    >
+                                      <option value="DINNER">Dinner</option>
+                                      <option value="BRUNCH">Brunch</option>
+                                    </select>
+                                  </td>
+                                  <td className="py-2.5 px-3">
+                                    <input
+                                      type="text"
+                                      value={d.specialNote || ""}
+                                      disabled={!d.included}
+                                      aria-label={`Special note for ${d.dateKey}`}
+                                      onChange={(e) => {
+                                        const note = e.target.value;
+                                        setSurveyFormDates((prev) =>
+                                          prev.map((item, i) =>
+                                            i === idx ? { ...item, specialNote: note } : item
+                                          )
+                                        );
+                                      }}
+                                      placeholder="e.g. Thanksgiving, Community Meeting"
+                                      className="w-full min-h-[38px] px-2.5 py-1 text-xs border border-slate-300 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 text-slate-900 placeholder:text-slate-400"
+                                    />
+                                  </td>
+                                  <td className="py-2.5 px-3 text-xs font-medium text-slate-700">
+                                    <span className="px-2.5 py-1 bg-slate-100 rounded-lg border border-slate-200">
+                                      {previewLabel}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSurveyFormDates((prev) =>
+                                          prev.filter((_, i) => i !== idx)
+                                        );
+                                      }}
+                                      aria-label={`Remove meal date ${d.dateKey}`}
+                                      title={`Remove date ${d.dateKey}`}
+                                      className="min-h-[38px] min-w-[38px] inline-flex items-center justify-center text-slate-400 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     )}
                   </div>
-                </div>
-
-                {surveyFormLoadingDates ? (
-                  <div className="py-12 flex flex-col items-center justify-center text-slate-500 gap-2">
-                    <RefreshCw className="w-6 h-6 animate-spin text-violet-600" />
-                    <span className="text-xs sm:text-sm font-medium">
-                      Calculating meal dates...
-                    </span>
-                  </div>
-                ) : surveyFormDates.length === 0 ? (
-                  <div className="py-8 text-center text-xs sm:text-sm text-slate-500">
-                    No dates found for this month. Please select a valid month.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                    <table className="w-full text-left text-xs sm:text-sm border-collapse">
-                      <thead>
-                        <tr className="bg-slate-100/90 text-slate-700 font-bold border-b border-slate-200">
-                          <th scope="col" className="py-3 px-3 w-14 text-center">
-                            Include
-                          </th>
-                          <th scope="col" className="py-3 px-3 w-28">
-                            Date
-                          </th>
-                          <th scope="col" className="py-3 px-3 w-24">
-                            Day
-                          </th>
-                          <th scope="col" className="py-3 px-3 w-32">
-                            Meal Type
-                          </th>
-                          <th scope="col" className="py-3 px-3">
-                            Special Note (Optional)
-                          </th>
-                          <th scope="col" className="py-3 px-3">
-                            Form Grid Row Label Preview
-                          </th>
-                          <th scope="col" className="py-3 px-3 w-14 text-center"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {surveyFormDates.map((d, idx) => {
-                          let previewLabel = d.dateLabel;
-                          if (d.specialNote && d.specialNote.trim()) {
-                            previewLabel = `${previewLabel} - ${d.specialNote.trim()}`;
-                          }
-                          return (
-                            <tr
-                              key={`date-${d.dateKey}-${idx}`}
-                              className={`transition-colors ${
-                                d.included ? "hover:bg-violet-50/30" : "bg-slate-50/50 opacity-60"
-                              }`}
-                            >
-                              <td className="py-2.5 px-3 text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={d.included}
-                                  onChange={(e) => {
-                                    const checked = e.target.checked;
-                                    setSurveyFormDates((prev) =>
-                                      prev.map((item, i) =>
-                                        i === idx ? { ...item, included: checked } : item
-                                      )
-                                    );
-                                  }}
-                                  aria-label={`Include date ${d.dateKey}`}
-                                  className="w-5 h-5 rounded text-violet-600 focus:ring-violet-500 border-slate-300 cursor-pointer"
-                                />
-                              </td>
-                              <td className="py-2.5 px-3 font-mono font-medium text-slate-800">
-                                {d.dateKey}
-                              </td>
-                              <td className="py-2.5 px-3 font-semibold text-slate-900">
-                                {d.dayOfWeek}
-                              </td>
-                              <td className="py-2.5 px-3">
-                                <select
-                                  value={d.mealType}
-                                  disabled={!d.included}
-                                  aria-label={`Meal type for ${d.dateKey}`}
-                                  onChange={(e) => {
-                                    const mType = e.target.value as MealType;
-                                    const shortName = d.dateLabel.split(" ")[0] || "Nov";
-                                    const dayNum = d.dateKey.split("-")[2] || "1";
-                                    let newLabel = d.dateLabel;
-                                    if (d.dayOfWeek === "Sunday") {
-                                      newLabel = `${shortName} ${parseInt(dayNum, 10)} (${mType === "BRUNCH" ? "Sun, Brunch" : "Sun, Dinner"})`;
-                                    }
-                                    setSurveyFormDates((prev) =>
-                                      prev.map((item, i) =>
-                                        i === idx
-                                          ? { ...item, mealType: mType, dateLabel: newLabel }
-                                          : item
-                                      )
-                                    );
-                                  }}
-                                  className="min-h-[38px] px-2.5 py-1 text-xs border border-slate-300 rounded-lg bg-white font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                >
-                                  <option value="DINNER">Dinner</option>
-                                  <option value="BRUNCH">Brunch</option>
-                                </select>
-                              </td>
-                              <td className="py-2.5 px-3">
-                                <input
-                                  type="text"
-                                  value={d.specialNote || ""}
-                                  disabled={!d.included}
-                                  aria-label={`Special note for ${d.dateKey}`}
-                                  onChange={(e) => {
-                                    const note = e.target.value;
-                                    setSurveyFormDates((prev) =>
-                                      prev.map((item, i) =>
-                                        i === idx ? { ...item, specialNote: note } : item
-                                      )
-                                    );
-                                  }}
-                                  placeholder="e.g. Thanksgiving, Community Meeting"
-                                  className="w-full min-h-[38px] px-2.5 py-1 text-xs border border-slate-300 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 text-slate-900 placeholder:text-slate-400"
-                                />
-                              </td>
-                              <td className="py-2.5 px-3 text-xs font-medium text-slate-700">
-                                <span className="px-2.5 py-1 bg-slate-100 rounded-lg border border-slate-200">
-                                  {previewLabel}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-3 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSurveyFormDates((prev) => prev.filter((_, i) => i !== idx));
-                                  }}
-                                  aria-label={`Remove meal date ${d.dateKey}`}
-                                  title={`Remove date ${d.dateKey}`}
-                                  className="min-h-[38px] min-w-[38px] inline-flex items-center justify-center text-slate-400 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+                </>
+              )}
             </>
           )}
 
