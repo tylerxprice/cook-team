@@ -165,11 +165,33 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
     } catch {
       // ignore
     }
+    const SYSTEM_PARAMS = [
+      "createoauthdialog",
+      "createOAuthDialog",
+      "authuser",
+      "usp",
+      "gclid",
+      "gad_source",
+    ];
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
+      SYSTEM_PARAMS.forEach((p) => url.searchParams.delete(p));
       url.searchParams.set("view", "schedule");
       url.searchParams.set("name", name);
+      url.hash = "";
       window.history.replaceState({ view: "resident", name }, "", url.toString());
+    }
+    if (typeof (window as any).google !== "undefined" && (window as any).google?.script?.history) {
+      try {
+        const gasParams: Record<string, string> = {
+          view: "schedule",
+          name,
+        };
+        if (monthKey) gasParams.month = monthKey;
+        (window as any).google.script.history.replace({ view: "resident", name }, gasParams, "");
+      } catch (err) {
+        console.warn("GAS history replace failed:", err);
+      }
     }
   };
 
@@ -181,10 +203,33 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
     } catch {
       // ignore
     }
+    const SYSTEM_PARAMS = [
+      "createoauthdialog",
+      "createOAuthDialog",
+      "authuser",
+      "usp",
+      "gclid",
+      "gad_source",
+    ];
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
+      SYSTEM_PARAMS.forEach((p) => url.searchParams.delete(p));
       url.searchParams.delete("name");
+      url.searchParams.delete("m");
+      url.searchParams.delete("user");
+      url.hash = "";
       window.history.replaceState({ view: "resident" }, "", url.toString());
+    }
+    if (typeof (window as any).google !== "undefined" && (window as any).google?.script?.history) {
+      try {
+        const gasParams: Record<string, string> = {
+          view: "schedule",
+        };
+        if (monthKey) gasParams.month = monthKey;
+        (window as any).google.script.history.replace({ view: "resident" }, gasParams, "");
+      } catch (err) {
+        console.warn("GAS history replace failed:", err);
+      }
     }
   };
 

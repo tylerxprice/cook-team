@@ -367,9 +367,11 @@ function getInitialBootstrapData(paramsOrEvent?: any): {
 } {
   const urlParameters = paramsOrEvent?.parameter ? paramsOrEvent.parameter : paramsOrEvent;
   const cleanParams: Record<string, string> = {};
+  const SYSTEM_PARAMS = new Set(["createoauthdialog", "authuser", "usp", "gclid", "gad_source"]);
   if (urlParameters && typeof urlParameters === "object") {
     for (const k of Object.keys(urlParameters)) {
       if (urlParameters[k] !== undefined && urlParameters[k] !== null) {
+        if (SYSTEM_PARAMS.has(k.toLowerCase())) continue;
         const val = String(urlParameters[k]).trim();
         cleanParams[k] = val;
         cleanParams[k.toLowerCase()] = val;

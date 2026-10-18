@@ -145,6 +145,14 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
     setIsSubmittedSuccess(false);
     setErrorMessage(null);
 
+    const SYSTEM_PARAMS = [
+      "createoauthdialog",
+      "createOAuthDialog",
+      "authuser",
+      "usp",
+      "gclid",
+      "gad_source",
+    ];
     if (typeof window !== "undefined") {
       try {
         if (targetName) {
@@ -152,12 +160,32 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
         }
       } catch {}
       const url = new URL(window.location.href);
+      SYSTEM_PARAMS.forEach((p) => url.searchParams.delete(p));
+      url.searchParams.set("view", "survey");
+      if (monthKey) url.searchParams.set("month", monthKey);
       if (targetName) {
         url.searchParams.set("m", targetName);
       } else {
         url.searchParams.delete("m");
       }
+      url.hash = "";
       window.history.replaceState({ view: "survey", member: targetName }, "", url.toString());
+    }
+    if (typeof (window as any).google !== "undefined" && (window as any).google?.script?.history) {
+      try {
+        const gasParams: Record<string, string> = {
+          view: "survey",
+        };
+        if (monthKey) gasParams.month = monthKey;
+        if (targetName) gasParams.m = targetName;
+        (window as any).google.script.history.replace(
+          { view: "survey", member: targetName },
+          gasParams,
+          ""
+        );
+      } catch (err) {
+        console.warn("GAS history replace failed:", err);
+      }
     }
 
     if (!targetName) {

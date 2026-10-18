@@ -91,29 +91,77 @@ export const DEFAULT_AVAILABLE_MONTHS = [
 
 export { getBootstrapData, getPublicWebAppUrl };
 
+export const SYSTEM_QUERY_PARAMS = new Set([
+  "createoauthdialog",
+  "authuser",
+  "usp",
+  "gclid",
+  "gad_source",
+]);
+
+export function filterCleanUrlParams(params: URLSearchParams): URLSearchParams {
+  const clean = new URLSearchParams();
+  for (const [key, value] of params.entries()) {
+    if (!SYSTEM_QUERY_PARAMS.has(key.toLowerCase())) {
+      clean.set(key, value);
+    }
+  }
+  return clean;
+}
+
+export function toGasParamsObject(params: URLSearchParams): Record<string, string> {
+  const obj: Record<string, string> = {};
+  for (const [key, value] of params.entries()) {
+    if (!SYSTEM_QUERY_PARAMS.has(key.toLowerCase()) && value) {
+      obj[key] = value;
+    }
+  }
+  return obj;
+}
+
 export function getAppUrlParams(): URLSearchParams {
   if (typeof window === "undefined") return new URLSearchParams();
 
   // 1. In standard dev or direct browsers, window.location.search contains the query parameters
   const windowParams = new URLSearchParams(window.location.search);
-  if (windowParams.toString()) {
-    return windowParams;
+  let rawParams = windowParams;
+  if (!windowParams.toString()) {
+    // 2. In Google Apps Script Web App iframes, window.location.search is empty!
+    // We read parameters passed from doGet(e.parameter) via the bootstrap JSON script tag.
+    const boot = getBootstrapData();
+    if (boot && boot.urlParameters && typeof boot.urlParameters === "object") {
+      rawParams = new URLSearchParams(boot.urlParameters);
+    }
   }
 
-  // 2. In Google Apps Script Web App iframes, window.location.search is empty!
-  // We read parameters passed from doGet(e.parameter) via the bootstrap JSON script tag.
-  const boot = getBootstrapData();
-  if (boot && boot.urlParameters && typeof boot.urlParameters === "object") {
-    return new URLSearchParams(boot.urlParameters);
+  // 3. Fallback: If window.location.hash accidentally contains query parameters
+  // (e.g. #createOAuthDialog=true&month=2026-10&name=Tyler&view=schedule), recover any valid params from it
+  if (
+    typeof window !== "undefined" &&
+    window.location.hash &&
+    window.location.hash.includes("=") &&
+    !window.location.hash.startsWith("#step-")
+  ) {
+    try {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      for (const [key, val] of hashParams.entries()) {
+        if (!rawParams.has(key) && !SYSTEM_QUERY_PARAMS.has(key.toLowerCase())) {
+          rawParams.set(key, val);
+        }
+      }
+    } catch {
+      // ignore
+    }
   }
 
-  return windowParams;
+  return filterCleanUrlParams(rawParams);
 }
 
 export function parseStepFromHash(hash?: string): 1 | 2 | 3 | 4 {
-  if (typeof window === "undefined") return 1;
-  const targetHash = hash !== undefined ? hash : window.location.hash;
-  const match = targetHash.match(/#step-([1-4])/);
+  const targetHash =
+    hash !== undefined ? hash : typeof window !== "undefined" ? window.location.hash : "";
+  if (!targetHash) return 1;
+  const match = targetHash.match(/(?:#|^)step-([1-4])(?:\b|$)/);
   if (match) {
     const parsed = parseInt(match[1], 10);
     if ([1, 2, 3, 4].includes(parsed)) return parsed as 1 | 2 | 3 | 4;
@@ -122,9 +170,14 @@ export function parseStepFromHash(hash?: string): 1 | 2 | 3 | 4 {
 }
 
 export function getAppViewFromUrl(params?: URLSearchParams, hash?: string): AppView {
-  if (typeof window === "undefined") return "portal";
-  const urlParams = params || getAppUrlParams();
-  const currentHash = hash !== undefined ? hash : window.location.hash;
+  const urlParams =
+    params !== undefined
+      ? filterCleanUrlParams(params)
+      : typeof window !== "undefined"
+        ? getAppUrlParams()
+        : new URLSearchParams();
+  const currentHash =
+    hash !== undefined ? hash : typeof window !== "undefined" ? window.location.hash : "";
   const viewParam = (urlParams.get("view") || urlParams.get("mode") || "").toLowerCase();
   if (viewParam === "survey" || viewParam === "signup") {
     return "survey";
@@ -138,7 +191,7 @@ export function getAppViewFromUrl(params?: URLSearchParams, hash?: string): AppV
   if (viewParam === "portal" || viewParam === "home") {
     return "portal";
   }
-  if (currentHash && /#step-[1-4]/.test(currentHash)) {
+  if (currentHash && /(?:#|^)step-[1-4]/.test(currentHash)) {
     return "coordinator";
   }
   return "portal";
@@ -432,21 +485,36 @@ function MainApp() {
     setPublicMonthKey(newMonthKey);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
+      for (const sp of SYSTEM_QUERY_PARAMS) {
+        url.searchParams.delete(sp);
+      }
       url.searchParams.set("view", "schedule");
       url.searchParams.set("month", newMonthKey);
-      if (urlMemberName) url.searchParams.set("name", urlMemberName);
-      window.history.pushState(null, "", url.toString());
+      if (urlMemberName) {
+        url.searchParams.set("name", urlMemberName);
+      } else {
+        url.searchParams.delete("name");
+        url.searchParams.delete("m");
+        url.searchParams.delete("user");
+      }
+      url.hash = "";
+      window.history.pushState(
+        { view: "resident", month: newMonthKey, name: urlMemberName },
+        "",
+        url.toString()
+      );
     }
     if (typeof (window as any).google !== "undefined" && (window as any).google?.script?.history) {
       try {
-        const params = getAppUrlParams();
-        params.set("view", "schedule");
-        params.set("month", newMonthKey);
-        if (urlMemberName) params.set("name", urlMemberName);
+        const gasParams: Record<string, string> = {
+          view: "schedule",
+          month: newMonthKey,
+        };
+        if (urlMemberName) gasParams.name = urlMemberName;
         (window as any).google.script.history.push(
-          null,
-          Object.fromEntries(params.entries()),
-          params.toString()
+          { view: "resident", month: newMonthKey, name: urlMemberName },
+          gasParams,
+          ""
         );
       } catch (err) {
         console.warn("GAS history push failed:", err);
@@ -461,6 +529,9 @@ function MainApp() {
     const hash = `#step-${step}`;
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
+      for (const sp of SYSTEM_QUERY_PARAMS) {
+        url.searchParams.delete(sp);
+      }
       url.searchParams.set("view", "coordinator");
       url.hash = hash;
       const state = { view: "coordinator", step };
@@ -472,11 +543,10 @@ function MainApp() {
     }
     if (typeof (window as any).google !== "undefined" && (window as any).google?.script?.history) {
       try {
-        (window as any).google.script.history.push(
-          { view: "coordinator", step },
-          { view: "coordinator" },
-          `step-${step}`
-        );
+        const historyMethod = replace
+          ? (window as any).google.script.history.replace
+          : (window as any).google.script.history.push;
+        historyMethod({ view: "coordinator", step }, { view: "coordinator" }, `step-${step}`);
       } catch (err) {
         console.warn("GAS history push failed:", err);
       }
@@ -505,9 +575,23 @@ function MainApp() {
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href);
         const replace = options?.replace ?? false;
+        for (const sp of SYSTEM_QUERY_PARAMS) {
+          url.searchParams.delete(sp);
+        }
+
+        const gasHistory =
+          typeof (window as any).google !== "undefined" && (window as any).google?.script?.history
+            ? (window as any).google.script.history
+            : null;
+        const historyAction =
+          replace && gasHistory?.replace ? gasHistory.replace : gasHistory?.push;
 
         if (targetView === "portal") {
           url.searchParams.delete("view");
+          url.searchParams.delete("month");
+          url.searchParams.delete("name");
+          url.searchParams.delete("m");
+          url.searchParams.delete("user");
           url.hash = "";
           const state = { view: "portal" };
           const newUrl = url.pathname + (url.search ? url.search : "");
@@ -516,14 +600,11 @@ function MainApp() {
           } else {
             window.history.pushState(state, "", newUrl);
           }
-          if (
-            typeof (window as any).google !== "undefined" &&
-            (window as any).google?.script?.history
-          ) {
+          if (historyAction) {
             try {
-              (window as any).google.script.history.push({ view: "portal" }, {}, "");
+              historyAction.call(gasHistory, { view: "portal" }, {}, "");
             } catch (err) {
-              console.warn("GAS history push failed:", err);
+              console.warn("GAS history navigation failed:", err);
             }
           }
         } else if (targetView === "resident") {
@@ -534,26 +615,28 @@ function MainApp() {
           }
           if (options?.member) {
             url.searchParams.set("name", options.member);
+          } else {
+            url.searchParams.delete("name");
+            url.searchParams.delete("m");
+            url.searchParams.delete("user");
           }
           url.hash = "";
-          const state = { view: "resident", month: targetMonth };
+          const state = { view: "resident", month: targetMonth, name: options?.member };
           if (replace) {
             window.history.replaceState(state, "", url.toString());
           } else {
             window.history.pushState(state, "", url.toString());
           }
-          if (
-            typeof (window as any).google !== "undefined" &&
-            (window as any).google?.script?.history
-          ) {
+          if (historyAction) {
             try {
-              (window as any).google.script.history.push(
-                state,
-                { view: "schedule", ...(targetMonth ? { month: targetMonth } : {}) },
-                ""
-              );
+              const gasParams: Record<string, string> = {
+                view: "schedule",
+                ...(targetMonth ? { month: targetMonth } : {}),
+                ...(options?.member ? { name: options.member } : {}),
+              };
+              historyAction.call(gasHistory, state, gasParams, "");
             } catch (err) {
-              console.warn("GAS history push failed:", err);
+              console.warn("GAS history navigation failed:", err);
             }
           }
         } else if (targetView === "coordinator") {
@@ -567,18 +650,11 @@ function MainApp() {
           } else {
             window.history.pushState(state, "", url.toString());
           }
-          if (
-            typeof (window as any).google !== "undefined" &&
-            (window as any).google?.script?.history
-          ) {
+          if (historyAction) {
             try {
-              (window as any).google.script.history.push(
-                state,
-                { view: "coordinator" },
-                `step-${targetStep}`
-              );
+              historyAction.call(gasHistory, state, { view: "coordinator" }, `step-${targetStep}`);
             } catch (err) {
-              console.warn("GAS history push failed:", err);
+              console.warn("GAS history navigation failed:", err);
             }
           }
         } else if (targetView === "survey") {
@@ -587,26 +663,26 @@ function MainApp() {
           url.searchParams.set("month", targetMonth);
           if (options?.member) {
             url.searchParams.set("m", options.member);
+          } else {
+            url.searchParams.delete("m");
           }
           url.hash = "";
-          const state = { view: "survey", month: targetMonth };
+          const state = { view: "survey", month: targetMonth, member: options?.member };
           if (replace) {
             window.history.replaceState(state, "", url.toString());
           } else {
             window.history.pushState(state, "", url.toString());
           }
-          if (
-            typeof (window as any).google !== "undefined" &&
-            (window as any).google?.script?.history
-          ) {
+          if (historyAction) {
             try {
-              (window as any).google.script.history.push(
-                state,
-                { view: "survey", month: targetMonth },
-                ""
-              );
+              const gasParams: Record<string, string> = {
+                view: "survey",
+                month: targetMonth,
+                ...(options?.member ? { m: options.member } : {}),
+              };
+              historyAction.call(gasHistory, state, gasParams, "");
             } catch (err) {
-              console.warn("GAS history push failed:", err);
+              console.warn("GAS history navigation failed:", err);
             }
           }
         }
@@ -1561,11 +1637,48 @@ function MainApp() {
     if (initialView === "coordinator") {
       const initialStep = parseStepFromHash();
       setCurrentStepState(initialStep);
-      if (typeof window !== "undefined") {
+    }
+
+    // URL Sanitization on mount: strip internal system parameters and corrupted hashes
+    if (typeof window !== "undefined") {
+      try {
         const url = new URL(window.location.href);
-        url.searchParams.set("view", "coordinator");
-        url.hash = `#step-${initialStep}`;
-        window.history.replaceState({ view: "coordinator", step: initialStep }, "", url.toString());
+        let urlChanged = false;
+        for (const sp of SYSTEM_QUERY_PARAMS) {
+          if (url.searchParams.has(sp)) {
+            url.searchParams.delete(sp);
+            urlChanged = true;
+          }
+        }
+        if (initialView === "coordinator") {
+          const step = parseStepFromHash();
+          if (url.hash !== `#step-${step}`) {
+            url.hash = `#step-${step}`;
+            urlChanged = true;
+          }
+        } else {
+          // Resident, survey, or portal view should never have a hash
+          if (url.hash) {
+            url.hash = "";
+            urlChanged = true;
+          }
+        }
+        if (urlChanged) {
+          window.history.replaceState({ view: initialView }, "", url.toString());
+        }
+      } catch (e) {
+        console.warn("URL sanitization error:", e);
+      }
+    }
+
+    if (typeof (window as any).google !== "undefined" && (window as any).google?.script?.history) {
+      try {
+        const cleanParams = getAppUrlParams();
+        const gasParams = toGasParamsObject(cleanParams);
+        const gasHash = initialView === "coordinator" ? `step-${parseStepFromHash()}` : "";
+        (window as any).google.script.history.replace({ view: initialView }, gasParams, gasHash);
+      } catch (e) {
+        console.warn("GAS history initial replace error:", e);
       }
     }
 
@@ -1578,6 +1691,9 @@ function MainApp() {
       const monthParam = params.get("month");
       if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
         setPublicMonthKey(monthParam);
+        if (targetView === "resident") {
+          fetchPublicSchedule(monthParam);
+        }
       }
       const memberParam = params.get("m") || params.get("name") || params.get("user");
       if (memberParam !== null) {
@@ -1601,22 +1717,26 @@ function MainApp() {
     if (typeof (window as any).google !== "undefined" && (window as any).google?.script?.history) {
       try {
         (window as any).google.script.history.setChangeHandler((e: any) => {
-          const params = new URLSearchParams();
+          const rawParams = new URLSearchParams();
           if (e.location?.parameters) {
             for (const [k, v] of Object.entries(e.location.parameters)) {
               if (Array.isArray(v)) {
-                params.set(k, v[0] || "");
+                rawParams.set(k, v[0] || "");
               } else if (typeof v === "string") {
-                params.set(k, v);
+                rawParams.set(k, v);
               }
             }
           }
+          const params = filterCleanUrlParams(rawParams);
           const targetView = getAppViewFromUrl(params, e.location?.hash || "");
           setAppView(targetView);
 
           const monthParam = params.get("month");
           if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
             setPublicMonthKey(monthParam);
+            if (targetView === "resident") {
+              fetchPublicSchedule(monthParam);
+            }
           }
           const memberParam = params.get("m") || params.get("name") || params.get("user");
           if (memberParam !== null) {
