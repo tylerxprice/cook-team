@@ -805,11 +805,11 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
               <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-orange-600 text-white flex items-center justify-center font-black text-[10px] sm:text-xs shrink-0">
                 {selectedMember.charAt(0).toUpperCase()}
               </div>
-              <div className="min-w-0 max-w-[100px] xs:max-w-[140px] sm:max-w-[180px]">
-                <span className="text-[9px] sm:text-[10px] font-bold text-orange-700 uppercase tracking-wider block leading-tight">
+              <div className="min-w-0">
+                <span className="text-[9px] sm:text-[10px] font-bold text-orange-700 uppercase tracking-wider block leading-tight whitespace-nowrap">
                   Showing Shifts For
                 </span>
-                <h2 className="text-xs sm:text-sm font-black text-slate-900 truncate leading-tight m-0">
+                <h2 className="text-xs sm:text-sm font-black text-slate-900 truncate leading-tight m-0 max-w-[140px] sm:max-w-[200px]">
                   {selectedMember}
                 </h2>
               </div>
