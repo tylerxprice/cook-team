@@ -55,7 +55,12 @@ import {
   deriveFormTitle,
   executeCreateSurveyForm,
 } from "./surveyFormGenerator";
-import { SurveyFormDateConfig, CreateSurveyFormPayload, CreateSurveyFormResult } from "./types";
+import {
+  SurveyFormDateConfig,
+  CreateSurveyFormPayload,
+  CreateSurveyFormResult,
+  PublicScheduleResult,
+} from "./types";
 
 /**
  * Generates server-side bootstrap payload for zero-RPC instant client hydration on load.
@@ -1020,6 +1025,97 @@ function loadExistingScheduleFromSheet(
   } catch (err: any) {
     console.error("Failed to load existing schedule:", err);
     throw new Error(`Failed to load schedule from sheet: ${err.message}`);
+  }
+}
+
+/**
+ * Loads the published schedule for the public resident calendar view.
+ * If spreadsheetIdOrUrl is not provided, looks for a spreadsheet with Schedule_YYYY-MM tab.
+ */
+function getPublicSchedule(
+  monthKey?: string,
+  spreadsheetIdOrUrl?: string
+): PublicScheduleResult {
+  try {
+    let sheetId = (spreadsheetIdOrUrl || "").trim();
+    const masterData = getMasterRegistryData();
+    const communityName = masterData.settings?.communityName || "Vancouver Cohousing";
+
+    if (!sheetId) {
+      // 1. Try finding in driveSheets
+      const sheets = listAvailableDriveSheets();
+      if (monthKey) {
+        const cleanMo = monthKey.replace(/-/g, "");
+        const matched = sheets.find(
+          (s) =>
+            s.name.includes(monthKey) ||
+            s.name.includes(cleanMo.slice(2, 6)) ||
+            (s.name.toLowerCase().includes("schedule") && s.name.includes(monthKey.slice(5, 7)))
+        );
+        if (matched) {
+          sheetId = matched.id;
+        }
+      }
+      if (!sheetId && sheets.length > 0) {
+        const schedSheet = sheets.find(
+          (s) =>
+            s.name.toLowerCase().includes("schedule") ||
+            s.name.toLowerCase().includes("responses") ||
+            s.name.toLowerCase().includes("survey")
+        );
+        if (schedSheet) {
+          sheetId = schedSheet.id;
+        } else {
+          sheetId = sheets[0].id;
+        }
+      }
+    }
+
+    if (!sheetId) {
+      return {
+        success: false,
+        schedule: [],
+        monthKey: monthKey || "",
+        monthTitle: "Community Meals",
+        communityName,
+        message: "No schedule spreadsheet found.",
+      };
+    }
+
+    const tabName = monthKey ? `Schedule_${monthKey}` : undefined;
+    const loaded = loadExistingScheduleFromSheet(sheetId, tabName);
+
+    let monthTitle = "Community Meals";
+    let derivedMonthKey = monthKey || "";
+    if (loaded.schedule.length > 0) {
+      const first = loaded.schedule[0];
+      const parsed = parseDateFromLabelOrKey(first.dateLabel, first.dateKey);
+      if (parsed && !isNaN(parsed.getTime())) {
+        monthTitle = parsed.toLocaleString("en-US", { month: "long", year: "numeric" });
+        if (!derivedMonthKey) {
+          derivedMonthKey = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
+        }
+      }
+    }
+
+    return {
+      success: true,
+      schedule: loaded.schedule,
+      monthKey: derivedMonthKey,
+      monthTitle,
+      communityName,
+      sourceSheetName: `Schedule_${derivedMonthKey}`,
+    };
+  } catch (err: any) {
+    console.warn("getPublicSchedule error:", err);
+    return {
+      success: false,
+      schedule: [],
+      monthKey: monthKey || "",
+      monthTitle: "Community Meals",
+      communityName: "Vancouver Cohousing",
+      message: err.message,
+    };
   }
 }
 
@@ -2387,3 +2483,4 @@ g.appendManualSurveyResponse = appendManualSurveyResponse;
 g.authorizeAppScopes = authorizeAppScopes;
 g.authorizeAllPermissions = authorizeAllPermissions;
 g.updateUserGuideDoc = updateUserGuideDoc;
+g.getPublicSchedule = getPublicSchedule;

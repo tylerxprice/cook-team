@@ -49,9 +49,40 @@ async function runE2ETest() {
     const title = await page.title();
     console.log(`✓ Page loaded. Title: "${title}"`);
 
+    // 1b. Verify Portal Landing View & Resident View
+    console.log("1b. Testing Portal Landing View & Resident View ...");
+    await page.waitForSelector("text=What would you like to do?");
+    await page.waitForSelector("text=View My Shifts & Add to Calendar");
+    await page.waitForSelector("text=Coordinator Planning Wizard");
+    console.log("✓ Portal Landing View rendered successfully!");
+
+    // Test entering Resident View
+    console.log("1c. Testing Resident View & Calendar Download ...");
+    await page.click("button:has-text('Open My Shifts')");
+    await page.waitForSelector("text=Whose shifts are you looking for?");
+    console.log("✓ Resident View loaded with member selector!");
+
+    // Select Brenda from member names
+    const brendaBtn = page.locator("button:has-text('Brenda')").first();
+    await brendaBtn.click();
+    await page.waitForSelector("text=Showing Shifts For");
+    await page.waitForSelector("text=Add All My Shifts to Calendar (.ics)");
+    console.log("✓ Selected member Brenda and verified shifts & calendar export button!");
+
+    // Toggle to Full Schedule tab
+    const fullSchedTab = page.locator("button:has-text('Full Schedule')").first();
+    await fullSchedTab.click();
+    await page.waitForSelector("text=Showing all");
+    console.log("✓ Full Community Schedule tab verified!");
+
+    // Click Coordinator button to enter 4-step wizard
+    const coordBtn = page.locator("button:has-text('Coordinator')").first();
+    await coordBtn.click();
+    await page.waitForSelector("text=Community Cook Team App");
+    console.log("✓ Successfully navigated to Coordinator Planning Wizard!");
+
     // Verify Step 1: Intake & Audit
     console.log("2. Verifying Step 1: Intake & Audit ...");
-    await page.waitForSelector("text=Community Cook Team App");
     await page.waitForSelector("text=Survey Response Spreadsheet");
     await page.waitForSelector("text=Select a Survey to Begin Scheduling");
     const sheetSelect = page.locator("select").first();
@@ -212,6 +243,11 @@ async function runE2ETest() {
       console.log("✓ Email announcement greeting verified: 'Hi precious friends & neighbours,'");
     } else {
       errors.push("Email greeting mismatch");
+    }
+    if (emailContent.includes("View your shifts & add to phone calendar:")) {
+      console.log("✓ Calendar link in email announcement verified!");
+    } else {
+      errors.push("Calendar link missing in email announcement");
     }
 
     // Test Create Gmail Draft

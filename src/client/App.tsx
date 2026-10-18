@@ -14,6 +14,7 @@ import {
   ClipboardList,
   Menu,
   X,
+  Home,
 } from "lucide-react";
 import { callGas, isGasEnvironment } from "./utils/gas";
 import { parseAndDisambiguateGoogleGroupRoster } from "./utils/nameParser";
@@ -36,6 +37,7 @@ import {
   EmailDispatchInfo,
   ManualSurveyResponsePayload,
   AppSettings,
+  PublicScheduleResult,
 } from "../server/types";
 import {
   computeMemberQuotaStats,
@@ -65,12 +67,37 @@ import { NearCompleteOpportunityModal } from "./components/modals/NearCompleteOp
 import { ResendConfirmModal } from "./components/modals/ResendConfirmModal";
 import { ManualSurveyResponseModal } from "./components/modals/ManualSurveyResponseModal";
 
+import { PortalLandingView } from "./components/views/PortalLandingView";
+import { ResidentScheduleView } from "./components/views/ResidentScheduleView";
+
+export type AppView = "portal" | "coordinator" | "resident";
+
+export function getInitialAppView(): AppView {
+  if (typeof window === "undefined") return "portal";
+  const params = new URLSearchParams(window.location.search);
+  const viewParam = (params.get("view") || params.get("mode") || "").toLowerCase();
+  if (viewParam === "schedule" || viewParam === "resident" || viewParam === "my-shifts") {
+    return "resident";
+  }
+  if (viewParam === "coordinator" || viewParam === "admin" || viewParam === "wizard") {
+    return "coordinator";
+  }
+  if (window.location.hash && /#step-[1-4]/.test(window.location.hash)) {
+    return "coordinator";
+  }
+  return "portal";
+}
+
 function MainApp() {
   const [inGas, setInGas] = useState(false);
   const [isDevMode, setIsDevMode] = useState<boolean>(!isGasEnvironment());
   const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStepState] = useState<1 | 2 | 3 | 4>(1);
+  const [appView, setAppView] = useState<AppView>(getInitialAppView);
+  const [publicSchedule, setPublicSchedule] = useState<DaySchedule[]>([]);
+  const [publicMonthTitle, setPublicMonthTitle] = useState<string>("Community Meals");
+  const [_loadingPublicSchedule, setLoadingPublicSchedule] = useState<boolean>(false);
   const [notification, setNotification] = useState<{
     msg: string;
     type: "success" | "error";
@@ -219,6 +246,37 @@ function MainApp() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showMainMenu]);
+
+  // Fetch public schedule for Resident View
+  useEffect(() => {
+    if (appView !== "resident") return;
+
+    if (solverResult?.schedule && solverResult.schedule.length > 0 && publicSchedule.length === 0) {
+      setPublicSchedule(solverResult.schedule);
+    }
+
+    const fetchPublicSchedule = async () => {
+      try {
+        setLoadingPublicSchedule(true);
+        const params = new URLSearchParams(window.location.search);
+        const monthParam = params.get("month") || undefined;
+        const sheetParam = params.get("sheet") || sheetInput || undefined;
+        const res = await callGas<PublicScheduleResult>("getPublicSchedule", monthParam, sheetParam);
+        if (res && res.schedule && res.schedule.length > 0) {
+          setPublicSchedule(res.schedule);
+          if (res.monthTitle) setPublicMonthTitle(res.monthTitle);
+        }
+      } catch (err) {
+        console.warn("Could not fetch public schedule:", err);
+      } finally {
+        setLoadingPublicSchedule(false);
+      }
+    };
+
+    if (publicSchedule.length === 0) {
+      fetchPublicSchedule();
+    }
+  }, [appView, solverResult?.schedule, sheetInput, publicSchedule.length]);
 
   // Synchronize wizard navigation with browser history (Back / Forward buttons)
   const goToStep = (step: 1 | 2 | 3 | 4, replace = false) => {
@@ -2304,8 +2362,35 @@ function MainApp() {
   const generateEmailText = () => {
     if (customEmailBody !== null) return customEmailBody;
     if (!solverResult) return "";
+
+    const monthKey = (() => {
+      if (solverResult?.schedule?.length) {
+        for (const d of solverResult.schedule) {
+          if (d.dateKey && /^\d{4}-\d{2}/.test(d.dateKey)) {
+            return d.dateKey.slice(0, 7);
+          }
+          const parsed = parseDateFromLabelOrKey(d.dateLabel, d.dateKey);
+          if (parsed && !isNaN(parsed.getTime())) {
+            return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
+          }
+        }
+      }
+      return "";
+    })();
+
+    const webAppBaseUrl =
+      typeof window !== "undefined" ? window.location.href.split("?")[0].split("#")[0] : "";
+    const calendarLink = webAppBaseUrl
+      ? `${webAppBaseUrl}?view=schedule${monthKey ? `&month=${monthKey}` : ""}`
+      : "";
+
     let text =
-      "Hi precious friends & neighbours,\n\nHere is the community cook and clean team schedule for next month:\n\n";
+      "Hi precious friends & neighbours,\n\nHere is the community cook and clean team schedule for next month:\n";
+    if (calendarLink) {
+      text += `👉 View your shifts & add to phone calendar: ${calendarLink}\n\n`;
+    } else {
+      text += "\n";
+    }
     for (const d of solverResult.schedule) {
       const isNoMeal = Boolean(
         d.isNoMeal ||
@@ -2437,6 +2522,41 @@ function MainApp() {
     );
   }
 
+  if (appView === "portal") {
+    return (
+      <PortalLandingView
+        communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
+        monthTitle={publicMonthTitle}
+        onSelectCoordinator={() => {
+          setAppView("coordinator");
+          if (!window.location.hash) window.location.hash = "#step-1";
+        }}
+        onSelectResident={() => {
+          setAppView("resident");
+        }}
+      />
+    );
+  }
+
+  if (appView === "resident") {
+    const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+    const initialName = params?.get("name") || params?.get("user") || undefined;
+    return (
+      <ResidentScheduleView
+        schedule={publicSchedule.length > 0 ? publicSchedule : (solverResult?.schedule || [])}
+        members={members}
+        monthTitle={publicMonthTitle}
+        communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
+        initialMemberName={initialName}
+        onBackToHome={() => setAppView("portal")}
+        onOpenCoordinator={() => {
+          setAppView("coordinator");
+          if (!window.location.hash) window.location.hash = "#step-1";
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
       {/* Top Header */}
@@ -2453,8 +2573,20 @@ function MainApp() {
             </div>
           </div>
 
-          {/* Hamburger Menu Navigation */}
-          <div className="relative" id="header-menu-container">
+          {/* Action Navigation Controls */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setAppView("resident")}
+              className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] rounded-xl text-xs font-bold bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-200 transition-colors cursor-pointer shadow-2xs"
+              title="View and test the mobile member schedule & calendar download"
+            >
+              <Calendar className="w-4 h-4 text-orange-600" />
+              <span className="hidden sm:inline">Member Calendar</span>
+            </button>
+
+            {/* Hamburger Menu Navigation */}
+            <div className="relative" id="header-menu-container">
             <button
               onClick={() => setShowMainMenu(!showMainMenu)}
               className={`inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer border shadow-2xs ${
@@ -2596,6 +2728,48 @@ function MainApp() {
                       </div>
                     </div>
                   </button>
+
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setShowMainMenu(false);
+                      setAppView("resident");
+                    }}
+                    className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-orange-50 text-left transition-colors group cursor-pointer"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Calendar className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-orange-950">
+                        Member Shift Calendar
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        Personal shifts &amp; .ics download
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setShowMainMenu(false);
+                      setAppView("portal");
+                    }}
+                    className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-slate-50 text-left transition-colors group cursor-pointer"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Home className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs sm:text-sm font-bold text-slate-900">
+                        Hub Home Portal
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        Return to welcome screen
+                      </div>
+                    </div>
+                  </button>
                 </div>
 
                 <div className="px-4 py-3 mt-1 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between text-xs text-slate-600">
@@ -2617,7 +2791,8 @@ function MainApp() {
             )}
           </div>
         </div>
-      </header>
+      </div>
+    </header>
 
       {/* Toast Notification */}
       {notification && (

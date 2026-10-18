@@ -333,3 +333,14 @@ export interface CreateSurveyFormResult {
   totalDates: number;
   message: string;
 }
+
+export interface PublicScheduleResult {
+  success: boolean;
+  schedule: DaySchedule[];
+  monthKey: string;
+  monthTitle: string;
+  communityName: string;
+  sourceSheetName?: string;
+  spreadsheetUrl?: string;
+  message?: string;
+}

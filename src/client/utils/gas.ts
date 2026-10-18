@@ -16,6 +16,7 @@ import {
   EmailPayload,
   ManualSurveyResponsePayload,
   AppSettings,
+  PublicScheduleResult,
 } from "../../server/types";
 import {
   MOCK_INTAKE_PAYLOAD,
@@ -586,6 +587,22 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         ],
       ];
       return parseScheduleGridData(mockScheduleGrid) as unknown as T;
+    }
+
+    case "getPublicSchedule": {
+      const [monthKey, customSheetId] = args as [string | undefined, string | undefined];
+      const targetMonthKey = monthKey || "2026-10";
+      const sched = (await callGas<ScheduleOutput>("loadExistingScheduleFromSheet", customSheetId || "mock-sheet")) || { schedule: [] };
+      const res: PublicScheduleResult = {
+        success: true,
+        schedule: sched.schedule || [],
+        monthKey: targetMonthKey,
+        monthTitle: "October 2026",
+        communityName: mockMasterSettings.communityName || "Vancouver Cohousing",
+        sourceSheetName: "Schedule_2026-10",
+        spreadsheetUrl: "https://docs.google.com/spreadsheets/d/mock-schedule",
+      };
+      return res as unknown as T;
     }
 
     case "exportScheduleToSheet": {
