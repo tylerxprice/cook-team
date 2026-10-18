@@ -41,6 +41,7 @@ import {
   SaveMonthDatesResult,
   SetMonthStatusResult,
   SurveyFormDatesPreviewResult,
+  ExistingSurveyInfo,
 } from "../server/types";
 import {
   computeMemberQuotaStats,
@@ -65,7 +66,7 @@ import { GlobalSettingsModal } from "./components/modals/GlobalSettingsModal";
 import { SwapShiftsModal } from "./components/modals/SwapShiftsModal";
 import { CommunityReportsModal } from "./components/modals/CommunityReportsModal";
 import { MealSignupGeneratorModal } from "./components/modals/MealSignupGeneratorModal";
-import { SurveyFormGeneratorModal } from "./components/modals/SurveyFormGeneratorModal";
+import { OverwriteSurveyConfirmModal } from "./components/modals/OverwriteSurveyConfirmModal";
 import { NearCompleteOpportunityModal } from "./components/modals/NearCompleteOpportunityModal";
 import { ResendConfirmModal } from "./components/modals/ResendConfirmModal";
 import { ManualSurveyResponseModal } from "./components/modals/ManualSurveyResponseModal";
@@ -124,15 +125,26 @@ export function toGasParamsObject(params: URLSearchParams): Record<string, strin
 export function getAppUrlParams(): URLSearchParams {
   if (typeof window === "undefined") return new URLSearchParams();
 
-  // 1. In standard dev or direct browsers, window.location.search contains the query parameters
-  const windowParams = new URLSearchParams(window.location.search);
-  let rawParams = windowParams;
-  if (!windowParams.toString()) {
-    // 2. In Google Apps Script Web App iframes, window.location.search is empty!
-    // We read parameters passed from doGet(e.parameter) via the bootstrap JSON script tag.
-    const boot = getBootstrapData();
-    if (boot && boot.urlParameters && typeof boot.urlParameters === "object") {
-      rawParams = new URLSearchParams(boot.urlParameters);
+  const rawParams = new URLSearchParams();
+
+  // 1. In Google Apps Script Web App iframes, parameters passed to doGet(e.parameter)
+  // are delivered via the bootstrap JSON script tag. This is the primary parameter source in GAS.
+  const boot = getBootstrapData();
+  if (boot && boot.urlParameters && typeof boot.urlParameters === "object") {
+    for (const [key, val] of Object.entries(boot.urlParameters)) {
+      if (val !== undefined && val !== null && !SYSTEM_QUERY_PARAMS.has(key.toLowerCase())) {
+        rawParams.set(key, String(val));
+      }
+    }
+  }
+
+  // 2. In standard dev or direct browsers, window.location.search contains query parameters
+  if (window.location.search) {
+    const windowParams = new URLSearchParams(window.location.search);
+    for (const [key, val] of windowParams.entries()) {
+      if (!SYSTEM_QUERY_PARAMS.has(key.toLowerCase()) && val) {
+        rawParams.set(key, val);
+      }
     }
   }
 
@@ -292,7 +304,13 @@ function MainApp() {
   const [intakeData, setIntakeData] = useState<IntakePayload | null>(null);
   const intakeCacheRef = useRef<Record<string, IntakePayload>>({});
   const [exceptions, setExceptions] = useState<ExceptionRule[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
+  const [members, setMembers] = useState<Member[]>(() => {
+    const boot = getBootstrapData();
+    if (boot?.registry?.members && Array.isArray(boot.registry.members)) {
+      return boot.registry.members;
+    }
+    return [];
+  });
   const [cookPolicy, setCookPolicy] = useState<CookTeamPolicy>("ADAPTIVE_3_OR_2");
   const [autoCancelDeficitDates, setAutoCancelDeficitDates] = useState<boolean>(true);
   const [betaWebSignupEnabled, setBetaWebSignupEnabled] = useState<boolean>(false);
@@ -375,8 +393,7 @@ function MainApp() {
     useState<MealSignupExportResult | null>(null);
   const mealSignupModalBodyRef = useRef<HTMLDivElement>(null);
 
-  // Modal 9: Survey Form Generator State (Brenda's Workflow)
-  const [showSurveyFormModal, setShowSurveyFormModal] = useState(false);
+  // Survey Form Generator View State
   const [surveyFormMonthKey, setSurveyFormMonthKey] = useState("2026-11");
   const [surveyFormTitle, setSurveyFormTitle] = useState("26-11 Nov Meal Team Sign-Up");
   const [surveyFormFolderId, setSurveyFormFolderId] = useState("1miNkXw-7co1ncAMZvaRJYUZXkFT07R4o");
@@ -387,8 +404,10 @@ function MainApp() {
   const [surveyFormLoadingCreate, setSurveyFormLoadingCreate] = useState(false);
   const [surveyFormResult, setSurveyFormResult] = useState<CreateSurveyFormResult | null>(null);
   const [surveyFormCopiedLink, setSurveyFormCopiedLink] = useState(false);
+  const [surveyFormExistingSurvey, setSurveyFormExistingSurvey] =
+    useState<ExistingSurveyInfo | null>(null);
+  const [showOverwriteSurveyModal, setShowOverwriteSurveyModal] = useState(false);
   const [deploymentUrl, setDeploymentUrl] = useState<string>("");
-  const surveyFormModalBodyRef = useRef<HTMLDivElement>(null);
 
   // Modal: Manual Survey Response Entry (Brenda's Coordinator Workflow)
   const [showManualSurveyModal, setShowManualSurveyModal] = useState(false);
@@ -470,18 +489,39 @@ function MainApp() {
       try {
         (window as any).google.script.url.getLocation((loc: any) => {
           if (loc && loc.parameter) {
-            const p = loc.parameter;
-            const view = (p.view || p.mode || "").toLowerCase();
-            if (view === "schedule" || view === "resident" || view === "my-shifts") {
+            const raw = new URLSearchParams();
+            for (const [k, v] of Object.entries(loc.parameter)) {
+              if (v !== undefined && v !== null) {
+                raw.set(k, Array.isArray(v) ? v[0] : String(v));
+              }
+            }
+            const clean = filterCleanUrlParams(raw);
+            const view = (clean.get("view") || clean.get("mode") || "").toLowerCase();
+            if (view === "survey" || view === "signup") {
+              setAppView("survey");
+            } else if (
+              view === "form-generator" ||
+              view === "generator" ||
+              view === "survey-generator" ||
+              view === "launch"
+            ) {
+              setAppView("form-generator");
+            } else if (view === "schedule" || view === "resident" || view === "my-shifts") {
               setAppView("resident");
             } else if (view === "coordinator" || view === "admin" || view === "wizard") {
               setAppView("coordinator");
+            } else if (view === "portal" || view === "home") {
+              setAppView("portal");
             }
-            if (p.month && /^\d{4}-\d{2}$/.test(p.month)) {
-              setPublicMonthKey(p.month);
+
+            const month = clean.get("month");
+            if (month && /^\d{4}-\d{2}$/.test(month)) {
+              setPublicMonthKey(month);
+              setSurveyFormMonthKey(month);
             }
-            if (p.name || p.user) {
-              setUrlMemberName(p.name || p.user);
+            const member = clean.get("m") || clean.get("name") || clean.get("user");
+            if (member) {
+              setUrlMemberName(member);
             }
           }
         });
@@ -935,8 +975,8 @@ function MainApp() {
     }
   };
 
-  const initSurveyFormModal = async (targetMonth?: string) => {
-    let defaultMonth = targetMonth;
+  const handleOpenSurveyFormGenerator = async (targetMonth?: string) => {
+    let defaultMonth = targetMonth || surveyFormMonthKey;
     if (!defaultMonth) {
       const now = new Date();
       let nextM = now.getMonth() + 2; // e.g. Aug (7) -> Oct (9) or Nov
@@ -951,8 +991,8 @@ function MainApp() {
     setSurveyFormMonthKey(defaultMonth);
     setSurveyFormResult(null);
     setSurveyFormCopiedLink(false);
-    setShowSurveyFormModal(true);
-    await loadSurveyFormDatesPreview(defaultMonth);
+    loadSurveyFormDatesPreview(defaultMonth);
+    navigateToView("form-generator", { month: defaultMonth });
   };
 
   const loadSurveyFormDatesPreview = async (monthKey: string) => {
@@ -968,6 +1008,11 @@ function MainApp() {
         if (Array.isArray(res.dates)) {
           setSurveyFormTitle(res.defaultTitle);
           setSurveyFormDates(res.dates);
+        }
+        if (res.existingSurvey) {
+          setSurveyFormExistingSurvey(res.existingSurvey);
+        } else {
+          setSurveyFormExistingSurvey(null);
         }
       }
     } catch (err: any) {
@@ -1045,11 +1090,25 @@ function MainApp() {
     }
   };
 
-  const handleExecuteCreateSurveyForm = async () => {
+  const handleExecuteCreateSurveyForm = async (confirmedOverwrite?: boolean) => {
     const activeDates = surveyFormDates.filter((d) => d.included);
     if (activeDates.length === 0) {
       showToast("Please include at least one meal date.", "error");
       return;
+    }
+
+    if (surveyFormExistingSurvey?.exists) {
+      if (!surveyFormExistingSurvey.canOverwrite) {
+        showToast(
+          `Cannot overwrite: Survey already has ${surveyFormExistingSurvey.responseCount} responses. Generating a new form is blocked.`,
+          "error"
+        );
+        return;
+      }
+      if (!confirmedOverwrite) {
+        setShowOverwriteSurveyModal(true);
+        return;
+      }
     }
 
     setSurveyFormLoadingCreate(true);
@@ -1060,16 +1119,26 @@ function MainApp() {
         folderId:
           surveyFormFolderId.trim() || driveFolderId.trim() || "1miNkXw-7co1ncAMZvaRJYUZXkFT07R4o",
         dates: surveyFormDates,
+        allowOverwrite: confirmedOverwrite || false,
       });
 
       setSurveyFormResult(res);
       setSurveyFormMonthStatus("OPEN");
+      if (res.spreadsheetId) {
+        setSurveyFormExistingSurvey({
+          exists: true,
+          spreadsheetId: res.spreadsheetId,
+          spreadsheetUrl: res.spreadsheetUrl || "",
+          responseCount: 0,
+          canOverwrite: true,
+        });
+      }
       if (intakeData) {
         setIntakeData({ ...intakeData, monthStatus: "OPEN" });
       }
       showToast(res.message || "Google Form & Response Sheet created successfully!");
       setTimeout(() => {
-        surveyFormModalBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }, 100);
     } catch (err: any) {
       console.error("handleExecuteCreateSurveyForm error:", err);
@@ -1795,26 +1864,36 @@ function MainApp() {
       try {
         (window as any).google.script.history.setChangeHandler((e: any) => {
           const rawParams = new URLSearchParams();
-          let hasIncomingParams = false;
           if (e.location?.parameters && Object.keys(e.location.parameters).length > 0) {
             for (const [k, v] of Object.entries(e.location.parameters)) {
               if (Array.isArray(v)) {
                 rawParams.set(k, v[0] || "");
-                hasIncomingParams = true;
               } else if (typeof v === "string") {
                 rawParams.set(k, v);
-                hasIncomingParams = true;
               }
             }
           }
           const params = filterCleanUrlParams(rawParams);
+          const hasCleanParams = Array.from(params.keys()).length > 0;
           // If no clean parameters, hash, or state were provided in history event, preserve active view
-          if (!hasIncomingParams && !e.location?.hash && !e.state?.view) {
+          if (!hasCleanParams && !e.location?.hash && !e.state?.view) {
             return;
           }
-          const targetView =
-            (e.state?.view as AppView) || getAppViewFromUrl(params, e.location?.hash || "");
-          setAppView(targetView);
+
+          const explicitViewParam = params.get("view") || params.get("mode");
+          let targetView: AppView | null = null;
+          if (e.state?.view) {
+            targetView = e.state.view as AppView;
+          } else if (
+            explicitViewParam ||
+            (e.location?.hash && /(?:#|^)step-[1-4]/.test(e.location.hash))
+          ) {
+            targetView = getAppViewFromUrl(params, e.location?.hash || "");
+          }
+
+          if (targetView) {
+            setAppView(targetView);
+          }
 
           const monthParam = params.get("month");
           if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
@@ -1890,8 +1969,9 @@ function MainApp() {
         } else if (showAddRuleModal) {
           setShowAddRuleModal(false);
           setModalContextNote(null);
-        } else if (showSurveyFormModal) setShowSurveyFormModal(false);
-        else if (showMealSignupModal) setShowMealSignupModal(false);
+        } else if (showOverwriteSurveyModal) {
+          setShowOverwriteSurveyModal(false);
+        } else if (showMealSignupModal) setShowMealSignupModal(false);
         else if (showReportsModal) setShowReportsModal(false);
         else if (showMemberModal) setShowMemberModal(false);
         else if (showSettingsModal) setShowSettingsModal(false);
@@ -1907,7 +1987,7 @@ function MainApp() {
     swapModal,
     selectedQuotaMember,
     showAddRuleModal,
-    showSurveyFormModal,
+    showOverwriteSurveyModal,
     showMealSignupModal,
     showReportsModal,
     showMemberModal,
@@ -3174,10 +3254,7 @@ function MainApp() {
         monthTitle={publicMonthTitle}
         onSelectCoordinator={() => navigateToView("coordinator", { step: 1 })}
         onSelectResident={() => navigateToView("resident")}
-        onSelectFormGenerator={() => {
-          loadSurveyFormDatesPreview(surveyFormMonthKey);
-          navigateToView("form-generator", { month: surveyFormMonthKey });
-        }}
+        onSelectFormGenerator={() => handleOpenSurveyFormGenerator()}
       />
     );
   }
@@ -3204,41 +3281,57 @@ function MainApp() {
 
   if (appView === "form-generator") {
     return (
-      <SurveyFormGeneratorView
-        monthKey={surveyFormMonthKey}
-        setMonthKey={(mKey) => {
-          setSurveyFormMonthKey(mKey);
-          navigateToView("form-generator", { month: mKey, replace: true });
-        }}
-        loadDatesPreview={loadSurveyFormDatesPreview}
-        formTitle={surveyFormTitle}
-        setFormTitle={setSurveyFormTitle}
-        folderId={surveyFormFolderId}
-        setFolderId={setSurveyFormFolderId}
-        dates={surveyFormDates}
-        setDates={setSurveyFormDates}
-        loadingDates={surveyFormLoadingDates}
-        loadingCreate={surveyFormLoadingCreate}
-        formResult={surveyFormResult}
-        copiedLink={surveyFormCopiedLink}
-        onCopyLink={handleCopySurveyLink}
-        onAddCustomDate={handleAddCustomSurveyDate}
-        onExecuteCreateForm={handleExecuteCreateSurveyForm}
-        members={members}
-        coordinatorEmail={emailTo}
-        spreadsheetId={sheetInput}
-        driveSheets={driveSheets}
-        monthStatus={surveyFormMonthStatus}
-        onSaveDraftDates={handleSaveDraftDates}
-        onSaveDatesAndOpen={handleSaveMonthDatesAndOpen}
-        savingDates={surveyFormSavingDates}
-        onSetMonthStatus={handleSetMonthStatus}
-        deploymentUrl={deploymentUrl}
-        onBackToHome={() => navigateToView("portal")}
-        onOpenCoordinator={() => navigateToView("coordinator", { step: 1 })}
-        onOpenSchedule={() => navigateToView("resident", { month: surveyFormMonthKey })}
-        onToast={showToast}
-      />
+      <>
+        <SurveyFormGeneratorView
+          monthKey={surveyFormMonthKey}
+          setMonthKey={(mKey) => {
+            setSurveyFormMonthKey(mKey);
+            navigateToView("form-generator", { month: mKey, replace: true });
+          }}
+          loadDatesPreview={loadSurveyFormDatesPreview}
+          formTitle={surveyFormTitle}
+          setFormTitle={setSurveyFormTitle}
+          folderId={surveyFormFolderId}
+          setFolderId={setSurveyFormFolderId}
+          dates={surveyFormDates}
+          setDates={setSurveyFormDates}
+          loadingDates={surveyFormLoadingDates}
+          loadingCreate={surveyFormLoadingCreate}
+          formResult={surveyFormResult}
+          copiedLink={surveyFormCopiedLink}
+          onCopyLink={handleCopySurveyLink}
+          onAddCustomDate={handleAddCustomSurveyDate}
+          onExecuteCreateForm={handleExecuteCreateSurveyForm}
+          members={members}
+          coordinatorEmail={emailTo}
+          spreadsheetId={sheetInput}
+          driveSheets={driveSheets}
+          monthStatus={surveyFormMonthStatus}
+          existingSurvey={surveyFormExistingSurvey}
+          onSaveDraftDates={handleSaveDraftDates}
+          onSaveDatesAndOpen={handleSaveMonthDatesAndOpen}
+          savingDates={surveyFormSavingDates}
+          onSetMonthStatus={handleSetMonthStatus}
+          deploymentUrl={deploymentUrl}
+          onBackToHome={() => navigateToView("portal")}
+          onOpenCoordinator={() => navigateToView("coordinator", { step: currentStep })}
+          onOpenSchedule={() => navigateToView("resident", { month: surveyFormMonthKey })}
+          onToast={showToast}
+        />
+        {showOverwriteSurveyModal && surveyFormExistingSurvey && (
+          <OverwriteSurveyConfirmModal
+            show={showOverwriteSurveyModal}
+            onClose={() => setShowOverwriteSurveyModal(false)}
+            onConfirm={() => {
+              setShowOverwriteSurveyModal(false);
+              handleExecuteCreateSurveyForm(true);
+            }}
+            monthKey={surveyFormMonthKey}
+            existingSurvey={surveyFormExistingSurvey}
+            loading={surveyFormLoadingCreate}
+          />
+        )}
+      </>
     );
   }
 
@@ -3330,7 +3423,7 @@ function MainApp() {
                       role="menuitem"
                       onClick={() => {
                         setShowMainMenu(false);
-                        initSurveyFormModal();
+                        handleOpenSurveyFormGenerator();
                       }}
                       className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-violet-50 text-left transition-colors group cursor-pointer"
                     >
@@ -3342,7 +3435,7 @@ function MainApp() {
                           Survey Form Generator
                         </div>
                         <div className="text-xs text-slate-600">
-                          Brenda&apos;s Google Form builder
+                          Google Form &amp; sign-up builder
                         </div>
                       </div>
                     </button>
@@ -3806,36 +3899,19 @@ function MainApp() {
         mealSignupLoadingExport={mealSignupLoadingExport}
       />
 
-      <SurveyFormGeneratorModal
-        show={showSurveyFormModal}
-        onClose={() => setShowSurveyFormModal(false)}
-        surveyFormModalBodyRef={surveyFormModalBodyRef}
-        surveyFormMonthKey={surveyFormMonthKey}
-        setSurveyFormMonthKey={setSurveyFormMonthKey}
-        loadSurveyFormDatesPreview={loadSurveyFormDatesPreview}
-        surveyFormTitle={surveyFormTitle}
-        setSurveyFormTitle={setSurveyFormTitle}
-        surveyFormFolderId={surveyFormFolderId}
-        setSurveyFormFolderId={setSurveyFormFolderId}
-        surveyFormDates={surveyFormDates}
-        setSurveyFormDates={setSurveyFormDates}
-        surveyFormLoadingDates={surveyFormLoadingDates}
-        surveyFormLoadingCreate={surveyFormLoadingCreate}
-        surveyFormResult={surveyFormResult}
-        surveyFormCopiedLink={surveyFormCopiedLink}
-        handleCopySurveyLink={handleCopySurveyLink}
-        handleAddCustomSurveyDate={handleAddCustomSurveyDate}
-        handleExecuteCreateSurveyForm={handleExecuteCreateSurveyForm}
-        members={members}
-        coordinatorEmail={emailTo}
-        spreadsheetId={sheetInput}
-        monthStatus={surveyFormMonthStatus}
-        onSaveDraftDates={handleSaveDraftDates}
-        onSaveDatesAndOpen={handleSaveMonthDatesAndOpen}
-        savingDates={surveyFormSavingDates}
-        onSetMonthStatus={handleSetMonthStatus}
-        deploymentUrl={deploymentUrl}
-      />
+      {showOverwriteSurveyModal && surveyFormExistingSurvey && (
+        <OverwriteSurveyConfirmModal
+          show={showOverwriteSurveyModal}
+          onClose={() => setShowOverwriteSurveyModal(false)}
+          onConfirm={() => {
+            setShowOverwriteSurveyModal(false);
+            handleExecuteCreateSurveyForm(true);
+          }}
+          monthKey={surveyFormMonthKey}
+          existingSurvey={surveyFormExistingSurvey}
+          loading={surveyFormLoadingCreate}
+        />
+      )}
 
       <NearCompleteOpportunityModal
         selectedNearCompleteDateKey={selectedNearCompleteDateKey}

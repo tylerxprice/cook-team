@@ -24,6 +24,7 @@ import {
   ArrowLeft,
   Utensils,
   CheckCircle,
+  AlertTriangle,
 } from "lucide-react";
 import {
   MealType,
@@ -33,6 +34,7 @@ import {
   SendBetaInvitesPayload,
   SendBetaInvitesResult,
   MonthStatus,
+  ExistingSurveyInfo,
 } from "../../../server/types";
 import { callGas, getPublicWebAppUrl } from "../../utils/gas";
 
@@ -58,6 +60,7 @@ export interface SurveyFormGeneratorViewProps {
   spreadsheetId?: string;
   driveSheets?: any[];
   monthStatus?: MonthStatus;
+  existingSurvey?: ExistingSurveyInfo | null;
   onSaveDraftDates?: () => Promise<void>;
   onSaveDatesAndOpen?: () => Promise<void>;
   savingDates?: boolean;
@@ -91,6 +94,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
   spreadsheetId: _spreadsheetId = "",
   driveSheets = [],
   monthStatus = "NOT_OPEN",
+  existingSurvey = null,
   onSaveDraftDates,
   onSaveDatesAndOpen,
   savingDates = false,
@@ -238,8 +242,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                 </span>
               </div>
               <p className="text-xs text-slate-500 hidden sm:block">
-                Brenda&apos;s Workflow &bull; Prepare meal dates, create Google Forms, or manage
-                beta sign-ups
+                Prepare meal dates, create Google Forms, or manage beta sign-ups
               </p>
             </div>
           </div>
@@ -428,6 +431,67 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
             {/* TAB 1: Google Form & Meal Dates Configuration */}
             {activeTab === "form" && (
               <div className="space-y-6">
+                {/* Existing Survey Warning or Notice */}
+                {existingSurvey?.exists && (!formResult || !formResult.success) && (
+                  <>
+                    {!existingSurvey.canOverwrite ? (
+                      <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl flex items-start gap-3.5 shadow-2xs">
+                        <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0 text-amber-800">
+                          <AlertTriangle className="w-5 h-5 text-amber-700" />
+                        </div>
+                        <div className="space-y-1 text-xs text-amber-950 flex-1">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-bold text-amber-950">
+                              Active Survey Exists — Overwriting Disabled (
+                              {existingSurvey.responseCount} Responses Received)
+                            </h4>
+                            <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-amber-200 text-amber-900 border border-amber-300">
+                              {existingSurvey.responseCount} responses
+                            </span>
+                          </div>
+                          <p className="text-amber-800 leading-relaxed">
+                            A survey response sheet is already active for this month:{" "}
+                            <strong className="text-amber-950">
+                              {existingSurvey.spreadsheetName}
+                            </strong>
+                            . Because member availability responses have already been received,
+                            generating a new Google Form is disabled to prevent losing existing
+                            submissions.
+                          </p>
+                          {existingSurvey.spreadsheetUrl && (
+                            <div className="pt-1.5">
+                              <a
+                                href={existingSurvey.spreadsheetUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 font-bold text-amber-900 hover:text-amber-950 underline hover:no-underline"
+                              >
+                                <span>Open Existing Response Spreadsheet ↗</span>
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl flex items-start gap-3 shadow-2xs">
+                        <AlertCircle className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                        <div className="text-xs text-blue-950 flex-1 space-y-0.5">
+                          <div className="flex items-center justify-between">
+                            <strong className="font-bold text-blue-900">
+                              Existing Survey Sheet Found ({existingSurvey.responseCount} responses)
+                            </strong>
+                          </div>
+                          <p className="text-blue-800">
+                            Google Drive already contains{" "}
+                            <strong>{existingSurvey.spreadsheetName}</strong>. Clicking
+                            &quot;Generate Form&quot; will ask for confirmation before overwriting.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
                 {/* Success Result Banner */}
                 {formResult && formResult.success && (
                   <div className="p-5 bg-emerald-50 border-2 border-emerald-300 rounded-2xl space-y-4 shadow-xs animate-in fade-in duration-200">
@@ -654,13 +718,33 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                       <button
                         type="button"
                         onClick={onExecuteCreateForm}
-                        disabled={loadingCreate || activeDatesCount === 0}
-                        className="min-h-[40px] px-4 py-1.5 text-xs font-bold text-white bg-violet-700 hover:bg-violet-800 rounded-xl transition-all shadow-xs hover:shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        disabled={
+                          loadingCreate ||
+                          activeDatesCount === 0 ||
+                          existingSurvey?.canOverwrite === false
+                        }
+                        title={
+                          existingSurvey?.canOverwrite === false
+                            ? `Generating a new form is blocked because ${existingSurvey.responseCount} responses have already been received.`
+                            : undefined
+                        }
+                        className={`min-h-[40px] px-4 py-1.5 text-xs font-bold rounded-xl transition-all shadow-xs hover:shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                          existingSurvey?.canOverwrite === false
+                            ? "bg-slate-400 text-white cursor-not-allowed"
+                            : "bg-violet-700 hover:bg-violet-800 text-white"
+                        }`}
                       >
                         {loadingCreate ? (
                           <>
                             <RefreshCw className="w-4 h-4 animate-spin" />
                             <span>Creating Form &amp; Sheet...</span>
+                          </>
+                        ) : existingSurvey?.canOverwrite === false ? (
+                          <>
+                            <Lock className="w-4 h-4" />
+                            <span>
+                              Form Exists ({existingSurvey.responseCount} Responses) — Locked
+                            </span>
                           </>
                         ) : (
                           <>
@@ -1114,7 +1198,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                             <>
                               <Send className="w-3.5 h-3.5" />
                               <span>
-                                Send (
+                                Send Beta Invitations (
                                 {
                                   members.filter(
                                     (m) => selectedBetaMembers.has(m.name) && m.google_email

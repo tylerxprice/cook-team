@@ -363,6 +363,7 @@ export interface CreateSurveyFormPayload {
   description?: string;
   folderId?: string;
   dates: SurveyFormDateConfig[];
+  allowOverwrite?: boolean;
 }
 
 export interface CreateSurveyFormResult {
@@ -426,6 +427,16 @@ export interface SetMonthStatusResult {
   status: MonthStatus;
 }
 
+export interface ExistingSurveyInfo {
+  exists: boolean;
+  spreadsheetId?: string;
+  spreadsheetName?: string;
+  spreadsheetUrl?: string;
+  responseCount: number;
+  canOverwrite: boolean; // false if responseCount > 1
+  warningMessage?: string;
+}
+
 export interface SurveyFormDatesPreviewResult {
   monthKey: string;
   defaultTitle: string;
@@ -434,4 +445,5 @@ export interface SurveyFormDatesPreviewResult {
   openedAt?: string;
   closedAt?: string;
   isConfigured: boolean;
+  existingSurvey?: ExistingSurveyInfo;
 }

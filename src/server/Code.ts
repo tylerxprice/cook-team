@@ -70,6 +70,7 @@ import {
   SaveMonthDatesResult,
   SetMonthStatusResult,
   SurveyFormDatesPreviewResult,
+  ExistingSurveyInfo,
 } from "./types";
 
 /**
@@ -463,6 +464,19 @@ function doGet(e?: any): any {
       const res = scanHistoricalDriveFolder(
         e.parameter.folderId || "1Lm-l2Cm8DFO4swnPuDHpYlTz8FOGN8df"
       );
+      return ContentService.createTextOutput(JSON.stringify(res, null, 2)).setMimeType(
+        ContentService.MimeType.JSON
+      );
+    } catch (err: any) {
+      return ContentService.createTextOutput(
+        JSON.stringify({ success: false, error: err.message, stack: err.stack }, null, 2)
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (e?.parameter?.action === "syncOpenMonths") {
+    try {
+      const res = syncOpenMonthsSetting();
       return ContentService.createTextOutput(JSON.stringify(res, null, 2)).setMimeType(
         ContentService.MimeType.JSON
       );
@@ -876,6 +890,33 @@ function getMasterRegistryData(
             settings.betaWebSignupEnabled = parseSheetBoolean(val, false);
           } else {
             settings[rawKey] = val;
+            const monthMatch = rawCell
+              .toLowerCase()
+              .trim()
+              .match(/^(month_(?:status|dates))_(\d{4})[-_](\d{2})$/);
+            if (monthMatch) {
+              const prefix = monthMatch[1];
+              const year = monthMatch[2];
+              const month = monthMatch[3];
+              settings[`${prefix}_${year}-${month}`] = val;
+              settings[`${prefix}_${year}_${month}`] = val;
+            }
+          }
+        }
+
+        // In-memory fallback if open_months is not yet persisted
+        if (!settings.open_months) {
+          const discoveredOpen: string[] = [];
+          for (const [k, v] of Object.entries(settings)) {
+            const m = k.match(/^month_status_(\d{4})[-_](\d{2})$/);
+            if (m && String(v).trim().toUpperCase() === "OPEN") {
+              discoveredOpen.push(`${m[1]}-${m[2]}`);
+            }
+          }
+          if (discoveredOpen.length > 0) {
+            settings.open_months = Array.from(new Set(discoveredOpen))
+              .sort((a, b) => b.localeCompare(a))
+              .join(",");
           }
         }
       }
@@ -947,11 +988,12 @@ function saveMasterSettings(
   const sData = settingsSheet.getDataRange().getValues();
   const keyRowMap: Record<string, number> = {};
   for (let i = 1; i < sData.length; i++) {
-    const k = String(sData[i][0] || "")
+    const rawK = String(sData[i][0] || "")
       .trim()
-      .toLowerCase()
-      .replace(/[\s-_]+/g, "_");
-    if (k) keyRowMap[k] = i + 1; // 1-indexed sheet row
+      .toLowerCase();
+    const k = rawK.replace(/[\s-_]+/g, "_");
+    if (rawK) keyRowMap[rawK] = i + 1; // 1-indexed sheet row (e.g. month_status_2026-11)
+    if (k) keyRowMap[k] = i + 1; // e.g. month_status_2026_11
   }
 
   const settingMeta: Record<string, { key: string; sheetKey: string; desc: string }> = {
@@ -1020,12 +1062,17 @@ function saveMasterSettings(
     if (rawVal === undefined || rawVal === null) continue;
     if (Object.keys(settingMeta).includes(rawKey)) continue;
 
-    const sheetKey = rawKey
-      .trim()
-      .toLowerCase()
-      .replace(/[\s-_]+/g, "_");
+    const rawLower = rawKey.trim().toLowerCase();
+    const monthKeyMatch = rawLower.match(/^(month_(?:status|dates))_(\d{4})[-_](\d{2})$/);
+    const sheetKey = monthKeyMatch
+      ? `${monthKeyMatch[1]}_${monthKeyMatch[2]}-${monthKeyMatch[3]}`
+      : rawLower.replace(/[\s-_]+/g, "_");
+    const altSheetKey = monthKeyMatch
+      ? `${monthKeyMatch[1]}_${monthKeyMatch[2]}_${monthKeyMatch[3]}`
+      : sheetKey;
+
     const valStr = typeof rawVal === "object" ? JSON.stringify(rawVal) : String(rawVal);
-    const rowNum = keyRowMap[sheetKey];
+    const rowNum = keyRowMap[sheetKey] || keyRowMap[altSheetKey];
     if (rowNum) {
       settingsSheet.getRange(rowNum, 2).setValue(valStr);
     } else {
@@ -1039,6 +1086,7 @@ function saveMasterSettings(
       }
       settingsSheet.appendRow([sheetKey, valStr, desc]);
       keyRowMap[sheetKey] = settingsSheet.getLastRow();
+      keyRowMap[altSheetKey] = settingsSheet.getLastRow();
     }
   }
 
@@ -3593,8 +3641,14 @@ function getMonthConfig(monthKey: string): MonthConfig {
       const masterData = getMasterRegistryData();
       const statusKey = `month_status_${cleanMonth}`;
       const datesKey = `month_dates_${cleanMonth}`;
-      const statusVal = masterData.settings ? (masterData.settings as any)[statusKey] : undefined;
-      const datesVal = masterData.settings ? (masterData.settings as any)[datesKey] : undefined;
+      const altStatusKey = `month_status_${cleanMonth.replace("-", "_")}`;
+      const altDatesKey = `month_dates_${cleanMonth.replace("-", "_")}`;
+      const statusVal = masterData.settings
+        ? (masterData.settings as any)[statusKey] || (masterData.settings as any)[altStatusKey]
+        : undefined;
+      const datesVal = masterData.settings
+        ? (masterData.settings as any)[datesKey] || (masterData.settings as any)[altDatesKey]
+        : undefined;
       if (statusVal) {
         let parsedDates: SurveyFormDateConfig[] = [];
         try {
@@ -3669,9 +3723,9 @@ function syncOpenMonthsSetting(): { success: boolean; openMonths: string; messag
       const v = String(data[i][1] || "")
         .trim()
         .toUpperCase();
-      const match = k.match(/^month_status_(\d{4}-\d{2})$/);
+      const match = k.match(/^month_status_(\d{4})[-_](\d{2})$/);
       if (match && v === "OPEN") {
-        openSet.add(match[1]);
+        openSet.add(`${match[1]}-${match[2]}`);
       }
     }
 
@@ -3805,12 +3859,87 @@ function setMonthStatus(monthKey: string, status: MonthStatus): SetMonthStatusRe
 }
 
 /**
+ * Checks if a survey response spreadsheet already exists for a month and counts submitted responses.
+ */
+function checkExistingSurveyForMonth(monthKey: string): ExistingSurveyInfo {
+  const cleanMonth = (monthKey || "").trim();
+  const yyMm = cleanMonth.length >= 7 ? cleanMonth.slice(2) : "";
+
+  let matchedSheet: DriveSheetItem | null = null;
+  try {
+    const driveSheets = listAvailableDriveSheets();
+    matchedSheet =
+      driveSheets.find((s) => {
+        const n = s.name.toLowerCase();
+        const hasMonth = n.includes(cleanMonth.toLowerCase()) || (yyMm && n.includes(yyMm));
+        return hasMonth && (n.includes("meal team sign-up") || n.includes("responses"));
+      }) || null;
+  } catch (e) {
+    console.warn("Could not check drive sheets for month:", e);
+  }
+
+  if (!matchedSheet) {
+    return {
+      exists: false,
+      responseCount: 0,
+      canOverwrite: true,
+    };
+  }
+
+  let responseCount = 0;
+  try {
+    const ss = SpreadsheetApp.openById(matchedSheet.id);
+    const sheets = ss.getSheets();
+    const formTab = ss.getSheetByName("Form Responses 1") || sheets[0];
+    if (formTab && formTab.getLastRow() > 1) {
+      responseCount += Math.max(0, formTab.getLastRow() - 1);
+    }
+    const webTab = ss.getSheetByName("Web Responses");
+    if (webTab && webTab.getLastRow() > 1) {
+      responseCount += Math.max(0, webTab.getLastRow() - 1);
+    }
+  } catch (e) {
+    console.warn("Could not read response count from existing sheet:", e);
+  }
+
+  const canOverwrite = responseCount <= 1;
+  let warningMessage = "";
+  if (responseCount > 1) {
+    warningMessage = `A survey spreadsheet already exists with ${responseCount} responses ('${matchedSheet.name}'). Creating a new form is blocked to prevent losing responses.`;
+  } else if (responseCount === 1) {
+    warningMessage = `A survey spreadsheet already exists with 1 response ('${matchedSheet.name}'). Overwriting will create a new form and response sheet.`;
+  } else {
+    warningMessage = `A survey spreadsheet already exists with 0 responses ('${matchedSheet.name}').`;
+  }
+
+  return {
+    exists: true,
+    spreadsheetId: matchedSheet.id,
+    spreadsheetName: matchedSheet.name,
+    spreadsheetUrl: matchedSheet.url,
+    responseCount,
+    canOverwrite,
+    warningMessage,
+  };
+}
+
+/**
  * Prepares preview dates for creating or reviewing a monthly survey form,
  * returning saved configured dates and status if opened, or generated draft dates if not open yet.
  */
 function getSurveyFormDatesPreview(monthKey: string): SurveyFormDatesPreviewResult {
   const cleanMonth = (monthKey || "2026-11").trim();
   const config = getMonthConfig(cleanMonth);
+  const existingSurvey = checkExistingSurveyForMonth(cleanMonth);
+
+  // If OPEN, ensure open_months setting in Master Registry stays synchronized
+  if (config.status === "OPEN") {
+    try {
+      syncOpenMonthsSetting();
+    } catch (e) {
+      console.warn("Could not auto-sync open_months in getSurveyFormDatesPreview:", e);
+    }
+  }
 
   // If already configured with saved dates, return those exact dates
   if (config.isConfigured && config.dates && config.dates.length > 0) {
@@ -3822,6 +3951,7 @@ function getSurveyFormDatesPreview(monthKey: string): SurveyFormDatesPreviewResu
       openedAt: config.openedAt,
       closedAt: config.closedAt,
       isConfigured: true,
+      existingSurvey,
     };
   }
 
@@ -3835,6 +3965,7 @@ function getSurveyFormDatesPreview(monthKey: string): SurveyFormDatesPreviewResu
     openedAt: config.openedAt,
     closedAt: config.closedAt,
     isConfigured: false,
+    existingSurvey,
   };
 }
 
@@ -3843,6 +3974,20 @@ function getSurveyFormDatesPreview(monthKey: string): SurveyFormDatesPreviewResu
  * and marks the month sign-up as OPEN with the configured dates.
  */
 function createMonthlySurveyForm(payload: CreateSurveyFormPayload): CreateSurveyFormResult {
+  const existing = checkExistingSurveyForMonth(payload.monthKey);
+  if (existing.exists) {
+    if (existing.responseCount > 1) {
+      throw new Error(
+        `Cannot create a new survey form: ${existing.responseCount} responses have already been received in '${existing.spreadsheetName}'. Overwriting is blocked to protect member submissions.`
+      );
+    }
+    if (!payload.allowOverwrite) {
+      throw new Error(
+        `A survey spreadsheet already exists for ${payload.monthKey} ('${existing.spreadsheetName}'). Overwrite confirmation is required.`
+      );
+    }
+  }
+
   const result = executeCreateSurveyForm(payload);
   try {
     saveMonthDatesAndOpen({
@@ -3893,6 +4038,7 @@ g.getMonthConfig = getMonthConfig;
 g.saveMonthDatesAndOpen = saveMonthDatesAndOpen;
 g.setMonthStatus = setMonthStatus;
 g.getSurveyFormDatesPreview = getSurveyFormDatesPreview;
+g.checkExistingSurveyForMonth = checkExistingSurveyForMonth;
 g.createMonthlySurveyForm = createMonthlySurveyForm;
 g.appendManualSurveyResponse = appendManualSurveyResponse;
 g.saveWebSurveyResponse = saveWebSurveyResponse;

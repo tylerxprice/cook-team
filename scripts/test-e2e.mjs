@@ -547,20 +547,20 @@ async function runE2ETest() {
 
     // Test switching to Beta Web Sign-Ups tab
     console.log("8d-beta. Testing Beta Web Sign-Ups (Phase 2) tab in Survey Form Generator ...");
-    const betaTabBtn = page.locator(".fixed button:has-text('Beta Web Sign-Ups')").first();
+    const betaTabBtn = page.locator("button:has-text('Beta Web Sign-Ups')").first();
     await betaTabBtn.click();
     await page.waitForSelector("text=Direct Web Availability Sign-Up (Beta Pilot)");
     await page.waitForSelector("text=Beta Pilot Testers");
-    await page.waitForSelector("text=Transactional Email Template");
+    await page.waitForSelector("text=Email Invitation Template");
     console.log("✓ Beta Web Sign-Ups tab loaded with testers table and email template!");
 
     // Test Copy Link on a tester
-    const copyTesterLinkBtn = page.locator(".fixed button:has-text('Copy Link')").first();
+    const copyTesterLinkBtn = page.locator("button:has-text('Copy Link')").first();
     await copyTesterLinkBtn.click();
     console.log("✓ Copy personal survey link button tested successfully!");
 
     // Test sending beta invites via mock
-    const sendBetaInvitesBtn = page.locator(".fixed button:has-text('Send Beta Invitations')").first();
+    const sendBetaInvitesBtn = page.locator("button:has-text('Send Beta Invitations')").first();
     await sendBetaInvitesBtn.click();
     await page.waitForSelector("text=Successfully dispatched");
     // Assert [object Object] is NOT displayed
@@ -571,20 +571,21 @@ async function runE2ETest() {
     console.log("✓ Send Beta Invitations executed and alert rendered cleanly (no [object Object])!");
 
     // Switch back to standard Google Form tab
-    const standardTabBtn = page.locator(".fixed button:has-text('Google Form (Standard)')").first();
+    const standardTabBtn = page.locator("button:has-text('Google Form & Meal Dates (Standard)')").first();
     await standardTabBtn.click();
     await page.waitForSelector("text=Configure Meal Dates for Survey Grid");
     console.log("✓ Switched back to Google Form (Standard) tab.");
 
     // Execute Form & Response Sheet generation
-    const generateSurveyBtn = page.locator("button:has-text('Generate Google Form')").last();
+    const generateSurveyBtn = page.locator("button:has-text('Generate Form & Open Sign-Ups')").first();
     await generateSurveyBtn.click();
     await page.waitForSelector("text=Successfully created Google Form", { timeout: 5000 });
     console.log("✓ Google Form & Response Sheet generation executed successfully!");
 
-    const closeSurveyBtn = page.locator(".fixed button[aria-label='Close dialog'], .fixed button:has-text('Close')").first();
-    await closeSurveyBtn.click();
-    console.log("✓ Survey Form Generator Modal closed.");
+    // Return to Step 4 via browser back button
+    await page.goBack();
+    await page.waitForSelector("text=Email Announcement");
+    console.log("✓ Returned to Coordinator Wizard Step 4.");
 
     // Test Browser Back & Forward button history navigation
     console.log("9. Testing Browser Back & Forward button history navigation...");

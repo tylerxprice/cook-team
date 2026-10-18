@@ -1076,6 +1076,14 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         closedAt: status === "CLOSED" ? new Date().toISOString() : existing.closedAt,
         openedAt: status === "OPEN" ? new Date().toISOString() : existing.openedAt,
       };
+      mockMasterSettings[`month_status_${monthKey}`] = status;
+      const openSet = new Set<string>();
+      for (const [k, v] of Object.entries(mockMonthConfigs)) {
+        if (v.status === "OPEN") openSet.add(k);
+      }
+      mockMasterSettings.open_months = Array.from(openSet)
+        .sort((a, b) => b.localeCompare(a))
+        .join(",");
       return {
         success: true,
         message: `Sign-up status for ${monthKey} set to ${status}.`,
@@ -1084,9 +1092,95 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
       } as unknown as T;
     }
 
+    case "syncOpenMonthsSetting": {
+      const openSet = new Set<string>();
+      for (const [k, v] of Object.entries(mockMonthConfigs)) {
+        if (v.status === "OPEN") openSet.add(k);
+      }
+      for (const [k, v] of Object.entries(mockMasterSettings)) {
+        const m = k.match(/^month_status_(\d{4})[-_](\d{2})$/);
+        if (m && String(v).trim().toUpperCase() === "OPEN") {
+          openSet.add(`${m[1]}-${m[2]}`);
+        }
+      }
+      const openList = Array.from(openSet)
+        .sort((a, b) => b.localeCompare(a))
+        .join(",");
+      mockMasterSettings.open_months = openList;
+      return {
+        success: true,
+        openMonths: openList,
+        message: openList
+          ? `Successfully synchronized open_months to: ${openList}`
+          : "No months currently OPEN. Setting open_months to empty.",
+      } as unknown as T;
+    }
+
+    case "checkExistingSurveyForMonth": {
+      const monthKey = (args[0] as string) || "2026-11";
+      const cfg = mockMonthConfigs[monthKey];
+      if (monthKey === "2026-10") {
+        return {
+          exists: true,
+          spreadsheetId: "1p02x7_k9k3v654b9d032",
+          spreadsheetName: "26-10 Oct Meal Team Sign-Up (Responses)",
+          spreadsheetUrl: "https://docs.google.com/spreadsheets/d/1p02x7_k9k3v654b9d032/edit",
+          responseCount: 26,
+          canOverwrite: false,
+          warningMessage:
+            "A survey spreadsheet already exists with 26 responses ('26-10 Oct Meal Team Sign-Up (Responses)'). Creating a new form is blocked to prevent losing responses.",
+        } as unknown as T;
+      }
+      if (cfg && cfg.isConfigured) {
+        return {
+          exists: true,
+          spreadsheetId: "mock-response-ss-id-67890",
+          spreadsheetName: `${deriveFormTitle(monthKey)} (Responses)`,
+          spreadsheetUrl: "https://docs.google.com/spreadsheets/d/mock-response-ss-id-67890/edit",
+          responseCount: 0,
+          canOverwrite: true,
+          warningMessage: `A survey spreadsheet already exists with 0 responses.`,
+        } as unknown as T;
+      }
+      return {
+        exists: false,
+        responseCount: 0,
+        canOverwrite: true,
+      } as unknown as T;
+    }
+
     case "getSurveyFormDatesPreview": {
       const monthKey = (args[0] as string) || "2026-11";
       const cfg = mockMonthConfigs[monthKey];
+      const existingSurvey =
+        monthKey === "2026-10"
+          ? {
+              exists: true,
+              spreadsheetId: "1p02x7_k9k3v654b9d032",
+              spreadsheetName: "26-10 Oct Meal Team Sign-Up (Responses)",
+              spreadsheetUrl: "https://docs.google.com/spreadsheets/d/1p02x7_k9k3v654b9d032/edit",
+              responseCount: 26,
+              canOverwrite: false,
+              warningMessage:
+                "A survey spreadsheet already exists with 26 responses ('26-10 Oct Meal Team Sign-Up (Responses)'). Creating a new form is blocked to prevent losing responses.",
+            }
+          : cfg && cfg.isConfigured
+            ? {
+                exists: true,
+                spreadsheetId: "mock-response-ss-id-67890",
+                spreadsheetName: `${deriveFormTitle(monthKey)} (Responses)`,
+                spreadsheetUrl:
+                  "https://docs.google.com/spreadsheets/d/mock-response-ss-id-67890/edit",
+                responseCount: 0,
+                canOverwrite: true,
+                warningMessage: `A survey spreadsheet already exists with 0 responses.`,
+              }
+            : {
+                exists: false,
+                responseCount: 0,
+                canOverwrite: true,
+              };
+
       if (cfg && cfg.isConfigured && cfg.dates && cfg.dates.length > 0) {
         return {
           monthKey,
@@ -1096,6 +1190,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
           openedAt: cfg.openedAt,
           closedAt: cfg.closedAt,
           isConfigured: true,
+          existingSurvey,
         } as unknown as T;
       }
       return {
@@ -1106,6 +1201,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         openedAt: cfg?.openedAt,
         closedAt: cfg?.closedAt,
         isConfigured: false,
+        existingSurvey,
       } as unknown as T;
     }
 
