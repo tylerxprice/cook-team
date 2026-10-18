@@ -178,6 +178,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
 
           <div className="flex items-center gap-2 flex-wrap">
             <button
+              type="button"
               onClick={handleCopyEmail}
               className="min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold transition-colors cursor-pointer"
             >
@@ -185,6 +186,24 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
               <span>Copy Text</span>
             </button>
             <button
+              type="button"
+              onClick={() => {
+                handleCopyEmail();
+                const composeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
+                  emailTo
+                )}&su=${encodeURIComponent(emailSubject)}${
+                  emailCc ? `&cc=${encodeURIComponent(emailCc)}` : ""
+                }`;
+                window.open(composeUrl, "_blank");
+              }}
+              className="min-h-[44px] inline-flex items-center gap-2 px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-900 border border-red-300 rounded-xl text-xs sm:text-sm font-bold transition-colors cursor-pointer"
+              title="Open Gmail compose tab in browser with recipient and subject pre-filled, and text copied to clipboard"
+            >
+              <ExternalLink className="w-4 h-4 text-red-600" />
+              <span>Compose in Gmail Web</span>
+            </button>
+            <button
+              type="button"
               onClick={() => handleSendGmail("draft")}
               disabled={sendingEmail}
               className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 rounded-xl text-xs sm:text-sm font-bold transition-colors disabled:opacity-50 cursor-pointer"
@@ -193,6 +212,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
               <span>Create Gmail Draft</span>
             </button>
             <button
+              type="button"
               onClick={() => handleSendGmail("send")}
               disabled={sendingEmail}
               className="min-h-[44px] inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
