@@ -1355,8 +1355,9 @@ function MainApp() {
                   : "standard";
       await handleSelectPreset(presetKey);
     } else {
+      delete intakeCacheRef.current[optionValue];
       setEmailTo(announcementTo || DEFAULT_ANNOUNCEMENT_TO);
-      await fetchIntake(optionValue);
+      await fetchIntake(optionValue, undefined, true);
     }
   };
 
@@ -1401,8 +1402,13 @@ function MainApp() {
       return;
     }
 
-    // Fast-path: Check in-memory cache for instant 0ms survey switching
-    if (!forceRefresh && intakeCacheRef.current[targetSheet]) {
+    // Fast-path: Check in-memory cache for instant 0ms survey switching (only if responses exist)
+    if (
+      !forceRefresh &&
+      intakeCacheRef.current[targetSheet] &&
+      intakeCacheRef.current[targetSheet].responses &&
+      intakeCacheRef.current[targetSheet].responses.length > 0
+    ) {
       const cached = intakeCacheRef.current[targetSheet];
       setIntakeData(cached);
       setExceptions(cached.exceptions || []);
@@ -1441,7 +1447,10 @@ function MainApp() {
         forceRefresh ? undefined : members && members.length > 0 ? members : undefined,
         forceRefresh ? undefined : exceptions && exceptions.length > 0 ? exceptions : undefined
       );
-      intakeCacheRef.current[targetSheet] = data;
+      // Only cache if responses were returned
+      if (data && data.responses && data.responses.length > 0) {
+        intakeCacheRef.current[targetSheet] = data;
+      }
       setIntakeData(data);
       setExceptions(data.exceptions || []);
       setMembers(data.members || []);
@@ -3404,7 +3413,7 @@ function MainApp() {
           </nav>
 
           <button
-            onClick={() => fetchIntake()}
+            onClick={() => fetchIntake(sheetInput, undefined, true)}
             disabled={loading}
             className="min-h-[40px] sm:min-h-[44px] inline-flex items-center gap-2 px-3 sm:px-3.5 text-slate-700 hover:text-slate-950 hover:bg-slate-100 rounded-xl text-xs sm:text-sm font-bold shrink-0 transition-colors border border-slate-200 cursor-pointer disabled:opacity-50"
             title="Refresh Survey Data"
