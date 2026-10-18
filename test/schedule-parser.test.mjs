@@ -876,7 +876,11 @@ test("Master Community Registry - Settings Parsing & Announcement Email/CC Defau
     ["cook_policy", "DINNER_3_BRUNCH_2", "Policy"],
     ["default_clean_quota", "2", "Clean shifts"],
     ["auto_cancel_deficit_dates", "FALSE", "Deficit dates"],
-    ["signup_workbook_id", "https://docs.google.com/spreadsheets/d/1coho-signup-sheet-id/edit", "Sign up workbook"],
+    [
+      "signup_workbook_id",
+      "https://docs.google.com/spreadsheets/d/1coho-signup-sheet-id/edit",
+      "Sign up workbook",
+    ],
   ];
 
   const parsedSettings = {};
@@ -888,7 +892,14 @@ test("Master Community Registry - Settings Parsing & Announcement Email/CC Defau
     if (k === "cook_policy") parsedSettings.cookPolicy = v;
     if (k === "default_clean_quota") parsedSettings.defaultCleanQuota = parseInt(v, 10);
     if (k === "auto_cancel_deficit_dates") parsedSettings.autoCancelDeficitDates = v === "TRUE";
-    if (["signup_workbook_id", "common_meal_signup_id", "signup_sheet_id", "signup_sheet_url"].includes(k)) {
+    if (
+      [
+        "signup_workbook_id",
+        "common_meal_signup_id",
+        "signup_sheet_id",
+        "signup_sheet_url",
+      ].includes(k)
+    ) {
       parsedSettings.signupWorkbookId = v;
     }
   }
@@ -941,42 +952,9 @@ test("Schedule Parser - Google Sheets numeric serial dates & October schedule wi
       "Clean 3",
       "Status / Notes",
     ],
-    [
-      "46296.0",
-      "DINNER",
-      "",
-      "Olive",
-      "Saje",
-      "Ian",
-      "Beth",
-      "Marijean",
-      "Hillary",
-      "✅ Complete",
-    ],
-    [
-      "46299.0",
-      "DINNER",
-      "",
-      "Dane",
-      "Olive",
-      "Cy",
-      "Dane",
-      "Rose",
-      "Wei",
-      "✅ Complete",
-    ],
-    [
-      "46300.0",
-      "DINNER",
-      "",
-      "Nancy",
-      "Sandra",
-      "Mark L",
-      "Wei",
-      "Kitty",
-      "Stacey",
-      "✅ Complete",
-    ],
+    ["46296.0", "DINNER", "", "Olive", "Saje", "Ian", "Beth", "Marijean", "Hillary", "✅ Complete"],
+    ["46299.0", "DINNER", "", "Dane", "Olive", "Cy", "Dane", "Rose", "Wei", "✅ Complete"],
+    ["46300.0", "DINNER", "", "Nancy", "Sandra", "Mark L", "Wei", "Kitty", "Stacey", "✅ Complete"],
   ];
 
   const parsed = parseScheduleGridData(octGrid);
@@ -998,4 +976,3 @@ test("Schedule Parser - Google Sheets numeric serial dates & October schedule wi
   // Rose must be in cleaners for Oct 4
   assert.ok(parsed.schedule[1].cleaners.includes("Rose"));
 });
-

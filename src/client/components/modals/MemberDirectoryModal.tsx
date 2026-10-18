@@ -91,7 +91,10 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
         {/* Modal Header */}
         <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between shrink-0 bg-white">
           <div>
-            <h3 id="modal-title-members" className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+            <h3
+              id="modal-title-members"
+              className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2"
+            >
               <Users className="w-5 h-5 text-indigo-600 shrink-0" />
               <span>Community Member Directory</span>
             </h3>
@@ -181,7 +184,10 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
               >
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <div>
-                    <label htmlFor="quick-add-member-name" className="block text-xs font-bold text-slate-800 mb-1">
+                    <label
+                      htmlFor="quick-add-member-name"
+                      className="block text-xs font-bold text-slate-800 mb-1"
+                    >
                       Member Name *
                     </label>
                     <input
@@ -195,7 +201,10 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label htmlFor="quick-add-member-email" className="block text-xs font-bold text-slate-800 mb-1">
+                    <label
+                      htmlFor="quick-add-member-email"
+                      className="block text-xs font-bold text-slate-800 mb-1"
+                    >
                       Google Email(s)
                     </label>
                     <input
@@ -208,7 +217,10 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label htmlFor="quick-add-member-aliases" className="block text-xs font-bold text-slate-800 mb-1">
+                    <label
+                      htmlFor="quick-add-member-aliases"
+                      className="block text-xs font-bold text-slate-800 mb-1"
+                    >
                       Nicknames / Aliases
                     </label>
                     <input
@@ -420,10 +432,14 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
               .map((m) => {
                 const isUpdating = updatingMemberName === m.name;
                 const isEditingThis =
-                  editingMember && editingMember.originalName.toLowerCase() === m.name.toLowerCase();
+                  editingMember &&
+                  editingMember.originalName.toLowerCase() === m.name.toLowerCase();
 
                 return (
-                  <div key={m.name} className="p-3.5 hover:bg-slate-50 rounded-xl transition-colors">
+                  <div
+                    key={m.name}
+                    className="p-3.5 hover:bg-slate-50 rounded-xl transition-colors"
+                  >
                     {isEditingThis ? (
                       <form
                         onSubmit={handleSaveEditedMember}
@@ -463,8 +479,8 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                             Google Account &amp; Alternate Emails
                           </label>
                           <p className="text-[11px] text-slate-500 mb-1">
-                            Comma-separated emails. Form submissions from any listed email map to this
-                            member.
+                            Comma-separated emails. Form submissions from any listed email map to
+                            this member.
                           </p>
                           <input
                             type="text"
@@ -482,8 +498,8 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                             Nicknames &amp; Aliases
                           </label>
                           <p className="text-[11px] text-slate-500 mb-1">
-                            Comma-separated nicknames. Forms submitted with any of these names map to
-                            this member.
+                            Comma-separated nicknames. Forms submitted with any of these names map
+                            to this member.
                           </p>
                           <input
                             type="text"

@@ -19,6 +19,9 @@ import {
   SendBetaInvitesPayload,
   AppSettings,
   PublicScheduleResult,
+  MonthConfig,
+  MonthStatus,
+  SaveMonthDatesPayload,
 } from "../../server/types";
 import {
   MOCK_INTAKE_PAYLOAD,
@@ -27,6 +30,7 @@ import {
   MOCK_EXCEPTIONS,
   MOCK_PRESETS,
   MOCK_SETTINGS,
+  MOCK_MONTH_CONFIGS,
 } from "../../server/mockData";
 import { solveCookAndCleanSchedule } from "../../server/matchmaker";
 import { parseScheduleGridData, parseDateFromLabelOrKey } from "../../server/scheduleParser";
@@ -48,6 +52,7 @@ let localMembers = [...MOCK_MEMBERS];
 let localExceptions = [...MOCK_EXCEPTIONS];
 let mockMasterSettings: AppSettings = { ...MOCK_SETTINGS };
 const mockEmailDispatchLog: Record<string, EmailDispatchInfo> = {};
+const mockMonthConfigs: Record<string, MonthConfig> = { ...MOCK_MONTH_CONFIGS };
 let localIntake: IntakePayload = {
   ...MOCK_INTAKE_PAYLOAD,
   members: localMembers,
@@ -372,6 +377,17 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
 
     case "saveWebSurveyResponse": {
       const [payload] = args as [WebSurveyResponsePayload];
+      const monthKey = payload.monthKey || "2026-11";
+      const cfg = mockMonthConfigs[monthKey];
+      if (cfg?.status === "CLOSED") {
+        throw new Error(
+          `Sign-ups for ${monthKey} are closed because meal teams have already been scheduled.`
+        );
+      }
+      if (cfg?.status === "NOT_OPEN") {
+        throw new Error(`Sign-ups for ${monthKey} have not opened yet.`);
+      }
+
       const now = new Date();
       const timestamp = `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
 
@@ -687,10 +703,12 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         (monthKey || "").trim() ||
         (availableMonths.includes(currentMonthKey) ? currentMonthKey : availableMonths[0]);
 
-      const sched =
-        (await callGas<ScheduleOutput>("loadExistingScheduleFromSheet", customSheetId || "mock-sheet")) || {
-          schedule: [],
-        };
+      const sched = (await callGas<ScheduleOutput>(
+        "loadExistingScheduleFromSheet",
+        customSheetId || "mock-sheet"
+      )) || {
+        schedule: [],
+      };
 
       const monthNames = [
         "January",
@@ -773,6 +791,18 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         }
       }
       if (!monthSuffix) monthSuffix = "2026-10";
+      if (mockMonthConfigs[monthSuffix]) {
+        mockMonthConfigs[monthSuffix].status = "CLOSED";
+        mockMonthConfigs[monthSuffix].closedAt = new Date().toISOString();
+      } else {
+        mockMonthConfigs[monthSuffix] = {
+          monthKey: monthSuffix,
+          status: "CLOSED",
+          dates: [],
+          closedAt: new Date().toISOString(),
+          isConfigured: true,
+        };
+      }
       const sheetTabName = `Schedule_${monthSuffix}`;
       return {
         success: true,
@@ -883,8 +913,17 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
 
     case "exportToMealSignupWorkbook": {
       const targetId = (args[0] as string) || "sample-common-meal-signup-coho";
+      const schedule = args[1];
       const options = (args[2] || {}) as any;
       const tabName = options.monthTabName || "OCT 2026";
+      let mKey = "2026-10";
+      if (Array.isArray(schedule) && schedule.length > 0 && schedule[0].dateKey) {
+        mKey = schedule[0].dateKey.slice(0, 7);
+      }
+      if (mockMonthConfigs[mKey]) {
+        mockMonthConfigs[mKey].status = "CLOSED";
+        mockMonthConfigs[mKey].closedAt = new Date().toISOString();
+      }
       return {
         success: true,
         spreadsheetId: targetId,
@@ -898,12 +937,85 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
       } as unknown as T;
     }
 
+    case "getMonthConfig": {
+      const monthKey = (args[0] as string) || "2026-11";
+      const cfg = mockMonthConfigs[monthKey] || {
+        monthKey,
+        status: "NOT_OPEN",
+        dates: [],
+        isConfigured: false,
+      };
+      return cfg as unknown as T;
+    }
+
+    case "saveMonthDatesAndOpen": {
+      const payload = (args[0] || {}) as SaveMonthDatesPayload;
+      const monthKey = payload.monthKey || "2026-11";
+      const status: MonthStatus = payload.status || "OPEN";
+      const allDates = payload.dates || [];
+      const activeDates = allDates.filter((d) => d.included !== false);
+      mockMonthConfigs[monthKey] = {
+        monthKey,
+        status,
+        dates: allDates,
+        defaultTitle: payload.title || deriveFormTitle(monthKey),
+        openedAt: status === "OPEN" ? new Date().toISOString() : undefined,
+        closedAt: status === "CLOSED" ? new Date().toISOString() : undefined,
+        isConfigured: true,
+      };
+      return {
+        success: true,
+        message: `Meal dates saved and sign-ups for ${monthKey} are now ${status} (${activeDates.length} meal dates included)!`,
+        monthKey,
+        status,
+        dates: allDates,
+      } as unknown as T;
+    }
+
+    case "setMonthStatus": {
+      const [monthKey, status] = args as [string, MonthStatus];
+      const existing = mockMonthConfigs[monthKey] || {
+        monthKey,
+        status: "NOT_OPEN",
+        dates: [],
+        isConfigured: false,
+      };
+      mockMonthConfigs[monthKey] = {
+        ...existing,
+        status,
+        closedAt: status === "CLOSED" ? new Date().toISOString() : existing.closedAt,
+        openedAt: status === "OPEN" ? new Date().toISOString() : existing.openedAt,
+      };
+      return {
+        success: true,
+        message: `Sign-up status for ${monthKey} set to ${status}.`,
+        monthKey,
+        status,
+      } as unknown as T;
+    }
+
     case "getSurveyFormDatesPreview": {
       const monthKey = (args[0] as string) || "2026-11";
+      const cfg = mockMonthConfigs[monthKey];
+      if (cfg && cfg.isConfigured && cfg.dates && cfg.dates.length > 0) {
+        return {
+          monthKey,
+          defaultTitle: cfg.defaultTitle || deriveFormTitle(monthKey),
+          dates: cfg.dates,
+          status: cfg.status,
+          openedAt: cfg.openedAt,
+          closedAt: cfg.closedAt,
+          isConfigured: true,
+        } as unknown as T;
+      }
       return {
         monthKey,
         defaultTitle: deriveFormTitle(monthKey),
         dates: generateMonthlySurveyDates(monthKey),
+        status: cfg ? cfg.status : "NOT_OPEN",
+        openedAt: cfg?.openedAt,
+        closedAt: cfg?.closedAt,
+        isConfigured: false,
       } as unknown as T;
     }
 
@@ -912,6 +1024,14 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
       const monthKey = payload.monthKey || "2026-11";
       const title = payload.title || deriveFormTitle(monthKey);
       const activeDates = (payload.dates || []).filter((d: any) => d.included);
+      mockMonthConfigs[monthKey] = {
+        monthKey,
+        status: "OPEN",
+        dates: payload.dates || [],
+        defaultTitle: title,
+        openedAt: new Date().toISOString(),
+        isConfigured: true,
+      };
       return {
         success: true,
         formId: "mock-form-id-12345",

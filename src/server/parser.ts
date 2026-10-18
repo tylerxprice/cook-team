@@ -179,35 +179,6 @@ export function extractAliases(aliasField?: string | string[]): string[] {
   return result;
 }
 
-/**
- * Formats last active survey month string cleanly (e.g. "2026-08")
- * Handles Date objects, timestamps, or raw month strings.
- */
-export function formatLastActiveSurvey(val: any): string | undefined {
-  if (!val) return undefined;
-  if (val instanceof Date || (typeof val === "object" && typeof (val as any).getTime === "function")) {
-    const y = val.getFullYear();
-    const m = String(val.getMonth() + 1).padStart(2, "0");
-    return `${y}-${m}`;
-  }
-  const str = String(val).trim();
-  if (!str || str.toLowerCase() === "never") return undefined;
-  if (/^\d{4}-\d{2}$/.test(str)) return str;
-
-  const ymMatch = str.match(/\b(20\d{2})[-/](\d{1,2})\b/);
-  if (ymMatch) {
-    return `${ymMatch[1]}-${String(ymMatch[2]).padStart(2, "0")}`;
-  }
-
-  const parsed = new Date(str);
-  if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 2000) {
-    const y = parsed.getFullYear();
-    const m = String(parsed.getMonth() + 1).padStart(2, "0");
-    return `${y}-${m}`;
-  }
-  return str;
-}
-
 const SHORT_MONTH_NAMES = [
   "Jan",
   "Feb",
@@ -222,6 +193,50 @@ const SHORT_MONTH_NAMES = [
   "Nov",
   "Dec",
 ];
+
+/**
+ * Formats last active survey month string cleanly (e.g. "2026-08")
+ * Handles Date objects, timestamps, or raw month strings.
+ */
+export function formatLastActiveSurvey(val: any): string | undefined {
+  if (!val) return undefined;
+  if (
+    val instanceof Date ||
+    (typeof val === "object" && typeof (val as any).getTime === "function")
+  ) {
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}`;
+  }
+  const str = String(val).trim();
+  if (!str || str.toLowerCase() === "never") return undefined;
+  if (/^\d{4}-\d{2}$/.test(str)) return str;
+
+  const ymMatch = str.match(/\b(20\d{2})[-/](\d{1,2})\b/);
+  if (ymMatch) {
+    return `${ymMatch[1]}-${String(ymMatch[2]).padStart(2, "0")}`;
+  }
+
+  // Handle strings containing month name and year (e.g. "Tue Sep 01 2026 ...") without timezone shift
+  const monthNameMatch = str.match(
+    /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\b.*?\b(20\d{2})\b/i
+  );
+  if (monthNameMatch) {
+    const mName = monthNameMatch[1].slice(0, 3).toLowerCase();
+    const idx = SHORT_MONTH_NAMES.findIndex((n) => n.toLowerCase() === mName);
+    if (idx !== -1) {
+      return `${monthNameMatch[2]}-${String(idx + 1).padStart(2, "0")}`;
+    }
+  }
+
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 2000) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}`;
+  }
+  return str;
+}
 
 /**
  * Human-friendly Month + Year display (e.g. "Aug 2026" or "Oct 2026")
@@ -424,7 +439,9 @@ export function parseSurveySheetData(
     if (matchedMember) {
       respondedMemberNames.add(matchedMember.name.trim().toLowerCase());
       if (matchedMember.google_email) {
-        extractEmails(matchedMember.google_email).forEach((e) => respondedEmails.add(e.toLowerCase()));
+        extractEmails(matchedMember.google_email).forEach((e) =>
+          respondedEmails.add(e.toLowerCase())
+        );
       }
       if (matchedMember.alternate_emails) {
         matchedMember.alternate_emails
@@ -694,4 +711,3 @@ export function mergeSurveyResponses(
 
   return { responses, audit };
 }
-

@@ -28,29 +28,26 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
   setRecoverySelectedCleaners,
   handleRestoreWithSelectedVolunteers,
 }) => {
-  if (!selectedNearCompleteDateKey || !solverResult) return null;
-
-  const opp = solverResult.nearCompleteOpportunities?.find(
+  const opp = solverResult?.nearCompleteOpportunities?.find(
     (o) => o.dateKey === selectedNearCompleteDateKey
   );
-  if (!opp) return null;
 
-  const targetCooks = opp.targetCookCount || (opp.mealType === "BRUNCH" ? 2 : 3);
-  const targetCleans = opp.targetCleanCount || (opp.mealType === "BRUNCH" ? 2 : 3);
+  const targetCooks = opp?.targetCookCount || (opp?.mealType === "BRUNCH" ? 2 : 3);
+  const targetCleans = opp?.targetCleanCount || (opp?.mealType === "BRUNCH" ? 2 : 3);
 
-  const cookCandidates = (opp.candidateVolunteersToAsk || []).filter((c) =>
+  const cookCandidates = (opp?.candidateVolunteersToAsk || []).filter((c) =>
     c.availableRoles.includes("COOK")
   );
-  const cleanCandidates = (opp.candidateVolunteersToAsk || []).filter((c) =>
+  const cleanCandidates = (opp?.candidateVolunteersToAsk || []).filter((c) =>
     c.availableRoles.includes("CLEAN")
   );
 
   const sortedCookCandidates = [...cookCandidates].sort((a, b) => {
-    const aAssigned = solverResult.memberStats?.[a.name]?.assignedCooks ?? a.assignedCooks ?? 0;
+    const aAssigned = solverResult?.memberStats?.[a.name]?.assignedCooks ?? a.assignedCooks ?? 0;
     const aQuota = a.requestedCookQuota ?? 1;
     const aCan = aAssigned < aQuota;
 
-    const bAssigned = solverResult.memberStats?.[b.name]?.assignedCooks ?? b.assignedCooks ?? 0;
+    const bAssigned = solverResult?.memberStats?.[b.name]?.assignedCooks ?? b.assignedCooks ?? 0;
     const bQuota = b.requestedCookQuota ?? 1;
     const bCan = bAssigned < bQuota;
 
@@ -60,11 +57,11 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
   });
 
   const sortedCleanCandidates = [...cleanCandidates].sort((a, b) => {
-    const aAssigned = solverResult.memberStats?.[a.name]?.assignedCleans ?? a.assignedCleans ?? 0;
+    const aAssigned = solverResult?.memberStats?.[a.name]?.assignedCleans ?? a.assignedCleans ?? 0;
     const aQuota = a.requestedCleanQuota ?? 1;
     const aCan = aAssigned < aQuota;
 
-    const bAssigned = solverResult.memberStats?.[b.name]?.assignedCleans ?? b.assignedCleans ?? 0;
+    const bAssigned = solverResult?.memberStats?.[b.name]?.assignedCleans ?? b.assignedCleans ?? 0;
     const bQuota = b.requestedCleanQuota ?? 1;
     const bCan = bAssigned < bQuota;
 
@@ -75,7 +72,7 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
 
   // Pre-select candidates when modal opens for a new dateKey
   useEffect(() => {
-    if (!selectedNearCompleteDateKey) return;
+    if (!selectedNearCompleteDateKey || !solverResult) return;
 
     const initialCooks: string[] = [];
     for (const cand of sortedCookCandidates) {
@@ -138,6 +135,8 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
       }
     }
   };
+
+  if (!selectedNearCompleteDateKey || !solverResult || !opp) return null;
 
   return (
     <div

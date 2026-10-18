@@ -64,6 +64,12 @@ import {
   CreateSurveyFormPayload,
   CreateSurveyFormResult,
   PublicScheduleResult,
+  MonthStatus,
+  MonthConfig,
+  SaveMonthDatesPayload,
+  SaveMonthDatesResult,
+  SetMonthStatusResult,
+  SurveyFormDatesPreviewResult,
 } from "./types";
 
 /**
@@ -128,7 +134,10 @@ function recordPublishedMonthInMaster(monthKey: string): void {
     let existingVal = "";
 
     for (let i = 1; i < data.length; i++) {
-      const k = String(data[i][0] || "").trim().toLowerCase().replace(/[\s-_]+/g, "_");
+      const k = String(data[i][0] || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[\s-_]+/g, "_");
       if (k === "published_months" || k === "publishedmonths") {
         pubRow = i + 1;
         existingVal = String(data[i][1] || "").trim();
@@ -207,7 +216,8 @@ function populatePublishedMonthsInMaster(customMasterSpreadsheetIdOrUrl?: string
   const results: Array<{ env: string; name: string; id: string; row: number; value: string }> = [];
 
   // Determine target spreadsheets
-  const targets: Array<{ label: string; sheet: GoogleAppsScript.Spreadsheet.Spreadsheet | null }> = [];
+  const targets: Array<{ label: string; sheet: GoogleAppsScript.Spreadsheet.Spreadsheet | null }> =
+    [];
   if (customMasterSpreadsheetIdOrUrl && customMasterSpreadsheetIdOrUrl.trim()) {
     targets.push({
       label: "Custom",
@@ -254,7 +264,10 @@ function populatePublishedMonthsInMaster(customMasterSpreadsheetIdOrUrl?: string
       let pubRow = -1;
 
       for (let i = 1; i < data.length; i++) {
-        const k = String(data[i][0] || "").trim().toLowerCase().replace(/[\s-_]+/g, "_");
+        const k = String(data[i][0] || "")
+          .trim()
+          .toLowerCase()
+          .replace(/[\s-_]+/g, "_");
         if (k === "published_months" || k === "publishedmonths") {
           pubRow = i + 1;
           break;
@@ -263,7 +276,9 @@ function populatePublishedMonthsInMaster(customMasterSpreadsheetIdOrUrl?: string
 
       if (pubRow > 0) {
         settingsSheet.getRange(pubRow, 2).setValue(monthsStr);
-        settingsSheet.getRange(pubRow, 3).setValue("Comma-separated list of months with finalized completed schedules");
+        settingsSheet
+          .getRange(pubRow, 3)
+          .setValue("Comma-separated list of months with finalized completed schedules");
         Logger.log(`  ✓ Updated existing 'published_months' at row #${pubRow} to: ${monthsStr}`);
       } else {
         settingsSheet.appendRow([
@@ -283,12 +298,16 @@ function populatePublishedMonthsInMaster(customMasterSpreadsheetIdOrUrl?: string
         value: monthsStr,
       });
     } catch (sheetErr: any) {
-      Logger.log(`❌ Error updating ${target.label} Master Registry: ${sheetErr.message || sheetErr}`);
+      Logger.log(
+        `❌ Error updating ${target.label} Master Registry: ${sheetErr.message || sheetErr}`
+      );
     }
   }
 
   Logger.log("\n=======================================================");
-  Logger.log(`🎉 Finished! Successfully populated published_months in ${results.length} Master spreadsheet(s).`);
+  Logger.log(
+    `🎉 Finished! Successfully populated published_months in ${results.length} Master spreadsheet(s).`
+  );
   Logger.log("=======================================================");
 
   return {
@@ -593,7 +612,8 @@ function authorizeAppScopesInternal(): { success: boolean; user: string; message
   return {
     success: true,
     user: userEmail,
-    message: "All required Google Apps Script OAuth scopes (Forms, Forms REST/UrlFetch, Drive, Sheets, Gmail) successfully authorized!",
+    message:
+      "All required Google Apps Script OAuth scopes (Forms, Forms REST/UrlFetch, Drive, Sheets, Gmail) successfully authorized!",
   };
 }
 
@@ -719,7 +739,11 @@ function getMasterRegistryData(
         let keyCol = 0;
         let valCol = 1;
 
-        const headerRow = sData[0].map((h) => String(h || "").trim().toLowerCase());
+        const headerRow = sData[0].map((h) =>
+          String(h || "")
+            .trim()
+            .toLowerCase()
+        );
         const kIdx = headerRow.findIndex(
           (h) => h === "key" || h === "setting" || h === "property" || h === "name"
         );
@@ -735,11 +759,13 @@ function getMasterRegistryData(
         // Iterate through setting rows
         for (let i = 1; i < sData.length; i++) {
           const row = sData[i];
-          const rawCell = row[keyCol] !== undefined && row[keyCol] !== null ? String(row[keyCol]).trim() : "";
+          const rawCell =
+            row[keyCol] !== undefined && row[keyCol] !== null ? String(row[keyCol]).trim() : "";
           if (!rawCell) continue;
 
           const rawKey = rawCell.toLowerCase().replace(/[\s-_]+/g, "_");
-          const val = row[valCol] !== undefined && row[valCol] !== null ? String(row[valCol]).trim() : "";
+          const val =
+            row[valCol] !== undefined && row[valCol] !== null ? String(row[valCol]).trim() : "";
           if (!val) continue;
 
           if (
@@ -790,7 +816,14 @@ function getMasterRegistryData(
             settings.signupWorkbookId = val;
           } else if (["auto_cancel_deficit_dates", "drop_deficit_dates"].includes(rawKey)) {
             settings.autoCancelDeficitDates = parseSheetBoolean(val, true);
-          } else if (["beta_web_signup_enabled", "beta_signup_enabled", "beta_signup", "beta_web_signup"].includes(rawKey)) {
+          } else if (
+            [
+              "beta_web_signup_enabled",
+              "beta_signup_enabled",
+              "beta_signup",
+              "beta_web_signup",
+            ].includes(rawKey)
+          ) {
             settings.betaWebSignupEnabled = parseSheetBoolean(val, false);
           } else {
             settings[rawKey] = val;
@@ -834,7 +867,11 @@ function saveMasterSettings(
   }
 
   let settingsSheet = masterSpreadsheet.getSheetByName("Settings");
-  const formatHeader = (sh: GoogleAppsScript.Spreadsheet.Sheet, numCols: number, bgColor: string) => {
+  const formatHeader = (
+    sh: GoogleAppsScript.Spreadsheet.Sheet,
+    numCols: number,
+    bgColor: string
+  ) => {
     const r = sh.getRange(1, 1, 1, numCols);
     r.setFontWeight("bold");
     r.setBackground(bgColor);
@@ -849,7 +886,10 @@ function saveMasterSettings(
     // Standardize header row 1 if missing or mislabeled
     const hRange = settingsSheet.getRange(1, 1, 1, 3);
     const currHeaders = hRange.getValues()[0];
-    if (String(currHeaders[0] || "").trim() !== "Key" || String(currHeaders[1] || "").trim() !== "Value") {
+    if (
+      String(currHeaders[0] || "").trim() !== "Key" ||
+      String(currHeaders[1] || "").trim() !== "Value"
+    ) {
       hRange.setValues([["Key", "Value", "Description"]]);
       formatHeader(settingsSheet, 3, "#ede9fe");
     }
@@ -858,7 +898,10 @@ function saveMasterSettings(
   const sData = settingsSheet.getDataRange().getValues();
   const keyRowMap: Record<string, number> = {};
   for (let i = 1; i < sData.length; i++) {
-    const k = String(sData[i][0] || "").trim().toLowerCase().replace(/[\s-_]+/g, "_");
+    const k = String(sData[i][0] || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-_]+/g, "_");
     if (k) keyRowMap[k] = i + 1; // 1-indexed sheet row
   }
 
@@ -984,56 +1027,56 @@ function getIntakeData(
     const masterSpreadsheet =
       getMasterRegistrySpreadsheet(masterRegistryUrlOrId, isDevMode) || surveySpreadsheet;
 
-      if (masterSpreadsheet) {
-        const membersTab = masterSpreadsheet.getSheetByName("Members");
-        if (membersTab) {
-          const mData = membersTab.getDataRange().getValues();
-          if (mData.length > 1) {
-            for (let i = 1; i < mData.length; i++) {
-              const row = mData[i];
-              if (row[0] && String(row[0]).trim() !== "") {
-                const isActive = parseSheetBoolean(row[2], true);
+    if (masterSpreadsheet) {
+      const membersTab = masterSpreadsheet.getSheetByName("Members");
+      if (membersTab) {
+        const mData = membersTab.getDataRange().getValues();
+        if (mData.length > 1) {
+          for (let i = 1; i < mData.length; i++) {
+            const row = mData[i];
+            if (row[0] && String(row[0]).trim() !== "") {
+              const isActive = parseSheetBoolean(row[2], true);
 
-                const rawEmail = String(row[1] || "").trim();
-                const emails = extractEmails(rawEmail);
-                const rawAliases = row[4] ? String(row[4]).trim() : "";
-                const aliases = extractAliases(rawAliases);
+              const rawEmail = String(row[1] || "").trim();
+              const emails = extractEmails(rawEmail);
+              const rawAliases = row[4] ? String(row[4]).trim() : "";
+              const aliases = extractAliases(rawAliases);
 
-                members.push({
-                  name: String(row[0]).trim(),
-                  google_email: rawEmail,
-                  active: isActive,
-                  last_active_survey: formatLastActiveSurvey(row[3]),
-                  aliases: aliases.length > 0 ? aliases : undefined,
-                  alternate_emails: emails.length > 1 ? emails.slice(1) : undefined,
-                });
-              }
-            }
-          }
-        }
-
-        const exceptionsTab = masterSpreadsheet.getSheetByName("Exceptions");
-        if (exceptionsTab) {
-          const eData = exceptionsTab.getDataRange().getValues();
-          if (eData.length > 1) {
-            for (let i = 1; i < eData.length; i++) {
-              const row = eData[i];
-              if (row[0]) {
-                exceptions.push({
-                  id: `RULE-${i}`,
-                  person_a: String(row[0]).trim(),
-                  person_b: row[1] ? String(row[1]).trim() : undefined,
-                  rule_type: String(row[2]).trim() as any,
-                  target_role_a: row[3] ? (String(row[3]).trim() as any) : undefined,
-                  target_role_b: row[4] ? (String(row[4]).trim() as any) : undefined,
-                  is_hard_rule: parseSheetBoolean(row[5], true),
-                  notes: row[6] ? String(row[6]).trim() : undefined,
-                });
-              }
+              members.push({
+                name: String(row[0]).trim(),
+                google_email: rawEmail,
+                active: isActive,
+                last_active_survey: formatLastActiveSurvey(row[3]),
+                aliases: aliases.length > 0 ? aliases : undefined,
+                alternate_emails: emails.length > 1 ? emails.slice(1) : undefined,
+              });
             }
           }
         }
       }
+
+      const exceptionsTab = masterSpreadsheet.getSheetByName("Exceptions");
+      if (exceptionsTab) {
+        const eData = exceptionsTab.getDataRange().getValues();
+        if (eData.length > 1) {
+          for (let i = 1; i < eData.length; i++) {
+            const row = eData[i];
+            if (row[0]) {
+              exceptions.push({
+                id: `RULE-${i}`,
+                person_a: String(row[0]).trim(),
+                person_b: row[1] ? String(row[1]).trim() : undefined,
+                rule_type: String(row[2]).trim() as any,
+                target_role_a: row[3] ? (String(row[3]).trim() as any) : undefined,
+                target_role_b: row[4] ? (String(row[4]).trim() as any) : undefined,
+                is_hard_rule: parseSheetBoolean(row[5], true),
+                notes: row[6] ? String(row[6]).trim() : undefined,
+              });
+            }
+          }
+        }
+      }
+    }
 
     // Fallback: If no members tab found in registry, use providedMembers or extract from survey or mock
     if (members.length === 0) {
@@ -1149,6 +1192,11 @@ function getIntakeData(
     const emailDispatchInfo =
       getEmailDispatchMetadata(surveySpreadsheet, surveyMonthKey) || undefined;
     const regSettings = getMasterRegistryData(masterRegistryUrlOrId, isDevMode).settings;
+    const monthStatus: MonthStatus = existingScheduleTab?.exists
+      ? "CLOSED"
+      : surveyMonthKey
+        ? getMonthConfig(surveyMonthKey).status
+        : "OPEN";
 
     return {
       sheetId: surveySpreadsheet.getId(),
@@ -1160,6 +1208,7 @@ function getIntakeData(
       settings: regSettings,
       existingScheduleTab,
       emailDispatchInfo,
+      monthStatus,
     };
   } catch (err: any) {
     console.error("Error reading spreadsheet:", err);
@@ -1198,8 +1247,8 @@ function appendManualSurveyResponse(
     sameDayPref === "PREFERRED"
       ? "Prefer same day (Cook and Clean on the same day)"
       : sameDayPref === "YES"
-      ? "Yes"
-      : "No";
+        ? "Yes"
+        : "No";
 
   const cookQuota = typeof payload.cookQuota === "number" ? payload.cookQuota : 1;
   const cleanQuota = typeof payload.cleanQuota === "number" ? payload.cleanQuota : 1;
@@ -1304,8 +1353,15 @@ function appendManualSurveyResponse(
         const targetEmail = (surveyResponse.email || "").toLowerCase();
 
         for (let r = 0; r < existingData.length; r++) {
-          const rowName = String(existingData[r][nameColIdx] || "").trim().toLowerCase();
-          const rowEmail = emailColIdx >= 0 ? String(existingData[r][emailColIdx] || "").trim().toLowerCase() : "";
+          const rowName = String(existingData[r][nameColIdx] || "")
+            .trim()
+            .toLowerCase();
+          const rowEmail =
+            emailColIdx >= 0
+              ? String(existingData[r][emailColIdx] || "")
+                  .trim()
+                  .toLowerCase()
+              : "";
           if (
             (targetEmail && rowEmail && rowEmail === targetEmail) ||
             (targetName && rowName && rowName === targetName)
@@ -1344,6 +1400,18 @@ function saveWebSurveyResponse(
   payload: WebSurveyResponsePayload,
   isDevMode?: boolean
 ): ManualSurveyResponseResult {
+  if (payload.monthKey) {
+    const preview = getSurveyFormDatesPreview(payload.monthKey);
+    if (preview.status === "CLOSED") {
+      throw new Error(
+        `Sign-ups for ${payload.monthKey} are closed because meal teams have already been scheduled.`
+      );
+    }
+    if (preview.status === "NOT_OPEN") {
+      throw new Error(`Sign-ups for ${payload.monthKey} have not opened yet.`);
+    }
+  }
+
   let targetId = (payload.spreadsheetId || "").trim();
 
   if (!targetId) {
@@ -1377,9 +1445,7 @@ function saveWebSurveyResponse(
 /**
  * Sends personalized beta survey invitation emails to selected beta testers.
  */
-function sendBetaSurveyInvitations(
-  payload: SendBetaInvitesPayload
-): SendBetaInvitesResult {
+function sendBetaSurveyInvitations(payload: SendBetaInvitesPayload): SendBetaInvitesResult {
   const { monthKey, subject, bodyTemplate, replyTo, recipients } = payload;
   if (!recipients || recipients.length === 0) {
     return {
@@ -1748,10 +1814,7 @@ function findSpreadsheetForMonth(
  * Loads the published schedule for the public resident calendar view.
  * If spreadsheetIdOrUrl is not provided, looks for a spreadsheet with Schedule_YYYY-MM tab.
  */
-function getPublicSchedule(
-  monthKey?: string,
-  spreadsheetIdOrUrl?: string
-): PublicScheduleResult {
+function getPublicSchedule(monthKey?: string, spreadsheetIdOrUrl?: string): PublicScheduleResult {
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
@@ -2581,8 +2644,9 @@ function exportScheduleToSheet(
 
     try {
       recordPublishedMonthInMaster(monthSuffix);
+      setMonthStatus(monthSuffix, "CLOSED");
     } catch (e) {
-      console.warn("Could not record published month in master:", e);
+      console.warn("Could not record published month or close status in master:", e);
     }
 
     const tabUrl = `${sheet.getUrl()}#gid=${outputTab.getSheetId()}`;
@@ -3106,7 +3170,7 @@ function runHistoricalImportOnce() {
 /**
  * Returns the list of month keys corresponding to Schedule_ tabs in the active spreadsheet
  */
-function getAvailableScheduleTabs(spreadsheetIdOrUrl?: string | any): string[] {
+function getAvailableScheduleTabs(_spreadsheetIdOrUrl?: string | any): string[] {
   try {
     const masterData = getMasterRegistryData();
     return getPublishedMonthKeys(masterData.settings);
@@ -3173,29 +3237,255 @@ function exportToMealSignupWorkbook(
     throw new Error("Invalid source schedule provided for sign-up sheet export.");
   }
 
-  return executeCreateMealSignupTab(target, schedule, options);
+  const result = executeCreateMealSignupTab(target, schedule, options);
+  try {
+    if (schedule.length > 0) {
+      let mKey = "";
+      if (schedule[0].dateKey && /^\d{4}-\d{2}/.test(schedule[0].dateKey)) {
+        mKey = schedule[0].dateKey.slice(0, 7);
+      } else {
+        const parsed = parseDateFromLabelOrKey(schedule[0].dateLabel, schedule[0].dateKey);
+        if (parsed && !isNaN(parsed.getTime())) {
+          mKey = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
+        }
+      }
+      if (mKey) {
+        setMonthStatus(mKey, "CLOSED");
+      }
+    }
+  } catch (statusErr) {
+    console.warn("Could not mark month closed during meal signup workbook export:", statusErr);
+  }
+  return result;
 }
 
 /**
- * Prepares preview dates for creating a new monthly survey form
+ * Loads the saved configuration (status and configured meal dates) for a month
  */
-function getSurveyFormDatesPreview(monthKey: string): {
-  monthKey: string;
-  defaultTitle: string;
-  dates: SurveyFormDateConfig[];
-} {
-  return {
+function getMonthConfig(monthKey: string): MonthConfig {
+  const cleanMonth = (monthKey || "").trim();
+  let savedConfig: MonthConfig | null = null;
+
+  // 1. Check ScriptProperties
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const raw = props.getProperty(`MONTH_CONFIG_${cleanMonth}`);
+    if (raw) {
+      savedConfig = JSON.parse(raw);
+    }
+  } catch (e) {
+    console.warn("Could not read month config from ScriptProperties:", e);
+  }
+
+  // 2. Check Master Registry Settings
+  if (!savedConfig) {
+    try {
+      const masterData = getMasterRegistryData();
+      const statusKey = `month_status_${cleanMonth}`;
+      const datesKey = `month_dates_${cleanMonth}`;
+      const statusVal = masterData.settings ? (masterData.settings as any)[statusKey] : undefined;
+      const datesVal = masterData.settings ? (masterData.settings as any)[datesKey] : undefined;
+      if (statusVal) {
+        let parsedDates: SurveyFormDateConfig[] = [];
+        try {
+          if (datesVal) parsedDates = JSON.parse(datesVal);
+        } catch {}
+        savedConfig = {
+          monthKey: cleanMonth,
+          status: statusVal as MonthStatus,
+          dates: parsedDates,
+          isConfigured: true,
+        };
+      }
+    } catch (e) {
+      console.warn("Could not read month config from Master Registry:", e);
+    }
+  }
+
+  // 3. Fallback check: If month is historical / already scheduled
+  if (!savedConfig) {
+    const isCompleted =
+      DEFAULT_COMPLETED_MONTHS.includes(cleanMonth) ||
+      (() => {
+        try {
+          const tabs = getAvailableScheduleTabs();
+          return tabs.includes(cleanMonth) || tabs.includes(`Schedule_${cleanMonth}`);
+        } catch {
+          return false;
+        }
+      })();
+
+    if (isCompleted) {
+      return {
+        monthKey: cleanMonth,
+        status: "CLOSED",
+        dates: [],
+        closedAt: new Date().toISOString(),
+        isConfigured: false,
+      };
+    }
+
+    return {
+      monthKey: cleanMonth,
+      status: "NOT_OPEN",
+      dates: [],
+      isConfigured: false,
+    };
+  }
+
+  return savedConfig;
+}
+
+/**
+ * Saves configured meal dates/types/notes and marks the month as OPEN for sign-ups.
+ */
+function saveMonthDatesAndOpen(payload: SaveMonthDatesPayload): SaveMonthDatesResult {
+  const monthKey = (payload.monthKey || "").trim();
+  if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) {
+    throw new Error(
+      `Invalid month key format: '${monthKey}'. Expected 'YYYY-MM' (e.g. '2026-11').`
+    );
+  }
+
+  const allDates = payload.dates || [];
+  const activeDates = allDates.filter((d) => d.included !== false);
+  if (activeDates.length === 0) {
+    throw new Error("Cannot open sign-ups with 0 meal dates. Please include at least one date.");
+  }
+
+  const status: MonthStatus = payload.status || "OPEN";
+  const now = new Date().toISOString();
+
+  const config: MonthConfig = {
     monthKey,
-    defaultTitle: deriveFormTitle(monthKey),
-    dates: generateMonthlySurveyDates(monthKey),
+    status,
+    dates: allDates,
+    defaultTitle: payload.title || deriveFormTitle(monthKey),
+    openedAt: status === "OPEN" ? now : undefined,
+    closedAt: status === "CLOSED" ? now : undefined,
+    isConfigured: true,
+  };
+
+  // 1. Save in ScriptProperties
+  try {
+    const props = PropertiesService.getScriptProperties();
+    props.setProperty(`MONTH_CONFIG_${monthKey}`, JSON.stringify(config));
+  } catch (propErr) {
+    console.warn("Could not save month config to ScriptProperties:", propErr);
+  }
+
+  // 2. Save in Master Registry Settings
+  try {
+    saveMasterSettings({
+      [`month_status_${monthKey}`]: status,
+      [`month_dates_${monthKey}`]: JSON.stringify(allDates),
+    } as any);
+  } catch (masterErr) {
+    console.warn("Could not save month config to Master Settings:", masterErr);
+  }
+
+  return {
+    success: true,
+    message: `Meal dates saved and sign-ups for ${monthKey} are now ${status === "OPEN" ? "OPEN" : status} (${activeDates.length} meal dates included)!`,
+    monthKey,
+    status,
+    dates: allDates,
   };
 }
 
 /**
- * Generates a Google Form & linked Google Sheet response spreadsheet
+ * Updates a month's sign-up status (e.g. CLOSING by scheduling teams, or REOPENING).
+ */
+function setMonthStatus(monthKey: string, status: MonthStatus): SetMonthStatusResult {
+  const cleanMonth = (monthKey || "").trim();
+  if (!cleanMonth || !/^\d{4}-\d{2}$/.test(cleanMonth)) {
+    throw new Error(`Invalid month key format: '${cleanMonth}'. Expected 'YYYY-MM'.`);
+  }
+
+  const now = new Date().toISOString();
+  const existingConfig = getMonthConfig(cleanMonth);
+  const updatedConfig: MonthConfig = {
+    ...existingConfig,
+    monthKey: cleanMonth,
+    status,
+    closedAt: status === "CLOSED" ? now : existingConfig.closedAt,
+    openedAt: status === "OPEN" ? existingConfig.openedAt || now : existingConfig.openedAt,
+  };
+
+  try {
+    const props = PropertiesService.getScriptProperties();
+    props.setProperty(`MONTH_CONFIG_${cleanMonth}`, JSON.stringify(updatedConfig));
+  } catch (e) {
+    console.warn("Could not update status in ScriptProperties:", e);
+  }
+
+  try {
+    saveMasterSettings({
+      [`month_status_${cleanMonth}`]: status,
+    } as any);
+  } catch (e) {
+    console.warn("Could not update status in Master Settings:", e);
+  }
+
+  return {
+    success: true,
+    message: `Sign-up status for ${cleanMonth} set to ${status}.`,
+    monthKey: cleanMonth,
+    status,
+  };
+}
+
+/**
+ * Prepares preview dates for creating or reviewing a monthly survey form,
+ * returning saved configured dates and status if opened, or generated draft dates if not open yet.
+ */
+function getSurveyFormDatesPreview(monthKey: string): SurveyFormDatesPreviewResult {
+  const cleanMonth = (monthKey || "2026-11").trim();
+  const config = getMonthConfig(cleanMonth);
+
+  // If already configured with saved dates, return those exact dates
+  if (config.isConfigured && config.dates && config.dates.length > 0) {
+    return {
+      monthKey: cleanMonth,
+      defaultTitle: config.defaultTitle || deriveFormTitle(cleanMonth),
+      dates: config.dates,
+      status: config.status,
+      openedAt: config.openedAt,
+      closedAt: config.closedAt,
+      isConfigured: true,
+    };
+  }
+
+  // Otherwise generate standard algorithmic draft dates
+  const draftDates = generateMonthlySurveyDates(cleanMonth);
+  return {
+    monthKey: cleanMonth,
+    defaultTitle: deriveFormTitle(cleanMonth),
+    dates: draftDates,
+    status: config.status, // "NOT_OPEN" or "CLOSED"
+    openedAt: config.openedAt,
+    closedAt: config.closedAt,
+    isConfigured: false,
+  };
+}
+
+/**
+ * Generates a Google Form & linked Google Sheet response spreadsheet,
+ * and marks the month sign-up as OPEN with the configured dates.
  */
 function createMonthlySurveyForm(payload: CreateSurveyFormPayload): CreateSurveyFormResult {
-  return executeCreateSurveyForm(payload);
+  const result = executeCreateSurveyForm(payload);
+  try {
+    saveMonthDatesAndOpen({
+      monthKey: payload.monthKey,
+      dates: payload.dates,
+      title: payload.title,
+      status: "OPEN",
+    });
+  } catch (e) {
+    console.warn("Could not mark month open during createMonthlySurveyForm:", e);
+  }
+  return result;
 }
 
 // Global exposure for Google Apps Script runtime & google.script.run
@@ -3230,6 +3520,9 @@ g.getHistoricalCommunityReports = getHistoricalCommunityReports;
 g.getAvailableScheduleTabs = getAvailableScheduleTabs;
 g.getMealSignupWorkbookInfo = getMealSignupWorkbookInfo;
 g.exportToMealSignupWorkbook = exportToMealSignupWorkbook;
+g.getMonthConfig = getMonthConfig;
+g.saveMonthDatesAndOpen = saveMonthDatesAndOpen;
+g.setMonthStatus = setMonthStatus;
 g.getSurveyFormDatesPreview = getSurveyFormDatesPreview;
 g.createMonthlySurveyForm = createMonthlySurveyForm;
 g.appendManualSurveyResponse = appendManualSurveyResponse;

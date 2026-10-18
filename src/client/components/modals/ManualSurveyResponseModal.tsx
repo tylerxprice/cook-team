@@ -1,13 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  ClipboardEdit,
-  X,
-  User,
-  Mail,
-  CheckCircle2,
-  AlertCircle,
-  RefreshCw,
-} from "lucide-react";
+import { ClipboardEdit, X, User, Mail, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import {
   IntakePayload,
   Member,
@@ -70,9 +62,7 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
     }
 
     setCustomName("");
-    const matchedMember = members.find(
-      (m) => m.name.toLowerCase() === targetName.toLowerCase()
-    );
+    const matchedMember = members.find((m) => m.name.toLowerCase() === targetName.toLowerCase());
     const existingResp = intakeData?.responses?.find(
       (r) => r.name.toLowerCase() === targetName.toLowerCase()
     );
@@ -93,9 +83,7 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
       setCleanQuota(clq);
       setMaxTotalShifts(mq);
       setCookTeamSizePref(existingResp.cookTeamSizePref || "Dinner = 3, Brunch = 2");
-      setSameDayPref(
-        existingResp.sameDayPref || (existingResp.canCookCleanSameDay ? "YES" : "NO")
-      );
+      setSameDayPref(existingResp.sameDayPref || (existingResp.canCookCleanSameDay ? "YES" : "NO"));
       setSpecialInstructions(existingResp.specialInstructions || "");
       const initAvail: Record<string, AvailabilityStatus> = {};
       for (const d of mealDates) {
@@ -142,7 +130,8 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
     e.preventDefault();
     setErrorMessage(null);
 
-    const effectiveName = selectedMemberName === "custom" ? customName.trim() : selectedMemberName.trim();
+    const effectiveName =
+      selectedMemberName === "custom" ? customName.trim() : selectedMemberName.trim();
     if (!effectiveName) {
       setErrorMessage("Please select a community member or enter a name.");
       return;
@@ -188,7 +177,9 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
     .map((r) => r.name)
     .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
   const otherMembersList = members.filter(
-    (m) => !missingMemberNames.has(m.name.toLowerCase()) && !submittedMemberNames.has(m.name.toLowerCase())
+    (m) =>
+      !missingMemberNames.has(m.name.toLowerCase()) &&
+      !submittedMemberNames.has(m.name.toLowerCase())
   );
 
   return (
@@ -202,17 +193,24 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
-              isEditingExisting
-                ? "bg-blue-100 text-blue-800 border-blue-200"
-                : "bg-orange-100 text-orange-800 border-orange-200"
-            }`}>
+            <div
+              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                isEditingExisting
+                  ? "bg-blue-100 text-blue-800 border-blue-200"
+                  : "bg-orange-100 text-orange-800 border-orange-200"
+              }`}
+            >
               <ClipboardEdit className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 id="manual-survey-modal-title" className="text-base sm:text-lg font-bold text-slate-900">
-                  {isEditingExisting ? `Modify Survey Response` : `Enter Availability Survey for Member`}
+                <h3
+                  id="manual-survey-modal-title"
+                  className="text-base sm:text-lg font-bold text-slate-900"
+                >
+                  {isEditingExisting
+                    ? `Modify Survey Response`
+                    : `Enter Availability Survey for Member`}
                 </h3>
                 {isEditingExisting && (
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-900 border border-blue-300">
@@ -386,7 +384,9 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
             ) : (
               <>
                 <CheckCircle2 className="w-4 h-4" />
-                <span>{isEditingExisting ? "Update Survey Response" : "Save Availability Response"}</span>
+                <span>
+                  {isEditingExisting ? "Update Survey Response" : "Save Availability Response"}
+                </span>
               </>
             )}
           </button>

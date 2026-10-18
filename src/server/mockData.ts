@@ -6,6 +6,8 @@ import {
   CompletenessAudit,
   IntakePayload,
   AppSettings,
+  MonthConfig,
+  SurveyFormDateConfig,
 } from "./types";
 
 export const MOCK_SETTINGS: AppSettings = {
@@ -1325,5 +1327,145 @@ export const MOCK_PRESETS: Record<
     description:
       "Live intake simulation with only 1 submitted response and 27 missing active members.",
     payload: MOCK_SINGLE_PAYLOAD,
+  },
+};
+
+export const MOCK_NOVEMBER_DATES: SurveyFormDateConfig[] = [
+  {
+    dateKey: "2026-11-01",
+    dateLabel: "Nov 1 (Sun, Brunch)",
+    dayOfWeek: "Sunday",
+    mealType: "BRUNCH",
+    included: true,
+  },
+  {
+    dateKey: "2026-11-02",
+    dateLabel: "Nov 2 (Mon)",
+    dayOfWeek: "Monday",
+    mealType: "DINNER",
+    included: true,
+  },
+  {
+    dateKey: "2026-11-05",
+    dateLabel: "Nov 5 (Thur)",
+    dayOfWeek: "Thursday",
+    mealType: "DINNER",
+    included: true,
+  },
+  {
+    dateKey: "2026-11-08",
+    dateLabel: "Nov 8 (Sun, Dinner)",
+    dayOfWeek: "Sunday",
+    mealType: "DINNER",
+    included: true,
+  },
+  {
+    dateKey: "2026-11-09",
+    dateLabel: "Nov 9 (Mon)",
+    dayOfWeek: "Monday",
+    mealType: "DINNER",
+    included: true,
+  },
+  {
+    dateKey: "2026-11-12",
+    dateLabel: "Nov 12 (Thur)",
+    dayOfWeek: "Thursday",
+    mealType: "DINNER",
+    included: true,
+  },
+  {
+    dateKey: "2026-11-15",
+    dateLabel: "Nov 15 (Sun, Brunch)",
+    dayOfWeek: "Sunday",
+    mealType: "BRUNCH",
+    included: true,
+  },
+  {
+    dateKey: "2026-11-16",
+    dateLabel: "Nov 16 (Mon)",
+    dayOfWeek: "Monday",
+    mealType: "DINNER",
+    included: true,
+  },
+  {
+    dateKey: "2026-11-19",
+    dateLabel: "Nov 19 (Thur)",
+    dayOfWeek: "Thursday",
+    mealType: "DINNER",
+    included: true,
+  },
+  {
+    dateKey: "2026-11-22",
+    dateLabel: "Nov 22 (Sun, Dinner)",
+    dayOfWeek: "Sunday",
+    mealType: "DINNER",
+    included: true,
+  },
+  {
+    dateKey: "2026-11-23",
+    dateLabel: "Nov 23 (Mon)",
+    dayOfWeek: "Monday",
+    mealType: "DINNER",
+    included: true,
+  },
+  {
+    dateKey: "2026-11-26",
+    dateLabel: "Nov 26 (Thur)",
+    dayOfWeek: "Thursday",
+    mealType: "DINNER",
+    specialNote: "Thanksgiving",
+    included: true,
+  },
+  {
+    dateKey: "2026-11-29",
+    dateLabel: "Nov 29 (Sun, Brunch)",
+    dayOfWeek: "Sunday",
+    mealType: "BRUNCH",
+    included: true,
+  },
+  {
+    dateKey: "2026-11-30",
+    dateLabel: "Nov 30 (Mon)",
+    dayOfWeek: "Monday",
+    mealType: "DINNER",
+    included: true,
+  },
+];
+
+export const MOCK_MONTH_CONFIGS: Record<string, MonthConfig> = {
+  "2026-08": {
+    monthKey: "2026-08",
+    status: "CLOSED",
+    dates: [],
+    closedAt: "2026-08-01T00:00:00.000Z",
+    isConfigured: true,
+  },
+  "2026-09": {
+    monthKey: "2026-09",
+    status: "CLOSED",
+    dates: [],
+    closedAt: "2026-09-01T00:00:00.000Z",
+    isConfigured: true,
+  },
+  "2026-10": {
+    monthKey: "2026-10",
+    status: "CLOSED",
+    dates: [],
+    closedAt: "2026-10-01T00:00:00.000Z",
+    isConfigured: true,
+  },
+  "2026-11": {
+    monthKey: "2026-11",
+    status: "OPEN",
+    dates: MOCK_NOVEMBER_DATES,
+    defaultTitle: "26-11 Nov Meal Team Sign-Up",
+    openedAt: "2026-10-18T00:00:00.000Z",
+    isConfigured: true,
+  },
+  "2026-12": {
+    monthKey: "2026-12",
+    status: "NOT_OPEN",
+    dates: [],
+    isConfigured: false,
   },
 };

@@ -47,7 +47,8 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
             What would you like to do?
           </h2>
           <p className="text-sm sm:text-base text-slate-600 max-w-md mx-auto mt-2">
-            Select an option below to view your personal shift calendar or manage monthly meal teams.
+            Select an option below to view your personal shift calendar or manage monthly meal
+            teams.
           </p>
         </div>
 
@@ -69,7 +70,8 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
                 View My Shifts &amp; Add to Calendar
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
-                Check your upcoming cook and clean shifts, view your teammates, browse the full month schedule, and download events directly to your Apple or Google Calendar.
+                Check your upcoming cook and clean shifts, view your teammates, browse the full
+                month schedule, and download events directly to your Apple or Google Calendar.
               </p>
             </div>
 
@@ -96,7 +98,8 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
                 Coordinator Planning Wizard
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
-                Audit survey responses, configure pair &amp; conflict rules, solve the constraint matchmaking engine, balance quotas, and publish announcements.
+                Audit survey responses, configure pair &amp; conflict rules, solve the constraint
+                matchmaking engine, balance quotas, and publish announcements.
               </p>
             </div>
 

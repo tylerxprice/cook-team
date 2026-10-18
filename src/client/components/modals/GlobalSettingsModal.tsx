@@ -281,7 +281,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
               Announcement Listserv &amp; Default CC Recipients
             </span>
             <p className="text-slate-700 text-xs">
-              Default recipient listserv and CC recipients for monthly meal announcements (saved to the Master Community Registry Settings sheet).
+              Default recipient listserv and CC recipients for monthly meal announcements (saved to
+              the Master Community Registry Settings sheet).
             </p>
 
             <div className="space-y-3 pt-1">
@@ -361,7 +362,13 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
               Common Meal Sign-Up Workbook (Rose&apos;s Workflow)
             </span>
             <p className="text-slate-700 text-xs">
-              Google Sheet URL or ID for the community&apos;s Common Meal Sign-Up workbook where monthly tabs and volunteer rosters are exported (saved in the Master Community Registry Settings sheet under <code className="bg-slate-100 text-slate-800 px-1 py-0.5 rounded font-mono text-[11px]">signup_workbook_id</code>).
+              Google Sheet URL or ID for the community&apos;s Common Meal Sign-Up workbook where
+              monthly tabs and volunteer rosters are exported (saved in the Master Community
+              Registry Settings sheet under{" "}
+              <code className="bg-slate-100 text-slate-800 px-1 py-0.5 rounded font-mono text-[11px]">
+                signup_workbook_id
+              </code>
+              ).
             </p>
 
             <div>
@@ -514,14 +521,20 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
               Direct Web Availability Sign-Up (Phase 2 Beta Pilot)
             </span>
             <p className="text-slate-700 text-xs">
-              Enable the direct in-app web survey sign-up page (<code className="bg-slate-100 text-slate-800 px-1 py-0.5 rounded font-mono text-[11px]">?view=survey</code>) alongside Google Forms.
+              Enable the direct in-app web survey sign-up page (
+              <code className="bg-slate-100 text-slate-800 px-1 py-0.5 rounded font-mono text-[11px]">
+                ?view=survey
+              </code>
+              ) alongside Google Forms.
             </p>
 
             <label className="flex items-start gap-3 p-3.5 bg-slate-50 border border-slate-300 rounded-xl cursor-pointer hover:bg-slate-100/60 transition-colors">
               <input
                 type="checkbox"
                 checked={betaWebSignupEnabled}
-                onChange={(e) => setBetaWebSignupEnabled && setBetaWebSignupEnabled(e.target.checked)}
+                onChange={(e) =>
+                  setBetaWebSignupEnabled && setBetaWebSignupEnabled(e.target.checked)
+                }
                 className="mt-0.5 w-4 h-4 text-violet-600 rounded border-slate-300 focus:ring-violet-500 cursor-pointer"
               />
               <div>
@@ -529,7 +542,9 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                   Enable Direct Web Availability Sign-Up Pilot
                 </span>
                 <p className="text-slate-600 text-xs mt-0.5">
-                  Allows coordinators to dispatch transactional beta invitations and permits residents to submit preferences directly into the <strong className="text-slate-800">Web Responses</strong> tab.
+                  Allows coordinators to dispatch transactional beta invitations and permits
+                  residents to submit preferences directly into the{" "}
+                  <strong className="text-slate-800">Web Responses</strong> tab.
                 </p>
               </div>
             </label>

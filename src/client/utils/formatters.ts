@@ -73,4 +73,3 @@ export function formatEmailHtmlBody(plainText: string): string {
   html += `</div>`;
   return html;
 }
-

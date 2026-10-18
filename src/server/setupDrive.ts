@@ -141,7 +141,11 @@ function createMasterRegistrySheet(
       "Adaptive cook sizing (Target 3 for dinner, accept 2 if agreed)",
     ],
     ["default_clean_quota", "1", "Default clean shifts per member when not specified"],
-    ["auto_cancel_deficit_dates", "TRUE", "Auto-drop bottleneck deficit dates to maximize complete meals"],
+    [
+      "auto_cancel_deficit_dates",
+      "TRUE",
+      "Auto-drop bottleneck deficit dates to maximize complete meals",
+    ],
     ["community_name", "Vancouver Cohousing", "Community organization name"],
   ];
   settingsSheet.getRange(1, 1, settingRows.length, settingRows[0].length).setValues(settingRows);

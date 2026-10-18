@@ -334,7 +334,9 @@ export function parseDateFromLabelOrKey(
     }
   }
 
-  const serialMatch = String(dateLabel || dateKey || "").trim().match(/^(\d{5})(?:\.0+)?$/);
+  const serialMatch = String(dateLabel || dateKey || "")
+    .trim()
+    .match(/^(\d{5})(?:\.0+)?$/);
   if (serialMatch) {
     const serial = parseInt(serialMatch[1], 10);
     const ms = (serial - 25569) * 86400 * 1000;

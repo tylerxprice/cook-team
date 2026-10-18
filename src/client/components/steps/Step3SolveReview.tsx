@@ -123,9 +123,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
 
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                {headlineTitle}
-              </h2>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">{headlineTitle}</h2>
               {solverResult && (
                 <span
                   className={`text-xs font-bold px-3 py-1 rounded-full ${
@@ -143,9 +141,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                 </span>
               )}
             </div>
-            <p className="text-xs sm:text-sm text-slate-600 mt-1">
-              {subtitleText}
-            </p>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">{subtitleText}</p>
           </div>
         </div>
 
@@ -568,7 +564,8 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                     const isTotalCapMet = stat.totalAssigned >= reqMaxTotal;
 
                     const isCleanShort = !isTotalCapMet && stat.assignedCleans < reqCleans;
-                    const isCookShort = !isTotalCapMet && stat.assignedCooks < stat.requestedCookQuota;
+                    const isCookShort =
+                      !isTotalCapMet && stat.assignedCooks < stat.requestedCookQuota;
                     const isShort = !isTotalCapMet && (isCookShort || isCleanShort);
                     const totalMealCount = intakeData?.mealDates.length || 13;
                     const notPart = isNotPart(stat);

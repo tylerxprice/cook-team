@@ -212,6 +212,22 @@ async function runE2ETest() {
     await page.waitForSelector("button[type='submit']");
     console.log("✓ Returned to edit response mode with prior answers intact!");
 
+    // 1g-ii. Test Sign-Ups Closed View (?view=survey&month=2026-10&m=Brenda)
+    console.log("1g-ii. Testing Sign-Ups Closed View (?view=survey&month=2026-10&m=Brenda) ...");
+    await page.goto("http://localhost:5174/?view=survey&month=2026-10&m=Brenda", { waitUntil: "networkidle" });
+    await page.waitForSelector("text=Sign-Ups Closed");
+    await page.waitForSelector("text=Teams Have Been Scheduled");
+    await page.waitForSelector("text=View Published Shifts Schedule");
+    await page.waitForSelector("button:has-text('Sign-Ups Closed (Schedule Published)')");
+    console.log("✓ Closed month verified: Read-only submitted responses with disabled submit button!");
+
+    // 1g-iii. Test Sign-Ups Not Open Yet View (?view=survey&month=2026-12)
+    console.log("1g-iii. Testing Sign-Ups Not Open Yet View (?view=survey&month=2026-12) ...");
+    await page.goto("http://localhost:5174/?view=survey&month=2026-12", { waitUntil: "networkidle" });
+    await page.waitForSelector("text=Sign-Ups Not Open Yet");
+    await page.waitForSelector("text=Have Not Opened Yet");
+    console.log("✓ Unconfigured month verified: Sign-Ups Not Open Yet friendly card displayed!");
+
     // Navigate to Coordinator Planning Wizard via Hub Home button
     const homeBtn2 = page.locator("button[title='Return to Hub Home']").first();
     await homeBtn2.click();

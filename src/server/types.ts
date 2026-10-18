@@ -258,6 +258,7 @@ export interface IntakePayload {
     dateMonth?: string;
   };
   emailDispatchInfo?: EmailDispatchInfo;
+  monthStatus?: MonthStatus;
 }
 
 export interface MemberEquityStat {
@@ -389,4 +390,48 @@ export interface PublicScheduleResult {
   sourceSheetName?: string;
   spreadsheetUrl?: string;
   message?: string;
+}
+
+export type MonthStatus = "NOT_OPEN" | "OPEN" | "CLOSED";
+
+export interface MonthConfig {
+  monthKey: string; // e.g. "2026-11"
+  status: MonthStatus;
+  dates: SurveyFormDateConfig[];
+  defaultTitle?: string;
+  openedAt?: string;
+  closedAt?: string;
+  isConfigured?: boolean;
+}
+
+export interface SaveMonthDatesPayload {
+  monthKey: string;
+  dates: SurveyFormDateConfig[];
+  title?: string;
+  status?: MonthStatus;
+}
+
+export interface SaveMonthDatesResult {
+  success: boolean;
+  message: string;
+  monthKey: string;
+  status: MonthStatus;
+  dates: SurveyFormDateConfig[];
+}
+
+export interface SetMonthStatusResult {
+  success: boolean;
+  message: string;
+  monthKey: string;
+  status: MonthStatus;
+}
+
+export interface SurveyFormDatesPreviewResult {
+  monthKey: string;
+  defaultTitle: string;
+  dates: SurveyFormDateConfig[];
+  status: MonthStatus;
+  openedAt?: string;
+  closedAt?: string;
+  isConfigured: boolean;
 }

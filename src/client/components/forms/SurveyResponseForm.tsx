@@ -1,9 +1,5 @@
 import React from "react";
-import {
-  Utensils,
-  Calendar,
-  MessageSquare,
-} from "lucide-react";
+import { Utensils, Calendar, MessageSquare } from "lucide-react";
 import { MealDate, AvailabilityStatus } from "../../../server/types";
 import { formatDisplayDateLabel } from "../../utils/formatters";
 
@@ -72,8 +68,8 @@ export const SurveyResponseForm: React.FC<SurveyResponseFormProps> = ({
     accentColor === "violet"
       ? "text-violet-600"
       : accentColor === "emerald"
-      ? "text-emerald-600"
-      : "text-orange-600";
+        ? "text-emerald-600"
+        : "text-orange-600";
 
   return (
     <div className="space-y-6">
@@ -87,7 +83,10 @@ export const SurveyResponseForm: React.FC<SurveyResponseFormProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {/* Cook Quota */}
           <div>
-            <label htmlFor="survey-form-cook-quota" className="text-xs font-bold text-slate-700 block mb-1">
+            <label
+              htmlFor="survey-form-cook-quota"
+              className="text-xs font-bold text-slate-700 block mb-1"
+            >
               Cook Quota (Shifts):
             </label>
             <select
@@ -114,7 +113,10 @@ export const SurveyResponseForm: React.FC<SurveyResponseFormProps> = ({
 
           {/* Clean Quota */}
           <div>
-            <label htmlFor="survey-form-clean-quota" className="text-xs font-bold text-slate-700 block mb-1">
+            <label
+              htmlFor="survey-form-clean-quota"
+              className="text-xs font-bold text-slate-700 block mb-1"
+            >
               Clean Quota (Shifts):
             </label>
             <select
@@ -139,7 +141,10 @@ export const SurveyResponseForm: React.FC<SurveyResponseFormProps> = ({
 
           {/* Max Total Shifts Cap */}
           <div>
-            <label htmlFor="survey-form-max-shifts-cap" className="text-xs font-bold text-slate-700 block mb-1 flex items-center justify-between">
+            <label
+              htmlFor="survey-form-max-shifts-cap"
+              className="text-xs font-bold text-slate-700 block mb-1 flex items-center justify-between"
+            >
               <span>Max Total Shifts (Cap):</span>
               {maxTotalShifts < cookQuota + cleanQuota && (
                 <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
@@ -168,7 +173,10 @@ export const SurveyResponseForm: React.FC<SurveyResponseFormProps> = ({
 
           {/* Cook Team Sizing */}
           <div>
-            <label htmlFor="survey-form-cook-team-sizing" className="text-xs font-bold text-slate-700 block mb-1">
+            <label
+              htmlFor="survey-form-cook-team-sizing"
+              className="text-xs font-bold text-slate-700 block mb-1"
+            >
               Cook Team Sizing:
             </label>
             <select
@@ -186,7 +194,10 @@ export const SurveyResponseForm: React.FC<SurveyResponseFormProps> = ({
 
           {/* Same-Day Shifts */}
           <div className="sm:col-span-2 lg:col-span-2">
-            <label htmlFor="survey-form-same-day-pref" className="text-xs font-bold text-slate-700 block mb-1">
+            <label
+              htmlFor="survey-form-same-day-pref"
+              className="text-xs font-bold text-slate-700 block mb-1"
+            >
               Same-Day Cook &amp; Clean:
             </label>
             <select
@@ -271,10 +282,10 @@ export const SurveyResponseForm: React.FC<SurveyResponseFormProps> = ({
                     currentStatus === "AVAILABLE"
                       ? "bg-emerald-50/70 border-emerald-300"
                       : currentStatus === "COOK_ONLY"
-                      ? "bg-orange-50/70 border-orange-300"
-                      : currentStatus === "CLEAN_ONLY"
-                      ? "bg-sky-50/70 border-sky-300"
-                      : "bg-white border-slate-200 opacity-65"
+                        ? "bg-orange-50/70 border-orange-300"
+                        : currentStatus === "CLEAN_ONLY"
+                          ? "bg-sky-50/70 border-sky-300"
+                          : "bg-white border-slate-200 opacity-65"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
@@ -362,7 +373,10 @@ export const SurveyResponseForm: React.FC<SurveyResponseFormProps> = ({
 
       {/* Section 3: Special Instructions & Notes */}
       <div>
-        <label htmlFor="survey-form-special-instructions" className="text-xs font-bold text-slate-700 block mb-1 flex items-center gap-1.5">
+        <label
+          htmlFor="survey-form-special-instructions"
+          className="text-xs font-bold text-slate-700 block mb-1 flex items-center gap-1.5"
+        >
           <MessageSquare className={`w-3.5 h-3.5 ${iconColorClass}`} />
           Special Instructions, Vacation Dates, or Notes:
         </label>

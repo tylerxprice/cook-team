@@ -264,13 +264,9 @@ test("Email Announcement Formatter - Clean NO COMMUNITY MEAL for cancelled meals
 
   // Assert that active meals have cooks listed one per line, followed by blank line, followed by Cleaning: ...
   assert.ok(
-    email.includes(
-      "Thu Oct 1 - Dinner\nBrenda\nAlex\nMichael\n\nCleaning: Cyrena, Lisa, Tyler\n\n"
-    )
+    email.includes("Thu Oct 1 - Dinner\nBrenda\nAlex\nMichael\n\nCleaning: Cyrena, Lisa, Tyler\n\n")
   );
-  assert.ok(
-    email.includes("Sun Oct 4 - Brunch\nBrenda\nSam\n\nCleaning: Alex, Rose\n\n")
-  );
+  assert.ok(email.includes("Sun Oct 4 - Brunch\nBrenda\nSam\n\nCleaning: Alex, Rose\n\n"));
 
   // Roundtrip parse test: ensure parseEmailScheduleAnnouncement parses the generated email announcement perfectly
   const parsedFromEmail = parseEmailScheduleAnnouncement(email);

@@ -98,7 +98,8 @@ export function solveSinglePass(
       );
       const hasExplicitSurveyAnswer =
         resp &&
-        (typeof resp.sameDayPref !== "undefined" || typeof resp.canCookCleanSameDay !== "undefined");
+        (typeof resp.sameDayPref !== "undefined" ||
+          typeof resp.canCookCleanSameDay !== "undefined");
 
       if (cand && !hasExplicitSurveyAnswer) {
         cand.canSameDay = true;

@@ -16,11 +16,7 @@ import {
 } from "lucide-react";
 import { DaySchedule, Member } from "../../../server/types";
 import { parseDateFromLabelOrKey } from "../../../server/scheduleParser";
-import {
-  extractMemberShifts,
-  generateMemberIcs,
-  downloadIcsFile,
-} from "../../utils/ics";
+import { extractMemberShifts, generateMemberIcs, downloadIcsFile } from "../../utils/ics";
 
 export interface ResidentScheduleViewProps {
   schedule: DaySchedule[];
@@ -187,7 +183,9 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
       (d.cleaners || []).forEach((c) => namesSet.add(c));
     });
 
-    return Array.from(namesSet).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+    return Array.from(namesSet).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
   }, [members, schedule]);
 
   const filteredMemberNames = useMemo(() => {
@@ -228,7 +226,9 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
     const sanitizedTitle = (monthTitle || "Meals").replace(/[\s/\\:]+/g, "-");
     const filename = `${selectedMember.replace(/\s+/g, "_")}-${sanitizedTitle}-Shifts.ics`;
     downloadIcsFile(filename, icsContent);
-    setToastMessage(`Calendar file downloaded! Tap 'Add All' on your phone to save to Apple or Google Calendar.`);
+    setToastMessage(
+      `Calendar file downloaded! Tap 'Add All' on your phone to save to Apple or Google Calendar.`
+    );
   };
 
   // Derive monthly calendar grid data
@@ -391,8 +391,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
     return (
       <div className="flex flex-wrap gap-1.5">
         {names.map((name) => {
-          const isMe =
-            selectedMember && name.toLowerCase() === selectedMember.trim().toLowerCase();
+          const isMe = selectedMember && name.toLowerCase() === selectedMember.trim().toLowerCase();
           return (
             <span
               key={name}
@@ -467,7 +466,8 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
               No published schedule found for {monthTitle}
             </h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              The schedule for this month has not been published yet. Select another month above to view past schedules.
+              The schedule for this month has not been published yet. Select another month above to
+              view past schedules.
             </p>
           </div>
         );
@@ -511,7 +511,9 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                         if (!selectedMember) return false;
                         const memLower = selectedMember.trim().toLowerCase();
                         const isCook = (s.cooks || []).some((c) => c.toLowerCase() === memLower);
-                        const isClean = (s.cleaners || []).some((c) => c.toLowerCase() === memLower);
+                        const isClean = (s.cleaners || []).some(
+                          (c) => c.toLowerCase() === memLower
+                        );
                         return isCook || isClean;
                       })
                     : dayItem.daySchedules;
@@ -526,8 +528,8 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                         isUserInvolved && hasMeals
                           ? "bg-orange-50/50 border-orange-300 ring-2 ring-orange-400/60 shadow-xs"
                           : hasMeals
-                          ? "bg-white border-slate-200 shadow-2xs hover:border-slate-300"
-                          : "bg-slate-50/30 border-slate-100"
+                            ? "bg-white border-slate-200 shadow-2xs hover:border-slate-300"
+                            : "bg-slate-50/30 border-slate-100"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
@@ -536,8 +538,8 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                             isUserInvolved && hasMeals
                               ? "text-orange-950 font-black"
                               : hasMeals
-                              ? "text-slate-800"
-                              : "text-slate-400"
+                                ? "text-slate-800"
+                                : "text-slate-400"
                           }`}
                         >
                           {dayItem.dayNumber}
@@ -562,10 +564,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
 
                             if (isNoMeal) {
                               return (
-                                <div
-                                  key={sIdx}
-                                  className="text-[10px] text-slate-400 italic py-1"
-                                >
+                                <div key={sIdx} className="text-[10px] text-slate-400 italic py-1">
                                   No Meal
                                 </div>
                               );
@@ -908,7 +907,8 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                 <Users className="w-10 h-10 text-slate-400 mx-auto" />
                 <h3 className="text-base font-bold text-slate-900">Please select your name</h3>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  Pick your name from the selector above to view your cook and clean assignments for {monthTitle}.
+                  Pick your name from the selector above to view your cook and clean assignments for{" "}
+                  {monthTitle}.
                 </p>
               </div>
             ) : isLoading ? (
@@ -1020,9 +1020,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                     <span className="hidden sm:inline md:hidden">
                       {schedule.length} meals ({monthTitle})
                     </span>
-                    <span className="sm:hidden">
-                      {schedule.length} meals
-                    </span>
+                    <span className="sm:hidden">{schedule.length} meals</span>
                   </div>
 
                   {/* Right: View Switcher + Compact .ics Button */}
@@ -1085,7 +1083,9 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                         }`}
                       >
                         <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                        <span className="hidden lg:inline">Add All My Shifts to Calendar (.ics)</span>
+                        <span className="hidden lg:inline">
+                          Add All My Shifts to Calendar (.ics)
+                        </span>
                         <span className="lg:hidden">Save shifts (.ics)</span>
                       </button>
                     )}

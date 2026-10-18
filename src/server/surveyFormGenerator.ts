@@ -185,14 +185,7 @@ export function executeCreateSurveyForm(payload: CreateSurveyFormPayload): Creat
       .setHelpText(
         "Optional cap across both roles. Leave as 'No limit' to do the sum of your cook and clean answers above."
       )
-      .setChoiceValues([
-        "No limit (Sum of cook & clean)",
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-      ])
+      .setChoiceValues(["No limit (Sum of cook & clean)", "1", "2", "3", "4", "5"])
       .setRequired(false);
 
     // 6. Question 5: Cook Team Size Preference (Multiple Choice)
@@ -241,9 +234,7 @@ export function executeCreateSurveyForm(payload: CreateSurveyFormPayload): Creat
         cookSizeItem.createResponse("Dinner = 3, Brunch = 2 (Preferred)")
       );
       prefillResp.withItemResponse(sameDayItem.createResponse("No"));
-      prefillResp.withItemResponse(
-        gridItem.createResponse(gridRows.map(() => "Not Available"))
-      );
+      prefillResp.withItemResponse(gridItem.createResponse(gridRows.map(() => "Not Available")));
       formPrefilledUrl = prefillResp.toPrefilledUrl();
     } catch (prefErr) {
       console.warn("Could not generate prefilled form URL:", prefErr);

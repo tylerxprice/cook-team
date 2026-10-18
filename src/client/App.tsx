@@ -39,6 +39,10 @@ import {
   ManualSurveyResponsePayload,
   AppSettings,
   PublicScheduleResult,
+  MonthStatus,
+  SaveMonthDatesResult,
+  SetMonthStatusResult,
+  SurveyFormDatesPreviewResult,
 } from "../server/types";
 import {
   computeMemberQuotaStats,
@@ -161,7 +165,8 @@ function MainApp() {
     const m = params.get("month");
     if (m && /^\d{4}-\d{2}$/.test(m)) return m;
     const boot = getBootstrapData();
-    if (boot?.publicMonthKey && /^\d{4}-\d{2}$/.test(boot.publicMonthKey)) return boot.publicMonthKey;
+    if (boot?.publicMonthKey && /^\d{4}-\d{2}$/.test(boot.publicMonthKey))
+      return boot.publicMonthKey;
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
@@ -314,6 +319,8 @@ function MainApp() {
   const [surveyFormTitle, setSurveyFormTitle] = useState("26-11 Nov Meal Team Sign-Up");
   const [surveyFormFolderId, setSurveyFormFolderId] = useState("1miNkXw-7co1ncAMZvaRJYUZXkFT07R4o");
   const [surveyFormDates, setSurveyFormDates] = useState<SurveyFormDateConfig[]>([]);
+  const [surveyFormMonthStatus, setSurveyFormMonthStatus] = useState<MonthStatus>("NOT_OPEN");
+  const [surveyFormSavingDates, setSurveyFormSavingDates] = useState(false);
   const [surveyFormLoadingDates, setSurveyFormLoadingDates] = useState(false);
   const [surveyFormLoadingCreate, setSurveyFormLoadingCreate] = useState(false);
   const [surveyFormResult, setSurveyFormResult] = useState<CreateSurveyFormResult | null>(null);
@@ -349,11 +356,13 @@ function MainApp() {
       try {
         setLoadingPublicSchedule(true);
         const params = getAppUrlParams();
-        const monthParam =
-          targetMonth || params.get("month") || publicMonthKey;
-        const sheetParam =
-          params.get("sheet") || sheetInput || undefined;
-        const res = await callGas<PublicScheduleResult>("getPublicSchedule", monthParam, sheetParam);
+        const monthParam = targetMonth || params.get("month") || publicMonthKey;
+        const sheetParam = params.get("sheet") || sheetInput || undefined;
+        const res = await callGas<PublicScheduleResult>(
+          "getPublicSchedule",
+          monthParam,
+          sheetParam
+        );
         if (res) {
           if (res.schedule) {
             setPublicSchedule(res.schedule);
@@ -663,6 +672,10 @@ function MainApp() {
       );
 
       setMealSignupExportResult(res);
+      setSurveyFormMonthStatus("CLOSED");
+      if (intakeData) {
+        setIntakeData({ ...intakeData, monthStatus: "CLOSED" });
+      }
       showToast(res.message || "Common Meal Sign-Up tab created successfully!");
       setTimeout(() => {
         mealSignupModalBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -698,21 +711,66 @@ function MainApp() {
   const loadSurveyFormDatesPreview = async (monthKey: string) => {
     setSurveyFormLoadingDates(true);
     try {
-      const res = await callGas<{
-        monthKey: string;
-        defaultTitle: string;
-        dates: SurveyFormDateConfig[];
-      }>("getSurveyFormDatesPreview", monthKey);
+      const res = await callGas<SurveyFormDatesPreviewResult>(
+        "getSurveyFormDatesPreview",
+        monthKey
+      );
 
-      if (res && Array.isArray(res.dates)) {
-        setSurveyFormTitle(res.defaultTitle);
-        setSurveyFormDates(res.dates);
+      if (res) {
+        if (res.status) setSurveyFormMonthStatus(res.status);
+        if (Array.isArray(res.dates)) {
+          setSurveyFormTitle(res.defaultTitle);
+          setSurveyFormDates(res.dates);
+        }
       }
     } catch (err: any) {
       console.warn("loadSurveyFormDatesPreview error:", err);
       showToast("Notice: " + err.message, "error");
     } finally {
       setSurveyFormLoadingDates(false);
+    }
+  };
+
+  const handleSaveMonthDatesAndOpen = async () => {
+    const activeDates = surveyFormDates.filter((d) => d.included);
+    if (activeDates.length === 0) {
+      showToast("Please include at least one meal date.", "error");
+      return;
+    }
+
+    setSurveyFormSavingDates(true);
+    try {
+      const res = await callGas<SaveMonthDatesResult>("saveMonthDatesAndOpen", {
+        monthKey: surveyFormMonthKey,
+        title: surveyFormTitle.trim(),
+        dates: surveyFormDates,
+        status: "OPEN",
+      });
+      setSurveyFormMonthStatus("OPEN");
+      if (intakeData) {
+        setIntakeData({ ...intakeData, monthStatus: "OPEN" });
+      }
+      showToast(res.message || "Meal dates saved and sign-ups opened successfully!");
+    } catch (err: any) {
+      console.error("handleSaveMonthDatesAndOpen error:", err);
+      showToast("Failed to save dates: " + err.message, "error");
+    } finally {
+      setSurveyFormSavingDates(false);
+    }
+  };
+
+  const handleSetMonthStatus = async (status: MonthStatus) => {
+    const targetMonth =
+      surveyFormMonthKey || intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7) || "2026-11";
+    try {
+      const res = await callGas<SetMonthStatusResult>("setMonthStatus", targetMonth, status);
+      setSurveyFormMonthStatus(status);
+      if (intakeData) {
+        setIntakeData({ ...intakeData, monthStatus: status });
+      }
+      showToast(res.message || `Sign-up status set to ${status}.`);
+    } catch (err: any) {
+      showToast("Failed to update status: " + err.message, "error");
     }
   };
 
@@ -734,6 +792,10 @@ function MainApp() {
       });
 
       setSurveyFormResult(res);
+      setSurveyFormMonthStatus("OPEN");
+      if (intakeData) {
+        setIntakeData({ ...intakeData, monthStatus: "OPEN" });
+      }
       showToast(res.message || "Google Form & Response Sheet created successfully!");
       setTimeout(() => {
         surveyFormModalBodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -1135,6 +1197,9 @@ function MainApp() {
       if (cached.settings) {
         applyLoadedSettings(cached.settings);
       }
+      if (cached.monthStatus) {
+        setSurveyFormMonthStatus(cached.monthStatus);
+      }
       setEmailDispatchInfo(cached.emailDispatchInfo || null);
       isEmailSubjectDirty.current = false;
       setEmailSubject(formatDefaultSubject(cached.mealDates));
@@ -1169,6 +1234,9 @@ function MainApp() {
       setMembers(data.members || []);
       if (data.settings) {
         applyLoadedSettings(data.settings);
+      }
+      if (data.monthStatus) {
+        setSurveyFormMonthStatus(data.monthStatus);
       }
       setEmailDispatchInfo(data.emailDispatchInfo || null);
       isEmailSubjectDirty.current = false;
@@ -1260,10 +1328,7 @@ function MainApp() {
                     setEmailCc(boot.registry.settings.announcementCc);
                   }
                 }
-                if (
-                  Array.isArray(boot.registry.members) &&
-                  boot.registry.members.length > 0
-                ) {
+                if (Array.isArray(boot.registry.members) && boot.registry.members.length > 0) {
                   setMembers(boot.registry.members);
                   setExceptions(boot.registry.exceptions || []);
                 }
@@ -2473,6 +2538,10 @@ function MainApp() {
         message: string;
       }>("exportScheduleToSheet", sheetInput, activeResult);
       setExportedResult(res);
+      setSurveyFormMonthStatus("CLOSED");
+      if (intakeData) {
+        setIntakeData({ ...intakeData, monthStatus: "CLOSED" });
+      }
       showToast(res.message);
     } catch (err: any) {
       showToast(`Export failed: ${err.message}`, "error");
@@ -2741,7 +2810,7 @@ function MainApp() {
     const initialName = urlMemberName || params.get("name") || params.get("user") || undefined;
     return (
       <ResidentScheduleView
-        schedule={publicSchedule.length > 0 ? publicSchedule : (solverResult?.schedule || [])}
+        schedule={publicSchedule.length > 0 ? publicSchedule : solverResult?.schedule || []}
         members={members}
         monthTitle={publicMonthTitle}
         monthKey={publicMonthKey}
@@ -2768,7 +2837,8 @@ function MainApp() {
 
   if (appView === "survey") {
     const params = getAppUrlParams();
-    const initialName = urlMemberName || params.get("m") || params.get("name") || params.get("user") || undefined;
+    const initialName =
+      urlMemberName || params.get("m") || params.get("name") || params.get("user") || undefined;
     const initialMonth = params.get("month") || publicMonthKey || surveyFormMonthKey || "2026-11";
     const initialSheet = params.get("sheetId") || sheetInput || undefined;
 
@@ -2833,236 +2903,232 @@ function MainApp() {
 
             {/* Hamburger Menu Navigation */}
             <div className="relative" id="header-menu-container">
-            <button
-              onClick={() => setShowMainMenu(!showMainMenu)}
-              className={`inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer border shadow-2xs ${
-                showMainMenu
-                  ? "bg-slate-900 text-white border-slate-900 shadow-md"
-                  : "bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-950 border-slate-300"
-              }`}
-              title="Menu Options & Community Tools"
-              aria-label="Open Navigation Menu"
-              aria-expanded={showMainMenu}
-              aria-haspopup="true"
-            >
-              {showMainMenu ? (
-                <X className="w-5 h-5" />
-              ) : (
-                <Menu className="w-5 h-5 text-slate-800" />
-              )}
-              <span className="font-bold">Menu</span>
-            </button>
-
-            {/* Floating Dropdown Menu */}
-            {showMainMenu && (
-              <div
-                role="menu"
-                aria-label="Community Tools Menu"
-                className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+              <button
+                onClick={() => setShowMainMenu(!showMainMenu)}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer border shadow-2xs ${
+                  showMainMenu
+                    ? "bg-slate-900 text-white border-slate-900 shadow-md"
+                    : "bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-950 border-slate-300"
+                }`}
+                title="Menu Options & Community Tools"
+                aria-label="Open Navigation Menu"
+                aria-expanded={showMainMenu}
+                aria-haspopup="true"
               >
-                <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                  <p className="text-xs font-extrabold text-slate-600 uppercase tracking-wider">
-                    Community Tools
-                  </p>
-                  <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
-                    {members.filter((m) => m.active).length} Active Members
-                  </span>
-                </div>
+                {showMainMenu ? (
+                  <X className="w-5 h-5" />
+                ) : (
+                  <Menu className="w-5 h-5 text-slate-800" />
+                )}
+                <span className="font-bold">Menu</span>
+              </button>
 
-                <div className="py-1">
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      setShowMainMenu(false);
-                      initSurveyFormModal();
-                    }}
-                    className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-violet-50 text-left transition-colors group cursor-pointer"
-                  >
-                    <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-violet-950">
-                        Survey Form Generator
-                      </div>
-                      <div className="text-xs text-slate-600">
-                        Brenda&apos;s Google Form builder
-                      </div>
-                    </div>
-                  </button>
+              {/* Floating Dropdown Menu */}
+              {showMainMenu && (
+                <div
+                  role="menu"
+                  aria-label="Community Tools Menu"
+                  className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                >
+                  <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                    <p className="text-xs font-extrabold text-slate-600 uppercase tracking-wider">
+                      Community Tools
+                    </p>
+                    <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                      {members.filter((m) => m.active).length} Active Members
+                    </span>
+                  </div>
 
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      setShowMainMenu(false);
-                      setShowMealSignupModal(true);
-                      initMealSignupModal();
-                    }}
-                    className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-emerald-50 text-left transition-colors group cursor-pointer"
-                  >
-                    <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <ClipboardList className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-emerald-950">
-                        Meal Sign-Up Generator
+                  <div className="py-1">
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setShowMainMenu(false);
+                        initSurveyFormModal();
+                      }}
+                      className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-violet-50 text-left transition-colors group cursor-pointer"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <FileText className="w-5 h-5" />
                       </div>
-                      <div className="text-xs text-slate-600">
-                        Rose&apos;s workbook publish tool
+                      <div>
+                        <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-violet-950">
+                          Survey Form Generator
+                        </div>
+                        <div className="text-xs text-slate-600">
+                          Brenda&apos;s Google Form builder
+                        </div>
                       </div>
-                    </div>
-                  </button>
+                    </button>
 
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      setShowMainMenu(false);
-                      setShowReportsModal(true);
-                      scanReportMonths();
-                    }}
-                    className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-indigo-50 text-left transition-colors group cursor-pointer"
-                  >
-                    <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <BarChart3 className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-indigo-950">
-                        Community Reports
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setShowMainMenu(false);
+                        setShowMealSignupModal(true);
+                        initMealSignupModal();
+                      }}
+                      className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-emerald-50 text-left transition-colors group cursor-pointer"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <ClipboardList className="w-5 h-5" />
                       </div>
-                      <div className="text-xs text-slate-600">Multi-month equity & history</div>
-                    </div>
-                  </button>
+                      <div>
+                        <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-emerald-950">
+                          Meal Sign-Up Generator
+                        </div>
+                        <div className="text-xs text-slate-600">
+                          Rose&apos;s workbook publish tool
+                        </div>
+                      </div>
+                    </button>
 
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      setShowMainMenu(false);
-                      setShowMemberModal(true);
-                    }}
-                    className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-sky-50 text-left transition-colors group cursor-pointer"
-                  >
-                    <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <Users className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-sky-950 flex items-center justify-between">
-                        <span>Member Directory</span>
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setShowMainMenu(false);
+                        setShowReportsModal(true);
+                        scanReportMonths();
+                      }}
+                      className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-indigo-50 text-left transition-colors group cursor-pointer"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <BarChart3 className="w-5 h-5" />
                       </div>
-                      <div className="text-xs text-slate-600">
-                        Registry & active resident roster
+                      <div>
+                        <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-indigo-950">
+                          Community Reports
+                        </div>
+                        <div className="text-xs text-slate-600">Multi-month equity & history</div>
                       </div>
-                    </div>
-                  </button>
+                    </button>
 
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      setShowMainMenu(false);
-                      setShowSettingsModal(true);
-                    }}
-                    className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-amber-50 text-left transition-colors group cursor-pointer"
-                  >
-                    <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <Settings className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-amber-950">
-                        Settings & Database
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setShowMainMenu(false);
+                        setShowMemberModal(true);
+                      }}
+                      className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-sky-50 text-left transition-colors group cursor-pointer"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <Users className="w-5 h-5" />
                       </div>
-                      <div className="text-xs text-slate-600">
-                        Solver policy & Google Drive links
+                      <div>
+                        <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-sky-950 flex items-center justify-between">
+                          <span>Member Directory</span>
+                        </div>
+                        <div className="text-xs text-slate-600">
+                          Registry & active resident roster
+                        </div>
                       </div>
-                    </div>
-                  </button>
+                    </button>
 
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      setShowMainMenu(false);
-                      setAppView("resident");
-                    }}
-                    className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-orange-50 text-left transition-colors group cursor-pointer"
-                  >
-                    <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <Calendar className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-orange-950">
-                        Member Shift Calendar
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setShowMainMenu(false);
+                        setShowSettingsModal(true);
+                      }}
+                      className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-amber-50 text-left transition-colors group cursor-pointer"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <Settings className="w-5 h-5" />
                       </div>
-                      <div className="text-xs text-slate-600">
-                        Personal shifts &amp; .ics download
+                      <div>
+                        <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-amber-950">
+                          Settings & Database
+                        </div>
+                        <div className="text-xs text-slate-600">
+                          Solver policy & Google Drive links
+                        </div>
                       </div>
-                    </div>
-                  </button>
+                    </button>
 
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      setShowMainMenu(false);
-                      setAppView("survey");
-                    }}
-                    className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-violet-50 text-left transition-colors group cursor-pointer"
-                  >
-                    <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <Sparkles className="w-5 h-5 text-violet-600" />
-                    </div>
-                    <div>
-                      <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-violet-950 flex items-center gap-1.5">
-                        <span>Resident Availability Sign-Up</span>
-                        <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded border border-amber-300">
-                          Beta
-                        </span>
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setShowMainMenu(false);
+                        setAppView("resident");
+                      }}
+                      className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-orange-50 text-left transition-colors group cursor-pointer"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-orange-100 text-orange-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <Calendar className="w-5 h-5" />
                       </div>
-                      <div className="text-xs text-slate-600">
-                        Direct sign-up form view
+                      <div>
+                        <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-orange-950">
+                          Member Shift Calendar
+                        </div>
+                        <div className="text-xs text-slate-600">
+                          Personal shifts &amp; .ics download
+                        </div>
                       </div>
-                    </div>
-                  </button>
+                    </button>
 
-                  <button
-                    role="menuitem"
-                    onClick={() => {
-                      setShowMainMenu(false);
-                      setAppView("portal");
-                    }}
-                    className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-slate-50 text-left transition-colors group cursor-pointer"
-                  >
-                    <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <Home className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-xs sm:text-sm font-bold text-slate-900">
-                        Hub Home Portal
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setShowMainMenu(false);
+                        setAppView("survey");
+                      }}
+                      className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-violet-50 text-left transition-colors group cursor-pointer"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <Sparkles className="w-5 h-5 text-violet-600" />
                       </div>
-                      <div className="text-xs text-slate-600">
-                        Return to welcome screen
+                      <div>
+                        <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-violet-950 flex items-center gap-1.5">
+                          <span>Resident Availability Sign-Up</span>
+                          <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded border border-amber-300">
+                            Beta
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-600">Direct sign-up form view</div>
                       </div>
-                    </div>
-                  </button>
-                </div>
+                    </button>
 
-                <div className="px-4 py-3 mt-1 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between text-xs text-slate-600">
-                  <span className="font-semibold text-slate-600">Environment</span>
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
-                      inGas
-                        ? "bg-emerald-100 text-emerald-950 border border-emerald-300"
-                        : "bg-amber-100 text-amber-950 border border-amber-300"
-                    }`}
-                  >
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setShowMainMenu(false);
+                        setAppView("portal");
+                      }}
+                      className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-slate-50 text-left transition-colors group cursor-pointer"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <Home className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="text-xs sm:text-sm font-bold text-slate-900">
+                          Hub Home Portal
+                        </div>
+                        <div className="text-xs text-slate-600">Return to welcome screen</div>
+                      </div>
+                    </button>
+                  </div>
+
+                  <div className="px-4 py-3 mt-1 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between text-xs text-slate-600">
+                    <span className="font-semibold text-slate-600">Environment</span>
                     <span
-                      className={`w-2 h-2 rounded-full ${inGas ? "bg-emerald-600 animate-pulse" : "bg-amber-600"}`}
-                    />
-                    {inGas ? "GAS Host Live" : "Local Mock Mode"}
-                  </span>
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+                        inGas
+                          ? "bg-emerald-100 text-emerald-950 border border-emerald-300"
+                          : "bg-amber-100 text-amber-950 border border-amber-300"
+                      }`}
+                    >
+                      <span
+                        className={`w-2 h-2 rounded-full ${inGas ? "bg-emerald-600 animate-pulse" : "bg-amber-600"}`}
+                      />
+                      {inGas ? "GAS Host Live" : "Local Mock Mode"}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </header>
+      </header>
 
       {/* Toast Notification */}
       {notification && (
@@ -3180,6 +3246,7 @@ function MainApp() {
             handleMarkInactive={handleMarkInactive}
             handleOpenManualSurveyModal={handleOpenManualSurveyModal}
             goToStep={goToStep}
+            onToggleMonthStatus={handleSetMonthStatus}
           />
         )}
 
@@ -3438,6 +3505,10 @@ function MainApp() {
         members={members}
         coordinatorEmail={emailTo}
         spreadsheetId={sheetInput}
+        monthStatus={surveyFormMonthStatus}
+        onSaveDatesAndOpen={handleSaveMonthDatesAndOpen}
+        savingDates={surveyFormSavingDates}
+        onSetMonthStatus={handleSetMonthStatus}
       />
 
       <NearCompleteOpportunityModal

@@ -117,14 +117,18 @@ export function generateMemberIcs(
     // Alarm 1: 1 day before at 9:00 AM (15 hours before start of meal day)
     lines.push("BEGIN:VALARM");
     lines.push("ACTION:DISPLAY");
-    lines.push(`DESCRIPTION:${escapeIcsText(`Reminder: Tomorrow is your ${ev.role} shift for ${mealLabel}!`)}`);
+    lines.push(
+      `DESCRIPTION:${escapeIcsText(`Reminder: Tomorrow is your ${ev.role} shift for ${mealLabel}!`)}`
+    );
     lines.push("TRIGGER:-P1DT15H"); // 1 day before, 9am
     lines.push("END:VALARM");
 
     // Alarm 2: Morning of shift at 8:00 AM
     lines.push("BEGIN:VALARM");
     lines.push("ACTION:DISPLAY");
-    lines.push(`DESCRIPTION:${escapeIcsText(`Reminder: Today is your ${ev.role} shift for ${mealLabel}!`)}`);
+    lines.push(
+      `DESCRIPTION:${escapeIcsText(`Reminder: Today is your ${ev.role} shift for ${mealLabel}!`)}`
+    );
     lines.push("TRIGGER:PT8H"); // 8:00 AM on the day of the event
     lines.push("END:VALARM");
 
