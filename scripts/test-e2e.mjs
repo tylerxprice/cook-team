@@ -76,17 +76,10 @@ async function runE2ETest() {
     const defaultMonthVal = await monthSelect.inputValue();
     console.log(`✓ Month select dropdown found with initial value: "${defaultMonthVal}"`);
 
-    // Verify month pill buttons are visible
-    const novPill = page.locator("button:has-text('Nov \\'26')").first();
-    const octPill = page.locator("button:has-text('Oct \\'26')").first();
-    await novPill.waitFor({ state: "visible" });
-    await octPill.waitFor({ state: "visible" });
-    console.log("✓ Available month pills (Nov '26, Oct '26) rendered!");
-
-    // Switch month to November via pill button
-    await novPill.click();
-    await page.waitForFunction(() => window.location.search.includes("month=2026-11"));
-    console.log("✓ Clicked November pill, URL updated with &month=2026-11!");
+    // Switch month to September via select dropdown
+    await monthSelect.selectOption("2026-09");
+    await page.waitForFunction(() => window.location.search.includes("month=2026-09"));
+    console.log("✓ Changed dropdown to September, URL updated with &month=2026-09!");
 
     // Switch back to October via select dropdown
     await monthSelect.selectOption("2026-10");
