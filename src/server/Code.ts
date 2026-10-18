@@ -21,9 +21,13 @@ import {
   ManualSurveyResponseResult,
   AppSettings,
   MasterRegistryPayload,
+  SendBetaInvitesPayload,
+  SendBetaInvitesResult,
+  WebSurveyResponsePayload,
 } from "./types";
 import {
   parseSurveySheetData,
+  mergeSurveyResponses,
   extractEmails,
   extractAliases,
   parseSheetBoolean,
@@ -670,6 +674,8 @@ function getMasterRegistryData(
           const rawAliases = row[4] ? String(row[4]).trim() : "";
           const aliases = extractAliases(rawAliases);
 
+          const isBetaTester = row[5] !== undefined ? parseSheetBoolean(row[5], false) : false;
+
           members.push({
             name: String(row[0]).trim(),
             google_email: rawEmail,
@@ -677,6 +683,7 @@ function getMasterRegistryData(
             last_active_survey: formatLastActiveSurvey(row[3]),
             aliases: aliases.length > 0 ? aliases : undefined,
             alternate_emails: emails.length > 1 ? emails.slice(1) : undefined,
+            is_beta_tester: isBetaTester,
           });
         }
       }
@@ -783,6 +790,8 @@ function getMasterRegistryData(
             settings.signupWorkbookId = val;
           } else if (["auto_cancel_deficit_dates", "drop_deficit_dates"].includes(rawKey)) {
             settings.autoCancelDeficitDates = parseSheetBoolean(val, true);
+          } else if (["beta_web_signup_enabled", "beta_signup_enabled", "beta_signup", "beta_web_signup"].includes(rawKey)) {
+            settings.betaWebSignupEnabled = parseSheetBoolean(val, false);
           } else {
             settings[rawKey] = val;
           }
@@ -894,6 +903,11 @@ function saveMasterSettings(
       sheetKey: "published_months",
       desc: "Comma-separated list of months with finalized completed schedules",
     },
+    betaWebSignupEnabled: {
+      key: "betaWebSignupEnabled",
+      sheetKey: "beta_web_signup_enabled",
+      desc: "Enable web sign-up view and beta invitation workflow",
+    },
   };
 
   for (const [prop, meta] of Object.entries(settingMeta)) {
@@ -940,8 +954,9 @@ function getIntakeData(
       surveySpreadsheet = SpreadsheetApp.openById(cleanSurveyId);
     }
 
-    const firstSheet = surveySpreadsheet.getSheets()[0];
-    const surveyData = firstSheet.getDataRange().getValues();
+    const formSheet =
+      surveySpreadsheet.getSheetByName("Form Responses 1") || surveySpreadsheet.getSheets()[0];
+    const surveyData = formSheet ? formSheet.getDataRange().getValues() : [];
 
     // Determine dev mode from URL or survey file location
     let isDevMode = false;
@@ -1050,7 +1065,66 @@ function getIntakeData(
       }
     }
 
-    const parsed = parseSurveySheetData(surveyData, members, surveySpreadsheet.getName());
+    const formParsed =
+      surveyData.length > 1
+        ? parseSurveySheetData(surveyData, members, surveySpreadsheet.getName())
+        : {
+            mealDates: [],
+            responses: [],
+            audit: {
+              missingMembers: members.filter((m) => m.active),
+              reactivatedMembers: [],
+              unrecognizedRespondents: [],
+              totalActiveMembers: members.filter((m) => m.active).length,
+              respondentCount: 0,
+            },
+            reactivatedMembers: [],
+          };
+
+    formParsed.responses.forEach((r) => {
+      r.source = "form";
+    });
+
+    let mergedResponses = formParsed.responses;
+    let finalAudit = formParsed.audit;
+    let finalMealDates = formParsed.mealDates;
+
+    // Check if dedicated Web Responses tab exists in this spreadsheet
+    const webSheet = surveySpreadsheet.getSheetByName("Web Responses");
+    if (webSheet && webSheet.getLastRow() > 1) {
+      try {
+        const webData = webSheet.getDataRange().getValues();
+        if (webData.length > 1) {
+          const webParsed = parseSurveySheetData(webData, members, surveySpreadsheet.getName());
+          webParsed.responses.forEach((r) => {
+            r.source = "web";
+          });
+
+          const targetMonthKey =
+            (formParsed.mealDates.length > 0 && formParsed.mealDates[0].dateKey
+              ? formParsed.mealDates[0].dateKey.slice(0, 7)
+              : undefined) ||
+            (webParsed.mealDates.length > 0 && webParsed.mealDates[0].dateKey
+              ? webParsed.mealDates[0].dateKey.slice(0, 7)
+              : undefined) ||
+            "2026-10";
+
+          const merged = mergeSurveyResponses(
+            formParsed.responses,
+            webParsed.responses,
+            members,
+            targetMonthKey
+          );
+          mergedResponses = merged.responses;
+          finalAudit = merged.audit;
+          if (finalMealDates.length === 0) {
+            finalMealDates = webParsed.mealDates;
+          }
+        }
+      } catch (webErr) {
+        console.warn("Could not parse Web Responses tab:", webErr);
+      }
+    }
 
     // Detect if a Schedule tab already exists in this spreadsheet
     let existingScheduleTab:
@@ -1069,8 +1143,8 @@ function getIntakeData(
 
     // Detect if an announcement email was already sent for this month
     const surveyMonthKey =
-      parsed.mealDates.length > 0 && parsed.mealDates[0].dateKey
-        ? parsed.mealDates[0].dateKey.slice(0, 7)
+      finalMealDates.length > 0 && finalMealDates[0].dateKey
+        ? finalMealDates[0].dateKey.slice(0, 7)
         : undefined;
     const emailDispatchInfo =
       getEmailDispatchMetadata(surveySpreadsheet, surveyMonthKey) || undefined;
@@ -1078,9 +1152,9 @@ function getIntakeData(
 
     return {
       sheetId: surveySpreadsheet.getId(),
-      mealDates: parsed.mealDates,
-      responses: parsed.responses,
-      audit: parsed.audit,
+      mealDates: finalMealDates,
+      responses: mergedResponses,
+      audit: finalAudit,
       exceptions,
       members,
       settings: regSettings,
@@ -1146,6 +1220,7 @@ function appendManualSurveyResponse(
     cleanQuota,
     maxTotalShifts,
     specialInstructions: (payload.specialInstructions || "").trim(),
+    source: "web",
   };
 
   try {
@@ -1157,10 +1232,19 @@ function appendManualSurveyResponse(
       ss = SpreadsheetApp.openById(cleanId);
     }
 
-    const targetSheet = ss.getSheetByName("Form Responses 1") || ss.getSheets()[0];
+    const sourceSheet = ss.getSheetByName("Form Responses 1") || ss.getSheets()[0];
+    const lastCol = Math.max(1, sourceSheet.getLastColumn());
+    const headers = sourceSheet.getRange(1, 1, 1, lastCol).getValues()[0];
+
+    // Web and manual saves always target the dedicated "Web Responses" tab to avoid Google Form row-locking
+    let targetSheet = ss.getSheetByName("Web Responses");
+    if (!targetSheet) {
+      targetSheet = ss.insertSheet("Web Responses");
+      targetSheet.appendRow(headers);
+      targetSheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
+    }
+
     if (targetSheet) {
-      const lastCol = Math.max(1, targetSheet.getLastColumn());
-      const headers = targetSheet.getRange(1, 1, 1, lastCol).getValues()[0];
       const newRow: any[] = new Array(headers.length).fill("");
 
       headers.forEach((h, colIdx) => {
@@ -1250,6 +1334,113 @@ function appendManualSurveyResponse(
     success: true,
     message: `Successfully saved availability response for ${payload.memberName}.`,
     response: surveyResponse,
+  };
+}
+
+/**
+ * Saves availability response submitted via the custom Web Survey view (?view=survey).
+ */
+function saveWebSurveyResponse(
+  payload: WebSurveyResponsePayload,
+  isDevMode?: boolean
+): ManualSurveyResponseResult {
+  let targetId = (payload.spreadsheetId || "").trim();
+
+  if (!targetId) {
+    // Attempt auto-resolve by monthKey from drive files
+    try {
+      const driveSheets = listAvailableDriveSheets();
+      const monthPart = payload.monthKey || "";
+      const match = driveSheets.find(
+        (s) =>
+          (monthPart && s.name.includes(monthPart)) ||
+          s.name.toLowerCase().includes("meal team sign-up") ||
+          s.name.toLowerCase().includes("responses")
+      );
+      if (match) {
+        targetId = match.id;
+      }
+    } catch (e) {
+      console.warn("Could not auto-resolve survey spreadsheet for month:", e);
+    }
+  }
+
+  if (!targetId) {
+    throw new Error(
+      `Could not identify the survey response spreadsheet for month ${payload.monthKey || "selected"}. Please provide a spreadsheet ID.`
+    );
+  }
+
+  return appendManualSurveyResponse(targetId, payload, isDevMode);
+}
+
+/**
+ * Sends personalized beta survey invitation emails to selected beta testers.
+ */
+function sendBetaSurveyInvitations(
+  payload: SendBetaInvitesPayload
+): SendBetaInvitesResult {
+  const { monthKey, subject, bodyTemplate, replyTo, recipients } = payload;
+  if (!recipients || recipients.length === 0) {
+    return {
+      success: true,
+      dispatchedCount: 0,
+      failedCount: 0,
+      message: "No beta testers were selected.",
+      details: [],
+    };
+  }
+
+  let dispatched = 0;
+  let failed = 0;
+  const details: Array<{ name: string; email: string; success: boolean; error?: string }> = [];
+
+  for (const r of recipients) {
+    if (!r.email || !r.email.trim()) {
+      failed++;
+      details.push({ name: r.name, email: "", success: false, error: "Missing email address" });
+      continue;
+    }
+
+    try {
+      // Replace template placeholders: {{name}}, {{link}}, {{month}}
+      const personalizedBody = (bodyTemplate || "")
+        .replace(/\{\{\s*name\s*\}\}/gi, r.name)
+        .replace(/\{\{\s*link\s*\}\}/gi, r.link)
+        .replace(/\{\{\s*month\s*\}\}/gi, monthKey);
+
+      const personalizedSubject = (subject || "")
+        .replace(/\{\{\s*name\s*\}\}/gi, r.name)
+        .replace(/\{\{\s*month\s*\}\}/gi, monthKey);
+
+      const options: GoogleAppsScript.Gmail.GmailAdvancedOptions = {
+        htmlBody: textToHtmlEmailBody(personalizedBody),
+      };
+
+      if (replyTo && replyTo.trim()) {
+        options.replyTo = replyTo.trim();
+      }
+
+      GmailApp.sendEmail(r.email.trim(), personalizedSubject, personalizedBody, options);
+      dispatched++;
+      details.push({ name: r.name, email: r.email, success: true });
+    } catch (err: any) {
+      failed++;
+      details.push({
+        name: r.name,
+        email: r.email,
+        success: false,
+        error: err.message || String(err),
+      });
+    }
+  }
+
+  return {
+    success: dispatched > 0,
+    dispatchedCount: dispatched,
+    failedCount: failed,
+    message: `Successfully dispatched ${dispatched} beta invitation email(s)${failed > 0 ? ` (${failed} failed)` : ""}.`,
+    details,
   };
 }
 
@@ -3042,6 +3233,8 @@ g.exportToMealSignupWorkbook = exportToMealSignupWorkbook;
 g.getSurveyFormDatesPreview = getSurveyFormDatesPreview;
 g.createMonthlySurveyForm = createMonthlySurveyForm;
 g.appendManualSurveyResponse = appendManualSurveyResponse;
+g.saveWebSurveyResponse = saveWebSurveyResponse;
+g.sendBetaSurveyInvitations = sendBetaSurveyInvitations;
 g.authorizeAppScopes = authorizeAppScopes;
 g.authorizeAllPermissions = authorizeAllPermissions;
 g.updateUserGuideDoc = updateUserGuideDoc;

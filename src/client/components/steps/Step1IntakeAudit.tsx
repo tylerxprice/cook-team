@@ -630,6 +630,15 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
                                 <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                                   📅 {availableCount} Dates Available
                                 </span>
+                                {r.source === "web" ? (
+                                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-violet-100 text-violet-800 border border-violet-200">
+                                    🌐 Web App
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                    📋 Google Form
+                                  </span>
+                                )}
                               </div>
                               <p className="text-xs text-slate-500 mt-1 truncate">
                                 {r.email ? `Email: ${r.email}` : "No email attached"}

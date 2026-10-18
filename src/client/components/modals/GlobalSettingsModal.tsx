@@ -41,6 +41,8 @@ export interface GlobalSettingsModalProps {
   provisioning: boolean;
   provisionResult: any;
   onSaveAndRecalculate: () => void;
+  betaWebSignupEnabled?: boolean;
+  setBetaWebSignupEnabled?: (val: boolean) => void;
 }
 
 export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
@@ -69,6 +71,8 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
   provisioning,
   provisionResult,
   onSaveAndRecalculate,
+  betaWebSignupEnabled = false,
+  setBetaWebSignupEnabled,
 }) => {
   if (!show) return null;
 
@@ -501,6 +505,34 @@ export const GlobalSettingsModal: React.FC<GlobalSettingsModalProps> = ({
                 </div>
               )}
             </div>
+          </div>
+
+          {/* 8. Phase 2 Direct Web Availability Sign-Up Pilot */}
+          <div className="space-y-3 pt-3 border-t border-slate-200">
+            <span className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-violet-600" />
+              Direct Web Availability Sign-Up (Phase 2 Beta Pilot)
+            </span>
+            <p className="text-slate-700 text-xs">
+              Enable the direct in-app web survey sign-up page (<code className="bg-slate-100 text-slate-800 px-1 py-0.5 rounded font-mono text-[11px]">?view=survey</code>) alongside Google Forms.
+            </p>
+
+            <label className="flex items-start gap-3 p-3.5 bg-slate-50 border border-slate-300 rounded-xl cursor-pointer hover:bg-slate-100/60 transition-colors">
+              <input
+                type="checkbox"
+                checked={betaWebSignupEnabled}
+                onChange={(e) => setBetaWebSignupEnabled && setBetaWebSignupEnabled(e.target.checked)}
+                className="mt-0.5 w-4 h-4 text-violet-600 rounded border-slate-300 focus:ring-violet-500 cursor-pointer"
+              />
+              <div>
+                <span className="font-bold text-slate-900 block text-xs sm:text-sm">
+                  Enable Direct Web Availability Sign-Up Pilot
+                </span>
+                <p className="text-slate-600 text-xs mt-0.5">
+                  Allows coordinators to dispatch transactional beta invitations and permits residents to submit preferences directly into the <strong className="text-slate-800">Web Responses</strong> tab.
+                </p>
+              </div>
+            </label>
           </div>
         </div>
 

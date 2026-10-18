@@ -539,16 +539,45 @@ export function parseSurveySheetData(
     });
   }
 
-  // Audit logic: Check missing active members, auto-reactivate inactive respondents, find unrecognized
-  const missingMembers: Member[] = [];
-  const reactivatedMembers: Member[] = [];
-
   const surveyMonthKey =
     mealDates.length > 0 && mealDates[0].dateKey
       ? mealDates[0].dateKey.slice(0, 7)
       : `${detectedYear}-10`;
 
-  // Check master members
+  const audit = calculateCompletenessAudit(responses, masterMembers, surveyMonthKey);
+
+  return {
+    mealDates,
+    responses,
+    audit,
+    reactivatedMembers: audit.reactivatedMembers,
+  };
+}
+
+/**
+ * Calculates completeness audit (missing active members, dormant reactivations, unrecognized respondents)
+ */
+export function calculateCompletenessAudit(
+  responses: SurveyResponse[],
+  masterMembers: Member[],
+  surveyMonthKey: string = "2026-10"
+): CompletenessAudit {
+  const respondedMemberNames = new Set<string>();
+  const respondedEmails = new Set<string>();
+  const unrecognizedRespondents: string[] = [];
+
+  for (const resp of responses) {
+    if (resp.name) respondedMemberNames.add(resp.name.trim().toLowerCase());
+    if (resp.email) respondedEmails.add(resp.email.trim().toLowerCase());
+    const matched = findMatchingMember(resp.name, resp.email, masterMembers);
+    if (!matched && !unrecognizedRespondents.includes(resp.name)) {
+      unrecognizedRespondents.push(resp.name);
+    }
+  }
+
+  const missingMembers: Member[] = [];
+  const reactivatedMembers: Member[] = [];
+
   for (const m of masterMembers) {
     const mNormName = (m.name || "").trim().toLowerCase();
     const mFirstName = mNormName.split(/\s+/)[0];
@@ -585,18 +614,84 @@ export function parseSurveySheetData(
 
   const activeCount = masterMembers.filter((m) => m.active).length;
 
-  const audit: CompletenessAudit = {
+  return {
     missingMembers,
     reactivatedMembers,
     unrecognizedRespondents,
     totalActiveMembers: activeCount,
     respondentCount: responses.length,
   };
-
-  return {
-    mealDates,
-    responses,
-    audit,
-    reactivatedMembers,
-  };
 }
+
+/**
+ * Parses timestamp string into unix millisecond epoch for deterministic comparison.
+ */
+function parseResponseTimestamp(ts: string): number {
+  if (!ts) return 0;
+  const d = new Date(ts);
+  const time = d.getTime();
+  if (!isNaN(time)) return time;
+  const parts = ts.match(/(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+):?(\d*)/);
+  if (parts) {
+    const parsed = new Date(
+      parseInt(parts[3], 10),
+      parseInt(parts[1], 10) - 1,
+      parseInt(parts[2], 10),
+      parseInt(parts[4], 10),
+      parseInt(parts[5], 10),
+      parts[6] ? parseInt(parts[6], 10) : 0
+    );
+    if (!isNaN(parsed.getTime())) return parsed.getTime();
+  }
+  return 0;
+}
+
+/**
+ * Merges responses from "Form Responses 1" and "Web Responses".
+ * When a member submitted through both sources, the one with the newest timestamp wins!
+ */
+export function mergeSurveyResponses(
+  formResponses: SurveyResponse[],
+  webResponses: SurveyResponse[],
+  masterMembers: Member[] = [],
+  surveyMonthKey: string = "2026-10"
+): { responses: SurveyResponse[]; audit: CompletenessAudit } {
+  const mergedMap = new Map<string, SurveyResponse>();
+
+  const getMemberKey = (resp: SurveyResponse): string => {
+    if (Array.isArray(masterMembers) && masterMembers.length > 0) {
+      const matched = findMatchingMember(resp.name, resp.email, masterMembers);
+      if (matched) return matched.name.toLowerCase();
+    }
+    if (resp.email && resp.email.trim()) return resp.email.trim().toLowerCase();
+    return resp.name.trim().toLowerCase();
+  };
+
+  // 1. Add form responses first (flagged as source: "form")
+  for (const resp of formResponses) {
+    const key = getMemberKey(resp);
+    mergedMap.set(key, { ...resp, source: resp.source || "form" });
+  }
+
+  // 2. Merge web responses (flagged as source: "web")
+  // If present in both, newest timestamp wins
+  for (const resp of webResponses) {
+    const key = getMemberKey(resp);
+    const existing = mergedMap.get(key);
+    if (!existing) {
+      mergedMap.set(key, { ...resp, source: resp.source || "web" });
+    } else {
+      const existingTime = parseResponseTimestamp(existing.timestamp);
+      const webTime = parseResponseTimestamp(resp.timestamp);
+      if (webTime >= existingTime) {
+        mergedMap.set(key, { ...resp, source: resp.source || "web" });
+      }
+    }
+  }
+
+  const responses = Array.from(mergedMap.values());
+  const audit = calculateCompletenessAudit(responses, masterMembers, surveyMonthKey);
+
+  return { responses, audit };
+}
+

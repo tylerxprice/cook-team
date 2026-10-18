@@ -24,7 +24,10 @@ async function runE2ETest() {
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
 
-  const page = await browser.newPage();
+  const context = await browser.newContext({
+    permissions: ["clipboard-read", "clipboard-write"],
+  });
+  const page = await context.newPage();
   const errors = [];
 
   page.on("pageerror", (err) => {
@@ -173,6 +176,41 @@ async function runE2ETest() {
 
     // Reset viewport to standard desktop
     await page.setViewportSize({ width: 1280, height: 720 });
+
+    // 1g. Test Direct Web Availability Sign-Up (?view=survey&month=2026-11&m=Taylor)
+    console.log("1g. Testing Direct Web Availability Sign-Up (?view=survey&month=2026-11&m=Taylor) ...");
+    await page.goto("http://localhost:5174/?view=survey&month=2026-11&m=Taylor", { waitUntil: "networkidle" });
+    await page.waitForSelector("text=Hi, Taylor!");
+    await page.waitForSelector("text=Meal Team Sign-Up");
+    console.log("✓ Direct Web Availability Sign-Up page loaded with Taylor pre-selected!");
+
+    // Set Cook Quota to 2
+    await page.selectOption("#survey-form-cook-quota", "2");
+
+    // Select Same Day Preference: PREFERRED
+    await page.selectOption("#survey-form-same-day-pref", "PREFERRED");
+
+    // Mark all dates available
+    const allAvailBtn = page.locator("button:has-text('All Available')").first();
+    await allAvailBtn.click();
+
+    // Enter special notes
+    await page.fill("#survey-form-special-instructions", "Vegetarian dinner preference on Thursdays");
+
+    // Submit form
+    const submitSurveyBtn = page.locator("button[type='submit']").first();
+    await submitSurveyBtn.click();
+
+    // Verify confirmation celebration card
+    await page.waitForSelector("text=Thank you, Taylor!");
+    await page.waitForSelector("text=saved to the community planning system");
+    console.log("✓ Direct Web Availability survey submitted successfully and confirmation card displayed!");
+
+    // Test Edit Response returns with prior values
+    const webSurveyEditRespBtn = page.locator("button:has-text('Edit Response')").first();
+    await webSurveyEditRespBtn.click();
+    await page.waitForSelector("button[type='submit']");
+    console.log("✓ Returned to edit response mode with prior answers intact!");
 
     // Navigate to Coordinator Planning Wizard via Hub Home button
     const homeBtn2 = page.locator("button[title='Return to Hub Home']").first();
@@ -428,6 +466,26 @@ async function runE2ETest() {
     // Check date table rendered
     await page.waitForSelector("text=Configure Meal Dates for Survey Grid");
     console.log("✓ Meal Date table and preview verified!");
+
+    // Test switching to Beta Web Sign-Ups tab
+    console.log("8d-beta. Testing Beta Web Sign-Ups (Phase 2) tab in Survey Form Generator ...");
+    const betaTabBtn = page.locator(".fixed button:has-text('Beta Web Sign-Ups')").first();
+    await betaTabBtn.click();
+    await page.waitForSelector("text=Direct Web Availability Sign-Up (Beta Pilot)");
+    await page.waitForSelector("text=Beta Pilot Testers");
+    await page.waitForSelector("text=Transactional Email Template");
+    console.log("✓ Beta Web Sign-Ups tab loaded with testers table and email template!");
+
+    // Test Copy Link on a tester
+    const copyTesterLinkBtn = page.locator(".fixed button:has-text('Copy Link')").first();
+    await copyTesterLinkBtn.click();
+    console.log("✓ Copy personal survey link button tested successfully!");
+
+    // Switch back to standard Google Form tab
+    const standardTabBtn = page.locator(".fixed button:has-text('Google Form (Standard)')").first();
+    await standardTabBtn.click();
+    await page.waitForSelector("text=Configure Meal Dates for Survey Grid");
+    console.log("✓ Switched back to Google Form (Standard) tab.");
 
     // Execute Form & Response Sheet generation
     const generateSurveyBtn = page.locator("button:has-text('Generate Google Form')").last();

@@ -16,6 +16,7 @@ export const MOCK_SETTINGS: AppSettings = {
   defaultCleanQuota: 1,
   autoCancelDeficitDates: true,
   communityName: "Vancouver Cohousing",
+  betaWebSignupEnabled: true,
 };
 
 export const MOCK_MEAL_DATES: MealDate[] = [
@@ -146,12 +147,14 @@ export const MOCK_MEMBERS: Member[] = [
     google_email: "taylor.tester@example.com",
     active: true,
     last_active_survey: "2026-09",
+    is_beta_tester: true,
   },
   {
     name: "Beth",
     google_email: "beth.meals@example.com",
     active: true,
     last_active_survey: "2026-09",
+    is_beta_tester: true,
   },
   {
     name: "Claire",
@@ -170,6 +173,7 @@ export const MOCK_MEMBERS: Member[] = [
     google_email: "sam.smith@example.com",
     active: true,
     last_active_survey: "2026-09",
+    is_beta_tester: true,
   },
   {
     name: "Alex",

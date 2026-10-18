@@ -15,6 +15,8 @@ import {
   EmailDispatchInfo,
   EmailPayload,
   ManualSurveyResponsePayload,
+  WebSurveyResponsePayload,
+  SendBetaInvitesPayload,
   AppSettings,
   PublicScheduleResult,
 } from "../../server/types";
@@ -341,6 +343,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         cleanQuota,
         maxTotalShifts,
         specialInstructions: (payload.specialInstructions || "").trim(),
+        source: "web",
       };
 
       if (localIntake) {
@@ -364,6 +367,76 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         message: `Successfully saved availability response for ${payload.memberName}.`,
         response: surveyResponse,
         updatedIntake: localIntake,
+      } as unknown as T;
+    }
+
+    case "saveWebSurveyResponse": {
+      const [payload] = args as [WebSurveyResponsePayload];
+      const now = new Date();
+      const timestamp = `${now.getMonth() + 1}/${now.getDate()}/${now.getFullYear()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+
+      const sameDayPref = payload.sameDayPref || "NO";
+      const canCookCleanSameDay = sameDayPref === "YES" || sameDayPref === "PREFERRED";
+
+      const cookQuota = typeof payload.cookQuota === "number" ? payload.cookQuota : 1;
+      const cleanQuota = typeof payload.cleanQuota === "number" ? payload.cleanQuota : 1;
+      const maxTotalShifts =
+        typeof payload.maxTotalShifts === "number" && payload.maxTotalShifts > 0
+          ? payload.maxTotalShifts
+          : cookQuota + cleanQuota;
+
+      const surveyResponse: SurveyResponse = {
+        timestamp,
+        email: payload.email || "",
+        name: payload.memberName.trim(),
+        availability: payload.availability || {},
+        cookTeamSizePref: payload.cookTeamSizePref || "Dinner = 3, Brunch = 2",
+        canCookCleanSameDay,
+        sameDayPref,
+        cookQuota,
+        cleanQuota,
+        maxTotalShifts,
+        specialInstructions: (payload.specialInstructions || "").trim(),
+        source: "web",
+      };
+
+      if (localIntake) {
+        const existingIdx = localIntake.responses.findIndex(
+          (r) => r.name.toLowerCase() === surveyResponse.name.toLowerCase()
+        );
+        if (existingIdx >= 0) {
+          localIntake.responses[existingIdx] = surveyResponse;
+        } else {
+          localIntake.responses.push(surveyResponse);
+        }
+
+        localIntake.audit.missingMembers = localIntake.audit.missingMembers.filter(
+          (m) => m.name.toLowerCase() !== surveyResponse.name.toLowerCase()
+        );
+        localIntake.audit.respondentCount = localIntake.responses.length;
+      }
+
+      return {
+        success: true,
+        message: `Successfully saved availability response for ${payload.memberName}.`,
+        response: surveyResponse,
+        updatedIntake: localIntake,
+      } as unknown as T;
+    }
+
+    case "sendBetaSurveyInvitations": {
+      const [payload] = args as [SendBetaInvitesPayload];
+      const count = payload.recipients?.length || 0;
+      return {
+        success: count > 0,
+        dispatchedCount: count,
+        failedCount: 0,
+        message: `Successfully dispatched ${count} beta invitation email(s) via Gmail!`,
+        details: (payload.recipients || []).map((r) => ({
+          name: r.name,
+          email: r.email,
+          success: true,
+        })),
       } as unknown as T;
     }
 

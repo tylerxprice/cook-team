@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   FileText,
   X,
@@ -14,8 +14,22 @@ import {
   Plus,
   RefreshCw,
   Trash2,
+  Mail,
+  Send,
+  Check,
+  Users,
+  AlertCircle,
+  Search,
 } from "lucide-react";
-import { MealType, SurveyFormDateConfig, CreateSurveyFormResult } from "../../../server/types";
+import {
+  MealType,
+  SurveyFormDateConfig,
+  CreateSurveyFormResult,
+  Member,
+  SendBetaInvitesPayload,
+  SendBetaInvitesResult,
+} from "../../../server/types";
+import { callGas } from "../../utils/gas";
 
 export interface SurveyFormGeneratorModalProps {
   show: boolean;
@@ -37,6 +51,9 @@ export interface SurveyFormGeneratorModalProps {
   handleCopySurveyLink: (url: string) => void;
   handleAddCustomSurveyDate: () => void;
   handleExecuteCreateSurveyForm: () => void;
+  members?: Member[];
+  coordinatorEmail?: string;
+  spreadsheetId?: string;
 }
 
 export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> = ({
@@ -59,7 +76,105 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
   handleCopySurveyLink,
   handleAddCustomSurveyDate,
   handleExecuteCreateSurveyForm,
+  members = [],
+  coordinatorEmail = "",
+  spreadsheetId = "",
 }) => {
+  const [activeTab, setActiveTab] = useState<"form" | "beta">("form");
+  const [betaSubject, setBetaSubject] = useState<string>(
+    `[Community Meals] ${surveyFormMonthKey} Meal Team Sign-Up (Beta)`
+  );
+  const [betaReplyTo, setBetaReplyTo] = useState<string>(coordinatorEmail);
+  const [betaBodyTemplate, setBetaBodyTemplate] = useState<string>(
+    `Hi {{name}},\n\nIt's time to set up our community meal teams for {{month}}!\n\nAs part of our beta pilot group testing our new sign-up page, you can submit your meal shift preferences and available dates directly here:\n👉 {{link}}\n\nYour preferences will be saved immediately to our community meal planning system.\n\nQuestions or feedback? Just reply to this email!\n\nWarmly,\nBrenda & Tyler`
+  );
+  const [selectedBetaMembers, setSelectedBetaMembers] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    members.forEach((m) => {
+      if (m.is_beta_tester && m.active) s.add(m.name);
+    });
+    return s;
+  });
+  const [copiedLinkMember, setCopiedLinkMember] = useState<string | null>(null);
+  const [sendingBetaInvites, setSendingBetaInvites] = useState<boolean>(false);
+  const [betaDispatchResult, setBetaDispatchResult] = useState<SendBetaInvitesResult | null>(null);
+  const [betaSearchFilter, setBetaSearchFilter] = useState<string>("");
+
+  // Sync default subject when month changes
+  React.useEffect(() => {
+    setBetaSubject(`[Community Meals] ${surveyFormMonthKey} Meal Team Sign-Up (Beta)`);
+  }, [surveyFormMonthKey]);
+
+  // Sync default replyTo when coordinatorEmail changes
+  React.useEffect(() => {
+    if (coordinatorEmail && !betaReplyTo) setBetaReplyTo(coordinatorEmail);
+  }, [coordinatorEmail]);
+
+  // Sync selected beta members when members prop updates
+  React.useEffect(() => {
+    const s = new Set<string>();
+    members.forEach((m) => {
+      if (m.is_beta_tester && m.active) s.add(m.name);
+    });
+    if (s.size > 0) setSelectedBetaMembers(s);
+  }, [members]);
+
+  const getPersonalizedLink = (memberName: string) => {
+    const baseUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}${window.location.pathname}`
+        : "https://script.google.com/macros/s/exec";
+    const sheetParam = spreadsheetId ? `&sheetId=${encodeURIComponent(spreadsheetId)}` : "";
+    return `${baseUrl}?view=survey&month=${encodeURIComponent(
+      surveyFormMonthKey
+    )}&m=${encodeURIComponent(memberName)}${sheetParam}`;
+  };
+
+  const handleCopyMemberLink = (memberName: string) => {
+    const link = getPersonalizedLink(memberName);
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(link).catch(() => {});
+      setCopiedLinkMember(memberName);
+      setTimeout(() => setCopiedLinkMember(null), 2500);
+    }
+  };
+
+  const handleSendBetaInvitations = async () => {
+    const testersToSend = members.filter(
+      (m) => selectedBetaMembers.has(m.name) && m.google_email
+    );
+    if (testersToSend.length === 0) return;
+
+    setSendingBetaInvites(true);
+    setBetaDispatchResult(null);
+
+    const payload: SendBetaInvitesPayload = {
+      monthKey: surveyFormMonthKey,
+      subject: betaSubject.trim(),
+      bodyTemplate: betaBodyTemplate,
+      replyTo: betaReplyTo.trim() || undefined,
+      recipients: testersToSend.map((m) => ({
+        name: m.name,
+        email: m.google_email.split(/[,;]/)[0].trim(),
+        link: getPersonalizedLink(m.name),
+      })),
+      spreadsheetId: spreadsheetId || undefined,
+    };
+
+    try {
+      const res = await callGas<SendBetaInvitesResult>("sendBetaSurveyInvitations", payload);
+      setBetaDispatchResult(res);
+    } catch (err: any) {
+      setBetaDispatchResult({
+        success: false,
+        dispatchedCount: 0,
+        failedCount: testersToSend.length,
+        message: err.message || "Failed to dispatch beta invitation emails.",
+      });
+    } finally {
+      setSendingBetaInvites(false);
+    }
+  };
   if (!show) return null;
 
   return (
@@ -98,12 +213,45 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
           </button>
         </div>
 
+        {/* Tab Switcher */}
+        <div className="flex border-b border-slate-200 bg-slate-100/80 px-6 pt-3 gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab("form")}
+            className={`min-h-[40px] px-4 py-2 font-bold text-xs sm:text-sm rounded-t-xl border-t border-x transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === "form"
+                ? "bg-slate-50/50 border-slate-200 text-violet-900 shadow-xs -mb-[1px]"
+                : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+            }`}
+          >
+            <FileSpreadsheet className="w-4 h-4 text-violet-600" />
+            <span>Google Form (Standard)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("beta")}
+            className={`min-h-[40px] px-4 py-2 font-bold text-xs sm:text-sm rounded-t-xl border-t border-x transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === "beta"
+                ? "bg-slate-50/50 border-slate-200 text-violet-900 shadow-xs -mb-[1px]"
+                : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+            }`}
+          >
+            <Mail className="w-4 h-4 text-violet-600" />
+            <span>Beta Web Sign-Ups (Phase 2)</span>
+            <span className="px-2 py-0.5 text-[10px] font-black tracking-wider uppercase bg-amber-100 text-amber-800 rounded-full border border-amber-300">
+              Pilot
+            </span>
+          </button>
+        </div>
+
         {/* Modal Body */}
         <div
           ref={surveyFormModalBodyRef}
           className="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-50/50"
         >
-          {/* Success Result Banner */}
+          {activeTab === "form" && (
+            <>
+              {/* Success Result Banner */}
           {surveyFormResult && surveyFormResult.success && (
             <div className="p-5 bg-emerald-50 border-2 border-emerald-300 rounded-2xl space-y-4 shadow-xs animate-in fade-in duration-200">
               <div className="flex items-start justify-between gap-4">
@@ -507,11 +655,406 @@ export const SurveyFormGeneratorModal: React.FC<SurveyFormGeneratorModalProps> =
               </div>
             )}
           </div>
+            </>
+          )}
+
+          {activeTab === "beta" && (
+            <div className="space-y-6">
+              {/* Beta Overview Banner */}
+              <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl flex items-start gap-3.5 shadow-xs">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 border border-amber-200">
+                  <Sparkles className="w-5 h-5 text-amber-700" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-amber-950 flex items-center gap-2">
+                    <span>Direct Web Availability Sign-Up (Beta Pilot)</span>
+                    <span className="text-[10px] uppercase font-black bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">Phase 2</span>
+                  </h3>
+                  <p className="text-xs text-amber-900/80 mt-1 leading-relaxed">
+                    Generate personalized survey links for beta testers to submit meal availability and shift preferences directly in the app. Responses are written directly to the <strong>Web Responses</strong> tab and merged automatically with Google Forms during Step 1 Intake.
+                  </p>
+                </div>
+              </div>
+
+              {/* Dispatch Alert Banner */}
+              {betaDispatchResult && (
+                <div
+                  className={`p-4 rounded-2xl border-2 flex items-start gap-3 shadow-xs animate-in fade-in duration-200 ${
+                    betaDispatchResult.success
+                      ? "bg-emerald-50 border-emerald-300 text-emerald-950"
+                      : "bg-rose-50 border-rose-300 text-rose-950"
+                  }`}
+                >
+                  {betaDispatchResult.success ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1 text-xs sm:text-sm">
+                    <div className="font-bold">{betaDispatchResult.message}</div>
+                    {betaDispatchResult.details && betaDispatchResult.details.length > 0 && (
+                      <div className="text-xs mt-1 text-slate-600">
+                        {betaDispatchResult.details.slice(0, 5).join(" • ")}
+                        {betaDispatchResult.details.length > 5 && ` (+${betaDispatchResult.details.length - 5} more)`}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Month Selector Bar */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white border border-slate-200 rounded-2xl shadow-2xs">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-violet-600" />
+                    <span>Target Survey Month</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Links and invitations will be configured for this scheduling cycle.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="month"
+                    value={surveyFormMonthKey}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setSurveyFormMonthKey(e.target.value);
+                        loadSurveyFormDatesPreview(e.target.value);
+                      }
+                    }}
+                    className="min-h-[42px] px-3.5 py-2 text-xs sm:text-sm font-bold bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 text-slate-900"
+                  />
+                </div>
+              </div>
+
+              {/* Grid: Left = Beta Testers Roster, Right = Email Template */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Left: Beta Testers Roster */}
+                <div className="lg:col-span-7 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <Users className="w-4 h-4 text-violet-600" />
+                        <span>Beta Pilot Testers ({selectedBetaMembers.size} selected)</span>
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Active residents tagged as beta testers in the Master Sheet.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const s = new Set<string>();
+                          members.forEach((m) => {
+                            if (m.is_beta_tester && m.active) s.add(m.name);
+                          });
+                          setSelectedBetaMembers(s);
+                        }}
+                        className="px-2.5 py-1 text-xs font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Tagged Only
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const s = new Set<string>();
+                          members.forEach((m) => {
+                            if (m.active) s.add(m.name);
+                          });
+                          setSelectedBetaMembers(s);
+                        }}
+                        className="px-2.5 py-1 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                      >
+                        All Active
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBetaMembers(new Set())}
+                        className="px-2.5 py-1 text-xs font-bold text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Filter members by name..."
+                      value={betaSearchFilter}
+                      onChange={(e) => setBetaSearchFilter(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                    />
+                  </div>
+
+                  {/* Members Table */}
+                  <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs max-h-[420px] overflow-y-auto">
+                    <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold sticky top-0 z-10">
+                        <tr>
+                          <th className="py-2.5 px-3.5 w-10 text-center">
+                            <span className="sr-only">Select</span>
+                          </th>
+                          <th className="py-2.5 px-3">Member</th>
+                          <th className="py-2.5 px-3">Email Address</th>
+                          <th className="py-2.5 px-3 text-right">Personal Link</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {members
+                          .filter((m) => m.active)
+                          .filter((m) =>
+                            betaSearchFilter
+                              ? m.name.toLowerCase().includes(betaSearchFilter.toLowerCase())
+                              : true
+                          )
+                          .map((m) => {
+                            const isSelected = selectedBetaMembers.has(m.name);
+                            const isCopied = copiedLinkMember === m.name;
+                            const link = getPersonalizedLink(m.name);
+                            const hasEmail = Boolean(m.google_email && m.google_email.trim());
+
+                            return (
+                              <tr
+                                key={m.name}
+                                className={`hover:bg-slate-50/80 transition-colors ${
+                                  isSelected ? "bg-violet-50/40" : ""
+                                }`}
+                              >
+                                <td className="py-2.5 px-3.5 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      const next = new Set(selectedBetaMembers);
+                                      if (e.target.checked) next.add(m.name);
+                                      else next.delete(m.name);
+                                      setSelectedBetaMembers(next);
+                                    }}
+                                    className="w-4 h-4 text-violet-600 rounded border-slate-300 focus:ring-violet-500 cursor-pointer"
+                                  />
+                                </td>
+                                <td className="py-2.5 px-3 font-semibold text-slate-900">
+                                  <div className="flex items-center gap-2">
+                                    <span>{m.name}</span>
+                                    {m.is_beta_tester && (
+                                      <span className="px-2 py-0.5 text-[10px] font-black uppercase rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                                        Beta Tester
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-600">
+                                  {hasEmail ? (
+                                    <span className="font-mono text-xs">{m.google_email}</span>
+                                  ) : (
+                                    <span className="text-amber-600 italic text-xs flex items-center gap-1">
+                                      <AlertCircle className="w-3 h-3 shrink-0" />
+                                      No email
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyMemberLink(m.name)}
+                                      title="Copy personalized survey link"
+                                      className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all flex items-center gap-1 cursor-pointer ${
+                                        isCopied
+                                          ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                                      }`}
+                                    >
+                                      {isCopied ? (
+                                        <>
+                                          <Check className="w-3 h-3 text-emerald-600" />
+                                          <span>Copied</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Copy className="w-3 h-3 text-slate-500" />
+                                          <span>Copy Link</span>
+                                        </>
+                                      )}
+                                    </button>
+                                    <a
+                                      href={link}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      title="Preview sign-up page for this member"
+                                      className="p-1.5 text-slate-400 hover:text-violet-700 hover:bg-violet-50 rounded-lg transition-colors cursor-pointer"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                    </a>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Right: Email Template Composer & Preview */}
+                <div className="lg:col-span-5 space-y-4">
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-4 shadow-2xs">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-violet-600" />
+                        <span>Transactional Email Template</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Sent via your Google Apps Script account. Coordinators receive direct replies.
+                      </p>
+                    </div>
+
+                    {/* Subject */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Email Subject Line:
+                      </label>
+                      <input
+                        type="text"
+                        value={betaSubject}
+                        onChange={(e) => setBetaSubject(e.target.value)}
+                        className="w-full min-h-[40px] px-3.5 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 font-medium text-slate-900"
+                      />
+                    </div>
+
+                    {/* Reply-To */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Reply-To Address (Coordinator):
+                      </label>
+                      <input
+                        type="email"
+                        value={betaReplyTo}
+                        onChange={(e) => setBetaReplyTo(e.target.value)}
+                        placeholder="coordinator@example.com"
+                        className="w-full min-h-[40px] px-3.5 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 font-medium text-slate-900"
+                      />
+                      <span className="text-[11px] text-slate-500 mt-1 block">
+                        When beta testers hit &quot;Reply&quot;, their message goes to this address.
+                      </span>
+                    </div>
+
+                    {/* Message Body Template */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-slate-700">
+                          Message Body Template:
+                        </label>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-slate-500 font-medium">Tag:</span>
+                          {["{{name}}", "{{link}}", "{{month}}"].map((tag) => (
+                            <button
+                              key={tag}
+                              type="button"
+                              onClick={() => setBetaBodyTemplate((prev) => `${prev} ${tag} `)}
+                              className="px-1.5 py-0.5 text-[10px] font-mono font-bold bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200 rounded cursor-pointer transition-colors"
+                            >
+                              {tag}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <textarea
+                        rows={7}
+                        value={betaBodyTemplate}
+                        onChange={(e) => setBetaBodyTemplate(e.target.value)}
+                        className="w-full p-3 text-xs font-mono bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 text-slate-900 leading-relaxed"
+                      />
+                    </div>
+
+                    {/* Live Preview Card */}
+                    <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                        <span>Email Preview Sample</span>
+                        <span className="text-[11px] font-normal text-slate-500">
+                          To: {Array.from(selectedBetaMembers)[0] || "Sample Resident"}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-white border border-slate-200 rounded-lg text-xs space-y-2 text-slate-800 whitespace-pre-wrap font-sans">
+                        <div className="font-bold text-slate-900 border-b border-slate-100 pb-1">
+                          Subject: {betaSubject}
+                        </div>
+                        <div className="text-slate-600 leading-relaxed">
+                          {betaBodyTemplate
+                            .replace(/\{\{name\}\}/g, Array.from(selectedBetaMembers)[0] || "Brenda")
+                            .replace(
+                              /\{\{link\}\}/g,
+                              getPersonalizedLink(Array.from(selectedBetaMembers)[0] || "Brenda")
+                            )
+                            .replace(/\{\{month\}\}/g, surveyFormMonthKey)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal Footer */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-          {surveyFormResult && surveyFormResult.success ? (
+          {activeTab === "beta" ? (
+            <>
+              <div className="text-xs sm:text-sm text-slate-600 font-medium flex items-center gap-2">
+                <Users className="w-4 h-4 text-violet-600" />
+                <span>
+                  {
+                    members.filter((m) => selectedBetaMembers.has(m.name) && m.google_email).length
+                  }{" "}
+                  beta recipient(s) ready with valid email
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="min-h-[44px] px-5 py-2.5 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-900 bg-white border border-slate-300 rounded-xl cursor-pointer transition-colors"
+                >
+                  Close
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSendBetaInvitations}
+                  disabled={
+                    sendingBetaInvites ||
+                    members.filter((m) => selectedBetaMembers.has(m.name) && m.google_email).length === 0
+                  }
+                  className="min-h-[44px] px-6 py-2.5 text-xs sm:text-sm font-bold text-white bg-violet-700 hover:bg-violet-800 rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                >
+                  {sendingBetaInvites ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Sending Invitation Emails...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      <span>
+                        Send Beta Invitations (
+                        {
+                          members.filter((m) => selectedBetaMembers.has(m.name) && m.google_email).length
+                        }
+                        )
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
+          ) : surveyFormResult && surveyFormResult.success ? (
             <>
               <div className="flex items-center gap-2 text-xs sm:text-sm text-emerald-900 font-bold">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />

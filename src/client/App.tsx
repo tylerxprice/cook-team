@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   Home,
+  Sparkles,
 } from "lucide-react";
 import { callGas, isGasEnvironment } from "./utils/gas";
 import { parseAndDisambiguateGoogleGroupRoster } from "./utils/nameParser";
@@ -69,8 +70,9 @@ import { ManualSurveyResponseModal } from "./components/modals/ManualSurveyRespo
 
 import { PortalLandingView } from "./components/views/PortalLandingView";
 import { ResidentScheduleView } from "./components/views/ResidentScheduleView";
+import { WebSurveySignupView } from "./components/views/WebSurveySignupView";
 
-export type AppView = "portal" | "coordinator" | "resident";
+export type AppView = "portal" | "coordinator" | "resident" | "survey";
 
 export const DEFAULT_AVAILABLE_MONTHS = [
   "2026-10",
@@ -128,6 +130,9 @@ export function getInitialAppView(): AppView {
   if (typeof window === "undefined") return "portal";
   const params = getAppUrlParams();
   const viewParam = (params.get("view") || params.get("mode") || "").toLowerCase();
+  if (viewParam === "survey" || viewParam === "signup") {
+    return "survey";
+  }
   if (viewParam === "schedule" || viewParam === "resident" || viewParam === "my-shifts") {
     return "resident";
   }
@@ -149,7 +154,7 @@ function MainApp() {
   const [appView, setAppView] = useState<AppView>(getInitialAppView);
   const [urlMemberName, setUrlMemberName] = useState<string>(() => {
     const p = getAppUrlParams();
-    return p.get("name") || p.get("user") || "";
+    return p.get("m") || p.get("name") || p.get("user") || "";
   });
   const [publicMonthKey, setPublicMonthKey] = useState<string>(() => {
     const params = getAppUrlParams();
@@ -223,6 +228,7 @@ function MainApp() {
   const [members, setMembers] = useState<Member[]>([]);
   const [cookPolicy, setCookPolicy] = useState<CookTeamPolicy>("ADAPTIVE_3_OR_2");
   const [autoCancelDeficitDates, setAutoCancelDeficitDates] = useState<boolean>(true);
+  const [betaWebSignupEnabled, setBetaWebSignupEnabled] = useState<boolean>(false);
   const [solverResult, setSolverResult] = useState<ScheduleOutput | null>(null);
 
   // Modals
@@ -741,7 +747,9 @@ function MainApp() {
   };
 
   const handleCopySurveyLink = (url: string) => {
-    navigator.clipboard.writeText(url);
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(url).catch(() => {});
+    }
     setSurveyFormCopiedLink(true);
     showToast("Public survey link copied to clipboard!");
     setTimeout(() => setSurveyFormCopiedLink(false), 3000);
@@ -953,6 +961,9 @@ function MainApp() {
     }
     if (settings.signupWorkbookId) {
       setMealSignupTargetWorkbookId(settings.signupWorkbookId);
+    }
+    if (typeof settings.betaWebSignupEnabled === "boolean") {
+      setBetaWebSignupEnabled(settings.betaWebSignupEnabled);
     }
   };
 
@@ -2755,6 +2766,43 @@ function MainApp() {
     );
   }
 
+  if (appView === "survey") {
+    const params = getAppUrlParams();
+    const initialName = urlMemberName || params.get("m") || params.get("name") || params.get("user") || undefined;
+    const initialMonth = params.get("month") || publicMonthKey || surveyFormMonthKey || "2026-11";
+    const initialSheet = params.get("sheetId") || sheetInput || undefined;
+
+    return (
+      <WebSurveySignupView
+        monthKey={initialMonth}
+        initialMemberName={initialName}
+        spreadsheetId={initialSheet}
+        members={members}
+        mealDates={intakeData?.mealDates || []}
+        existingResponses={intakeData?.responses || []}
+        communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
+        onBackToHome={() => {
+          setAppView("portal");
+          if (typeof window !== "undefined") {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("view");
+            window.history.pushState(null, "", url.toString());
+          }
+        }}
+        onNavigateToSchedule={(month) => {
+          if (month) handleSelectPublicMonth(month);
+          setAppView("resident");
+          if (typeof window !== "undefined") {
+            const url = new URL(window.location.href);
+            url.searchParams.set("view", "schedule");
+            if (month) url.searchParams.set("month", month);
+            window.history.pushState(null, "", url.toString());
+          }
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
       {/* Top Header */}
@@ -2944,6 +2992,30 @@ function MainApp() {
                       </div>
                       <div className="text-xs text-slate-600">
                         Personal shifts &amp; .ics download
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setShowMainMenu(false);
+                      setAppView("survey");
+                    }}
+                    className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-violet-50 text-left transition-colors group cursor-pointer"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Sparkles className="w-5 h-5 text-violet-600" />
+                    </div>
+                    <div>
+                      <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-violet-950 flex items-center gap-1.5">
+                        <span>Resident Availability Sign-Up</span>
+                        <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded border border-amber-300">
+                          Beta
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        Direct sign-up form view
                       </div>
                     </div>
                   </button>
@@ -3259,6 +3331,8 @@ function MainApp() {
         handleProvisionDrive={handleProvisionDrive}
         provisioning={provisioning}
         provisionResult={provisionResult}
+        betaWebSignupEnabled={betaWebSignupEnabled}
+        setBetaWebSignupEnabled={setBetaWebSignupEnabled}
         onSaveAndRecalculate={async () => {
           setShowSettingsModal(false);
           try {
@@ -3271,6 +3345,7 @@ function MainApp() {
                 defaultCleanQuota,
                 autoCancelDeficitDates,
                 signupWorkbookId: mealSignupTargetWorkbookId,
+                betaWebSignupEnabled,
               },
               masterSheetInput
             );
@@ -3360,6 +3435,9 @@ function MainApp() {
         handleCopySurveyLink={handleCopySurveyLink}
         handleAddCustomSurveyDate={handleAddCustomSurveyDate}
         handleExecuteCreateSurveyForm={handleExecuteCreateSurveyForm}
+        members={members}
+        coordinatorEmail={emailTo}
+        spreadsheetId={sheetInput}
       />
 
       <NearCompleteOpportunityModal

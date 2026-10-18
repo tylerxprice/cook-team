@@ -20,6 +20,7 @@ export interface Member {
   last_active_survey?: string; // e.g. "2026-10"
   aliases?: string[]; // e.g. ["Alex", "Sasha"]
   alternate_emails?: string[]; // e.g. ["alex.work@company.com"]
+  is_beta_tester?: boolean;
 }
 
 export interface ExceptionRule {
@@ -56,6 +57,7 @@ export interface SurveyResponse {
   cleanQuota: number;
   maxTotalShifts?: number; // Optional cap across both cook and clean shifts combined
   specialInstructions: string;
+  source?: "form" | "web";
 }
 
 export interface ManualSurveyResponsePayload {
@@ -189,7 +191,50 @@ export interface AppSettings {
   autoCancelDeficitDates?: boolean;
   communityName?: string;
   signupWorkbookId?: string;
+  betaWebSignupEnabled?: boolean;
   [key: string]: any;
+}
+
+export interface BetaTesterInvite {
+  name: string;
+  email: string;
+  link: string;
+  isBetaTester: boolean;
+}
+
+export interface SendBetaInvitesPayload {
+  monthKey: string;
+  subject: string;
+  bodyTemplate: string;
+  replyTo?: string;
+  recipients: Array<{
+    name: string;
+    email: string;
+    link: string;
+  }>;
+  spreadsheetId?: string;
+}
+
+export interface SendBetaInvitesResult {
+  success: boolean;
+  dispatchedCount: number;
+  failedCount: number;
+  message: string;
+  details?: Array<{ name: string; email: string; success: boolean; error?: string }>;
+}
+
+export interface WebSurveyResponsePayload {
+  monthKey: string;
+  spreadsheetId?: string;
+  memberName: string;
+  email?: string;
+  cookQuota: number;
+  cleanQuota: number;
+  maxTotalShifts?: number;
+  cookTeamSizePref: string;
+  sameDayPref: "NO" | "YES" | "PREFERRED";
+  availability: Record<string, AvailabilityStatus>;
+  specialInstructions?: string;
 }
 
 export interface MasterRegistryPayload {
