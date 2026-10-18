@@ -415,6 +415,22 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
 
   // Unified renderer for both My Shifts (filtered) and Full Schedule (all meals)
   const renderScheduleContent = (isMyShiftsView: boolean) => {
+    if (isLoading) {
+      return (
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 sm:p-16 text-center space-y-3.5 min-h-[380px] sm:min-h-[440px] flex flex-col items-center justify-center shadow-2xs animate-in fade-in duration-150">
+          <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center border border-orange-100 mb-1">
+            <Loader2 className="w-6 h-6 animate-spin text-orange-600" />
+          </div>
+          <h3 className="text-base sm:text-lg font-black text-slate-900">
+            Loading schedule for {formatMonthDisplay(monthKey || "")}...
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-500 max-w-xs mx-auto">
+            Fetching meal dates, cooks, and clean assignments...
+          </p>
+        </div>
+      );
+    }
+
     const displayedSchedule = isMyShiftsView ? myShiftsSchedule : schedule;
 
     if (displayedSchedule.length === 0) {
@@ -832,13 +848,6 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
 
       {/* Main Content Area */}
       <main className="max-w-6xl mx-auto px-3 sm:px-6 py-4 flex-1 w-full space-y-4 pb-24">
-        {isLoading && (
-          <div className="bg-orange-50/70 border border-orange-200 rounded-2xl p-3.5 flex items-center justify-center gap-2.5 text-xs sm:text-sm font-bold text-orange-950 shadow-2xs">
-            <Loader2 className="w-4 h-4 animate-spin text-orange-600" />
-            <span>Loading schedule for {formatMonthDisplay(monthKey || "")}...</span>
-          </div>
-        )}
-
         {/* Member Search / Selector Card (shown when no member is selected or user tapped Switch) */}
         {(!selectedMember || isChangingMember) && (
           <div className="max-w-2xl mx-auto w-full">
@@ -921,36 +930,43 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                   Pick your name from the selector above to view your cook and clean assignments for {monthTitle}.
                 </p>
               </div>
+            ) : isLoading ? (
+              renderScheduleContent(true)
             ) : memberShifts.length === 0 ? (
               renderScheduleContent(true)
             ) : (
               <>
                 {/* Compact Shifts Summary Bar + Calendar/List Switcher + Download */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white rounded-2xl border border-slate-200 p-3 sm:p-3.5 shadow-2xs">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs sm:text-sm font-extrabold text-slate-900">
-                      {memberShifts.length} Shift{memberShifts.length === 1 ? "" : "s"} Assigned
+                <div className="flex items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200 p-2 sm:p-3 shadow-2xs">
+                  {/* Left: Shift Counters */}
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-xs sm:text-sm font-extrabold text-slate-900 shrink-0">
+                      {memberShifts.length} Shift{memberShifts.length === 1 ? "" : "s"}
+                      <span className="hidden sm:inline"> Assigned</span>
                     </span>
-                    <div className="flex items-center gap-1.5 text-xs font-bold">
-                      <span className="px-2 py-0.5 rounded-lg bg-orange-50 text-orange-800 border border-orange-200">
-                        🍳 {cookCount} Cook
+                    <div className="flex items-center gap-1 text-xs font-bold shrink-0">
+                      <span className="px-1.5 sm:px-2 py-0.5 rounded-lg bg-orange-50 text-orange-800 border border-orange-200 text-[11px] sm:text-xs">
+                        🍳 {cookCount}
+                        <span className="hidden sm:inline"> Cook</span>
                       </span>
-                      <span className="px-2 py-0.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200">
-                        🧼 {cleanCount} Clean
+                      <span className="px-1.5 sm:px-2 py-0.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200 text-[11px] sm:text-xs">
+                        🧼 {cleanCount}
+                        <span className="hidden sm:inline"> Clean</span>
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+                  {/* Right: View Switcher + Compact .ics Button */}
+                  <div className="flex items-center gap-1.5 shrink-0">
                     {/* View Switcher Controls */}
-                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80">
+                    <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 sm:p-1 rounded-xl border border-slate-200/80">
                       <button
                         type="button"
                         onClick={() => {
                           setDisplayFormat("calendar");
                           setUserToggledFormat(true);
                         }}
-                        className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                        className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer ${
                           displayFormat === "calendar"
                             ? "bg-white text-orange-950 font-black shadow-xs border border-slate-200"
                             : "text-slate-600 hover:text-slate-900"
@@ -966,7 +982,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                           setDisplayFormat("list");
                           setUserToggledFormat(true);
                         }}
-                        className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                        className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer ${
                           displayFormat === "list"
                             ? "bg-white text-orange-950 font-black shadow-xs border border-slate-200"
                             : "text-slate-600 hover:text-slate-900"
@@ -978,18 +994,21 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                       </button>
                     </div>
 
+                    {/* .ics Download Button */}
                     <button
                       type="button"
                       onClick={handleDownloadCalendar}
                       disabled={memberShifts.length === 0}
-                      className={`min-h-[38px] px-3.5 py-1.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-2xs transition-all cursor-pointer ${
+                      title="Add All My Shifts to Calendar (.ics)"
+                      className={`min-h-[32px] sm:min-h-[36px] px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer ${
                         memberShifts.length > 0
                           ? "bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white shadow-orange-600/20 active:scale-[0.99]"
                           : "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
                       }`}
                     >
-                      <Download className="w-4 h-4 shrink-0" />
-                      <span>Add All My Shifts to Calendar (.ics)</span>
+                      <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                      <span className="hidden sm:inline">Add All My Shifts to Calendar (.ics)</span>
+                      <span className="sm:hidden font-black">.ics</span>
                     </button>
                   </div>
                 </div>
@@ -1003,50 +1022,61 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
         {/* Tab 2: Full Community Schedule */}
         {activeTab === "full_schedule" && (
           <div className="space-y-3.5">
-            {/* Header + Calendar/List View Toggle Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white rounded-2xl border border-slate-200 p-3 sm:p-3.5 shadow-2xs">
-              <div className="text-xs sm:text-sm font-extrabold text-slate-900">
-                Showing all {schedule.length} community meals for {monthTitle}
-              </div>
+            {isLoading ? (
+              renderScheduleContent(false)
+            ) : (
+              <>
+                {/* Header + Calendar/List View Toggle Bar */}
+                <div className="flex items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200 p-2 sm:p-3 shadow-2xs">
+                  <div className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
+                    <span className="hidden sm:inline">
+                      Showing all {schedule.length} community meals for {monthTitle}
+                    </span>
+                    <span className="sm:hidden">
+                      Showing all {schedule.length} meals
+                    </span>
+                  </div>
 
-              {/* View Switcher Controls */}
-              <div className="flex items-center gap-1 self-start sm:self-auto bg-slate-100 p-1 rounded-xl border border-slate-200/80">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDisplayFormat("calendar");
-                    setUserToggledFormat(true);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
-                    displayFormat === "calendar"
-                      ? "bg-white text-orange-950 font-black shadow-xs border border-slate-200"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                  aria-pressed={displayFormat === "calendar"}
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                  <span>Calendar</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDisplayFormat("list");
-                    setUserToggledFormat(true);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
-                    displayFormat === "list"
-                      ? "bg-white text-orange-950 font-black shadow-xs border border-slate-200"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                  aria-pressed={displayFormat === "list"}
-                >
-                  <List className="w-3.5 h-3.5" />
-                  <span>List</span>
-                </button>
-              </div>
-            </div>
+                  {/* View Switcher Controls */}
+                  <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 sm:p-1 rounded-xl border border-slate-200/80 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDisplayFormat("calendar");
+                        setUserToggledFormat(true);
+                      }}
+                      className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer ${
+                        displayFormat === "calendar"
+                          ? "bg-white text-orange-950 font-black shadow-xs border border-slate-200"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                      aria-pressed={displayFormat === "calendar"}
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                      <span>Calendar</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDisplayFormat("list");
+                        setUserToggledFormat(true);
+                      }}
+                      className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer ${
+                        displayFormat === "list"
+                          ? "bg-white text-orange-950 font-black shadow-xs border border-slate-200"
+                          : "text-slate-600 hover:text-slate-900"
+                      }`}
+                      aria-pressed={displayFormat === "list"}
+                    >
+                      <List className="w-3.5 h-3.5" />
+                      <span>List</span>
+                    </button>
+                  </div>
+                </div>
 
-            {renderScheduleContent(false)}
+                {renderScheduleContent(false)}
+              </>
+            )}
           </div>
         )}
       </main>
