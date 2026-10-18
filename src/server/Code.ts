@@ -65,11 +65,24 @@ import {
 /**
  * Generates server-side bootstrap payload for zero-RPC instant client hydration on load.
  */
-function getInitialBootstrapData(): {
+function getInitialBootstrapData(paramsOrEvent?: any): {
   userInfo: ReturnType<typeof getUserInfo>;
   registry: MasterRegistryPayload;
   driveSheets: DriveSheetItem[];
+  urlParameters?: Record<string, string>;
 } {
+  const urlParameters = paramsOrEvent?.parameter ? paramsOrEvent.parameter : paramsOrEvent;
+  const cleanParams: Record<string, string> = {};
+  if (urlParameters && typeof urlParameters === "object") {
+    for (const k of Object.keys(urlParameters)) {
+      if (urlParameters[k] !== undefined && urlParameters[k] !== null) {
+        const val = String(urlParameters[k]).trim();
+        cleanParams[k] = val;
+        cleanParams[k.toLowerCase()] = val;
+      }
+    }
+  }
+
   try {
     const userInfo = getUserInfo();
     const registry = getMasterRegistryData(userInfo.isDevMode);
@@ -83,6 +96,7 @@ function getInitialBootstrapData(): {
       userInfo,
       registry,
       driveSheets,
+      urlParameters: cleanParams,
     };
   } catch (err) {
     console.warn("Bootstrap data generation failed:", err);
@@ -90,6 +104,7 @@ function getInitialBootstrapData(): {
       userInfo: getUserInfo(),
       registry: { members: [], exceptions: [] },
       driveSheets: [],
+      urlParameters: cleanParams,
     };
   }
 }
@@ -131,7 +146,7 @@ function doGet(e?: any): any {
   }
 
   const template = HtmlService.createTemplateFromFile("index");
-  (template as any).bootstrapData = getInitialBootstrapData();
+  (template as any).bootstrapData = getInitialBootstrapData(e?.parameter);
   return template
     .evaluate()
     .setTitle("Community Cook Team App")

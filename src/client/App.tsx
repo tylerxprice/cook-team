@@ -72,9 +72,45 @@ import { ResidentScheduleView } from "./components/views/ResidentScheduleView";
 
 export type AppView = "portal" | "coordinator" | "resident";
 
+let cachedBootstrapParams: Record<string, string> | null = null;
+
+export function getAppUrlParams(): URLSearchParams {
+  if (typeof window === "undefined") return new URLSearchParams();
+
+  // 1. In standard dev or direct browsers, window.location.search contains the query parameters
+  const windowParams = new URLSearchParams(window.location.search);
+  if (windowParams.toString()) {
+    return windowParams;
+  }
+
+  // 2. In Google Apps Script Web App iframes, window.location.search is empty!
+  // We read parameters passed from doGet(e.parameter) via the bootstrap JSON script tag.
+  if (cachedBootstrapParams) {
+    return new URLSearchParams(cachedBootstrapParams);
+  }
+
+  try {
+    const bootstrapEl = document.getElementById("bootstrap-data");
+    if (bootstrapEl && bootstrapEl.textContent) {
+      const raw = bootstrapEl.textContent.trim();
+      if (raw && raw.startsWith("{") && raw !== "{}") {
+        const boot = JSON.parse(raw);
+        if (boot && boot.urlParameters && typeof boot.urlParameters === "object") {
+          cachedBootstrapParams = boot.urlParameters;
+          return new URLSearchParams(boot.urlParameters);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Could not read urlParameters from bootstrap data:", err);
+  }
+
+  return windowParams;
+}
+
 export function getInitialAppView(): AppView {
   if (typeof window === "undefined") return "portal";
-  const params = new URLSearchParams(window.location.search);
+  const params = getAppUrlParams();
   const viewParam = (params.get("view") || params.get("mode") || "").toLowerCase();
   if (viewParam === "schedule" || viewParam === "resident" || viewParam === "my-shifts") {
     return "resident";
@@ -95,14 +131,16 @@ function MainApp() {
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStepState] = useState<1 | 2 | 3 | 4>(1);
   const [appView, setAppView] = useState<AppView>(getInitialAppView);
+  const [urlMemberName, setUrlMemberName] = useState<string>(() => {
+    const p = getAppUrlParams();
+    return p.get("name") || p.get("user") || "";
+  });
   const [publicSchedule, setPublicSchedule] = useState<DaySchedule[]>([]);
   const [publicMonthTitle, setPublicMonthTitle] = useState<string>("Community Meals");
   const [publicMonthKey, setPublicMonthKey] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const m = params.get("month");
-      if (m && /^\d{4}-\d{2}$/.test(m)) return m;
-    }
+    const params = getAppUrlParams();
+    const m = params.get("month");
+    if (m && /^\d{4}-\d{2}$/.test(m)) return m;
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });
@@ -262,11 +300,11 @@ function MainApp() {
     async (targetMonth?: string) => {
       try {
         setLoadingPublicSchedule(true);
-        const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+        const params = getAppUrlParams();
         const monthParam =
-          targetMonth || (params ? params.get("month") || undefined : undefined) || publicMonthKey;
+          targetMonth || params.get("month") || publicMonthKey;
         const sheetParam =
-          (params ? params.get("sheet") || undefined : undefined) || sheetInput || undefined;
+          params.get("sheet") || sheetInput || undefined;
         const res = await callGas<PublicScheduleResult>("getPublicSchedule", monthParam, sheetParam);
         if (res) {
           if (res.schedule) {
@@ -303,19 +341,51 @@ function MainApp() {
     }
   }, [appView, solverResult?.schedule, publicSchedule.length, fetchPublicSchedule]);
 
+  // Listen for Google Apps Script outer window URL location (fallback / dynamic navigation)
+  useEffect(() => {
+    if (
+      typeof (window as any).google !== "undefined" &&
+      (window as any).google?.script?.url?.getLocation
+    ) {
+      try {
+        (window as any).google.script.url.getLocation((loc: any) => {
+          if (loc && loc.parameter) {
+            const p = loc.parameter;
+            const view = (p.view || p.mode || "").toLowerCase();
+            if (view === "schedule" || view === "resident" || view === "my-shifts") {
+              setAppView("resident");
+            } else if (view === "coordinator" || view === "admin" || view === "wizard") {
+              setAppView("coordinator");
+            }
+            if (p.month && /^\d{4}-\d{2}$/.test(p.month)) {
+              setPublicMonthKey(p.month);
+            }
+            if (p.name || p.user) {
+              setUrlMemberName(p.name || p.user);
+            }
+          }
+        });
+      } catch (e) {
+        console.warn("getLocation failed:", e);
+      }
+    }
+  }, []);
+
   const handleSelectPublicMonth = (newMonthKey: string) => {
     setPublicMonthKey(newMonthKey);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.set("view", "schedule");
       url.searchParams.set("month", newMonthKey);
+      if (urlMemberName) url.searchParams.set("name", urlMemberName);
       window.history.pushState(null, "", url.toString());
     }
     if (typeof (window as any).google !== "undefined" && (window as any).google?.script?.history) {
       try {
-        const params = new URLSearchParams(window.location.search);
+        const params = getAppUrlParams();
         params.set("view", "schedule");
         params.set("month", newMonthKey);
+        if (urlMemberName) params.set("name", urlMemberName);
         (window as any).google.script.history.push(
           null,
           Object.fromEntries(params.entries()),
@@ -2594,8 +2664,8 @@ function MainApp() {
   }
 
   if (appView === "resident") {
-    const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
-    const initialName = params?.get("name") || params?.get("user") || undefined;
+    const params = getAppUrlParams();
+    const initialName = urlMemberName || params.get("name") || params.get("user") || undefined;
     return (
       <ResidentScheduleView
         schedule={publicSchedule.length > 0 ? publicSchedule : (solverResult?.schedule || [])}

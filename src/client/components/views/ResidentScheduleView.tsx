@@ -168,6 +168,22 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
     return availableMemberNames.filter((n) => n.toLowerCase().includes(q));
   }, [availableMemberNames, memberSearchQuery]);
 
+  // If initialMemberName is provided or changes (e.g. from URL parameter hydration), update selectedMember
+  useEffect(() => {
+    if (initialMemberName && initialMemberName.trim()) {
+      const trimmed = initialMemberName.trim();
+      const canonical =
+        availableMemberNames.find((n) => n.toLowerCase() === trimmed.toLowerCase()) || trimmed;
+      setSelectedMember(canonical);
+      setIsChangingMember(false);
+      try {
+        localStorage.setItem(STORAGE_KEY, canonical);
+      } catch {
+        // ignore
+      }
+    }
+  }, [initialMemberName, availableMemberNames]);
+
   // Extract selected member's shifts
   const memberShifts = useMemo(() => {
     if (!selectedMember) return [];

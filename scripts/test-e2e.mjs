@@ -116,6 +116,17 @@ async function runE2ETest() {
     }
     console.log(`✓ Direct navigation to ?view=schedule defaulted to current month: "${directVal}"`);
 
+    // Direct navigation with ?view=schedule&month=2026-10&name=Rose
+    console.log("1e. Testing direct URL navigation with ?view=schedule&month=2026-10&name=Rose ...");
+    await page.goto("http://localhost:5174/?view=schedule&month=2026-10&name=Rose", { waitUntil: "networkidle" });
+    const hasLandingTitle = await page.locator("text=What would you like to do?").count();
+    if (hasLandingTitle > 0) {
+      throw new Error("Landing page was not bypassed when view=schedule was passed in query parameter!");
+    }
+    await page.waitForSelector("text=Showing Shifts For");
+    await page.waitForSelector("h2:has-text('Rose')");
+    console.log("✓ Successfully loaded Resident View directly with Rose pre-selected!");
+
     // Click Coordinator button to enter 4-step wizard
     const coordBtn = page.locator("button:has-text('Coordinator')").first();
     await coordBtn.click();
