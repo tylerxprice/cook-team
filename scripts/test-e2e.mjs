@@ -359,27 +359,20 @@ async function runE2ETest() {
     await page.waitForSelector("text=Draft created in your Gmail account");
     console.log("✓ Gmail Draft creation verified!");
 
-    // Test Send via Gmail
-    console.log("   Testing Send via Gmail button...");
+    // Test Compose in Gmail Web
+    console.log("   Testing Compose in Gmail Web button...");
+    const composeBtn = page.locator("button:has-text('Compose in Gmail Web')");
+    await composeBtn.waitFor({ state: "visible" });
+    console.log("✓ Compose in Gmail Web button verified!");
+
+    // Verify 'Send via Gmail' is completely removed
     const sendBtn = page.locator("button:has-text('Send via Gmail')");
-    await sendBtn.click();
-    await page.waitForSelector("text=Announcement email successfully sent via Gmail");
-    console.log("✓ Send via Gmail verified!");
+    const sendBtnCount = await sendBtn.count();
+    if (sendBtnCount > 0) {
+      throw new Error("Expected 'Send via Gmail' button to be removed, but found " + sendBtnCount);
+    }
+    console.log("✓ Verified 'Send via Gmail' button is removed!");
 
-    // Test Already Sent Warning Banner & Duplicate Send Modal
-    console.log("   Testing Email Already Sent Warning Banner...");
-    await page.waitForSelector("text=Notice: Announcement Already Sent");
-    console.log("✓ Email Already Sent Warning Banner verified!");
-
-    console.log("   Testing Duplicate Email Send Confirmation Modal...");
-    await sendBtn.click();
-    await page.waitForSelector("text=Send Duplicate Announcement?");
-    console.log("✓ Duplicate Email Send Confirmation Modal displayed successfully!");
-
-    const confirmResendBtn = page.locator(".fixed button:has-text('Yes, Send Email Again')").first();
-    await confirmResendBtn.click();
-    await page.waitForSelector("text=Announcement email successfully sent via Gmail");
-    console.log("✓ Confirmed duplicate email send completed!");
 
     // Test Modal 7: Community Reports Modal via Hamburger Menu
     console.log("8b. Testing Modal 7: Community Reports Modal with Month Filtering ...");

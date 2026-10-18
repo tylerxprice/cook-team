@@ -6,7 +6,6 @@ import {
   Mail,
   Copy,
   FileText,
-  Send,
   AlertTriangle,
   Eye,
   Edit3,
@@ -170,8 +169,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                 Community Announcement &amp; Gmail Dispatch
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                Send directly through your connected Gmail account, create a draft in Gmail, or copy
-                formatted text
+                Compose in Gmail web, create a draft in Gmail, or copy formatted text
               </p>
             </div>
           </div>
@@ -196,10 +194,10 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                 }`;
                 window.open(composeUrl, "_blank");
               }}
-              className="min-h-[44px] inline-flex items-center gap-2 px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-900 border border-red-300 rounded-xl text-xs sm:text-sm font-bold transition-colors cursor-pointer"
+              className="min-h-[44px] inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-colors cursor-pointer"
               title="Open Gmail compose tab in browser with recipient and subject pre-filled, and text copied to clipboard"
             >
-              <ExternalLink className="w-4 h-4 text-red-600" />
+              <ExternalLink className="w-4 h-4" />
               <span>Compose in Gmail Web</span>
             </button>
             <button
@@ -210,15 +208,6 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
             >
               <FileText className="w-4 h-4" />
               <span>Create Gmail Draft</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSendGmail("send")}
-              disabled={sendingEmail}
-              className="min-h-[44px] inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              <Send className={`w-4 h-4 ${sendingEmail ? "animate-spin" : ""}`} />
-              <span>Send via Gmail</span>
             </button>
           </div>
         </div>
