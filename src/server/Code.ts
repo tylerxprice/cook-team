@@ -3649,12 +3649,16 @@ function getMonthConfig(monthKey: string): MonthConfig {
 /**
  * Synchronizes the summary "open_months" setting row in Master Settings with currently open months.
  */
-function syncOpenMonthsSetting(): void {
+function syncOpenMonthsSetting(): { success: boolean; openMonths: string; message: string } {
   try {
     const master = getMasterRegistrySpreadsheet();
-    if (!master) return;
+    if (!master) {
+      return { success: false, openMonths: "", message: "Master spreadsheet not found." };
+    }
     const settingsSheet = master.getSheetByName("Settings");
-    if (!settingsSheet) return;
+    if (!settingsSheet) {
+      return { success: false, openMonths: "", message: "Settings tab not found." };
+    }
     const data = settingsSheet.getDataRange().getValues();
     const openSet = new Set<string>();
 
@@ -3675,8 +3679,22 @@ function syncOpenMonthsSetting(): void {
       .sort((a, b) => b.localeCompare(a))
       .join(",");
     saveMasterSettings({ open_months: openList } as any);
-  } catch (err) {
+    const msg = openList
+      ? `Successfully synchronized open_months to: ${openList}`
+      : "No months currently OPEN. Setting open_months to empty.";
+    Logger.log(msg);
+    return {
+      success: true,
+      openMonths: openList,
+      message: msg,
+    };
+  } catch (err: any) {
     console.warn("Could not sync open_months setting:", err);
+    return {
+      success: false,
+      openMonths: "",
+      message: err.message || "Failed to sync open_months.",
+    };
   }
 }
 
@@ -3885,3 +3903,4 @@ g.updateUserGuideDoc = updateUserGuideDoc;
 g.getPublicSchedule = getPublicSchedule;
 g.populatePublishedMonthsInMaster = populatePublishedMonthsInMaster;
 g.getDeploymentUrl = getDeploymentUrl;
+g.syncOpenMonthsSetting = syncOpenMonthsSetting;
