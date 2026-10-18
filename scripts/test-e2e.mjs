@@ -69,6 +69,17 @@ async function runE2ETest() {
     await page.waitForSelector("text=Add All My Shifts to Calendar (.ics)");
     console.log("✓ Selected member Brenda and verified shifts & calendar export button!");
 
+    // Test Calendar / List toggle on My Shifts tab
+    console.log("1c-shift. Testing Calendar / List toggle on My Shifts tab ...");
+    const myShiftsListBtn = page.locator("button:has-text('List')").first();
+    await myShiftsListBtn.click();
+    await page.waitForSelector("text=Cooks:");
+    console.log("✓ Toggled My Shifts to List view!");
+    const myShiftsCalBtn = page.locator("button:has-text('Calendar')").first();
+    await myShiftsCalBtn.click();
+    await page.waitForSelector("text=Sun");
+    console.log("✓ Toggled My Shifts to Calendar view!");
+
     // 1c. Verify Month Selector & Current Month Default
     console.log("1c. Testing Resident View Month Selector & Current Month Default ...");
     await page.waitForSelector("select[aria-label='Select meal month']");

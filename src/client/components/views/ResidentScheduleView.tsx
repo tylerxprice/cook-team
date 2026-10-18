@@ -373,6 +373,365 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
     };
   }, [monthKey, schedule, selectedMember]);
 
+  // Filter schedule days where the selected resident is assigned to cook or clean
+  const myShiftsSchedule = useMemo(() => {
+    if (!selectedMember) return [];
+    const memLower = selectedMember.trim().toLowerCase();
+    return (schedule || []).filter((day) => {
+      const isCook = (day.cooks || []).some((c) => c.toLowerCase() === memLower);
+      const isClean = (day.cleaners || []).some((c) => c.toLowerCase() === memLower);
+      return isCook || isClean;
+    });
+  }, [schedule, selectedMember]);
+
+  // Helper to render teammate chips with high-visibility highlight for the active user
+  const renderNamesWithHighlight = (names: string[], role: "cook" | "clean") => {
+    if (!names || names.length === 0) {
+      return <span className="text-slate-400 italic text-xs">(Need Volunteers)</span>;
+    }
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {names.map((name) => {
+          const isMe =
+            selectedMember && name.toLowerCase() === selectedMember.trim().toLowerCase();
+          return (
+            <span
+              key={name}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
+                isMe
+                  ? role === "cook"
+                    ? "bg-orange-600 text-white border-orange-700 shadow-2xs font-black"
+                    : "bg-sky-600 text-white border-sky-700 shadow-2xs font-black"
+                  : "bg-slate-100 text-slate-800 border-slate-200"
+              }`}
+            >
+              {name} {isMe && "(You)"}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Unified renderer for both My Shifts (filtered) and Full Schedule (all meals)
+  const renderScheduleContent = (isMyShiftsView: boolean) => {
+    const displayedSchedule = isMyShiftsView ? myShiftsSchedule : schedule;
+
+    if (displayedSchedule.length === 0) {
+      if (isMyShiftsView) {
+        return (
+          <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
+            <Sparkles className="w-10 h-10 text-amber-500 mx-auto" />
+            <h3 className="text-base font-bold text-slate-900">
+              {schedule.length === 0
+                ? `No schedule published yet for ${monthTitle}`
+                : `No shifts scheduled for ${selectedMember}`}
+            </h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              {schedule.length === 0
+                ? `The meal team schedule for ${monthTitle} has not been published yet. Select another month in the top bar or check back once finalized!`
+                : `You are not assigned to any cook or clean shifts in ${monthTitle}. Enjoy the community meals, or browse the full schedule below!`}
+            </p>
+            {schedule.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("full_schedule")}
+                className="mt-1 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>View Full Community Schedule</span>
+              </button>
+            )}
+          </div>
+        );
+      } else {
+        return (
+          <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
+            <Calendar className="w-10 h-10 text-slate-300 mx-auto" />
+            <h3 className="text-base font-bold text-slate-900">
+              No published schedule found for {monthTitle}
+            </h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              The schedule for this month has not been published yet. Select another month above to view past schedules.
+            </p>
+          </div>
+        );
+      }
+    }
+
+    if (displayFormat === "calendar") {
+      return (
+        /* CALENDAR GRID VIEW (Responsive with auto-scroll on narrow viewport) */
+        <div className="bg-white rounded-2xl border border-slate-200 p-3 sm:p-4 shadow-2xs overflow-hidden">
+          <div className="overflow-x-auto pb-1">
+            <div className="min-w-[700px] md:min-w-0">
+              {/* Days of week header */}
+              <div className="grid grid-cols-7 gap-1.5 sm:gap-2 mb-2 text-center text-[11px] sm:text-xs font-black text-slate-500 uppercase tracking-wider">
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((dayName) => (
+                  <div key={dayName} className="py-1">
+                    {dayName}
+                  </div>
+                ))}
+              </div>
+
+              {/* Month Day Cells */}
+              <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                {calendarData.days.map((dayItem, cellIdx) => {
+                  if (!dayItem.isCurrentMonth) {
+                    return (
+                      <div
+                        key={`pad-${dayItem.dateKey}-${cellIdx}`}
+                        className="min-h-[105px] sm:min-h-[125px] p-2 bg-slate-50/60 rounded-xl border border-slate-100 opacity-40 select-none flex flex-col justify-start"
+                      >
+                        <span className="text-[11px] font-semibold text-slate-400">
+                          {dayItem.dayNumber}
+                        </span>
+                      </div>
+                    );
+                  }
+
+                  // In "My Shifts" mode, only show meals where selectedMember is assigned
+                  const cellMeals = isMyShiftsView
+                    ? dayItem.daySchedules.filter((s) => {
+                        if (!selectedMember) return false;
+                        const memLower = selectedMember.trim().toLowerCase();
+                        const isCook = (s.cooks || []).some((c) => c.toLowerCase() === memLower);
+                        const isClean = (s.cleaners || []).some((c) => c.toLowerCase() === memLower);
+                        return isCook || isClean;
+                      })
+                    : dayItem.daySchedules;
+
+                  const hasMeals = cellMeals.length > 0;
+                  const isUserInvolved = dayItem.isUserInvolved;
+
+                  return (
+                    <div
+                      key={dayItem.dateKey}
+                      className={`min-h-[105px] sm:min-h-[125px] p-2 rounded-xl border transition-all flex flex-col justify-between ${
+                        isUserInvolved && hasMeals
+                          ? "bg-orange-50/50 border-orange-300 ring-2 ring-orange-400/60 shadow-xs"
+                          : hasMeals
+                          ? "bg-white border-slate-200 shadow-2xs hover:border-slate-300"
+                          : "bg-slate-50/30 border-slate-100"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span
+                          className={`text-xs font-black ${
+                            isUserInvolved && hasMeals
+                              ? "text-orange-950 font-black"
+                              : hasMeals
+                              ? "text-slate-800"
+                              : "text-slate-400"
+                          }`}
+                        >
+                          {dayItem.dayNumber}
+                        </span>
+                        {isUserInvolved && hasMeals && (
+                          <span
+                            className="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-orange-100 text-orange-950 border border-orange-300"
+                            title="You are scheduled on this date"
+                          >
+                            ★ You
+                          </span>
+                        )}
+                      </div>
+
+                      {hasMeals ? (
+                        <div className="space-y-1.5 flex-1 flex flex-col justify-between">
+                          {cellMeals.map((s, sIdx) => {
+                            const isNoMeal =
+                              s.isNoMeal ||
+                              (s.targetCookCount === 0 && s.targetCleanCount === 0) ||
+                              (s.cooks.length === 0 && s.cleaners.length === 0);
+
+                            if (isNoMeal) {
+                              return (
+                                <div
+                                  key={sIdx}
+                                  className="text-[10px] text-slate-400 italic py-1"
+                                >
+                                  No Meal
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div key={sIdx} className="space-y-1 text-[11px]">
+                                <div className="flex items-center gap-1">
+                                  <span
+                                    className={`text-[9px] font-black px-1.5 py-0.2 rounded ${
+                                      s.mealType === "BRUNCH"
+                                        ? "bg-amber-100 text-amber-900 border border-amber-200"
+                                        : "bg-sky-100 text-sky-900 border border-sky-200"
+                                    }`}
+                                  >
+                                    {s.mealType === "BRUNCH" ? "Brunch" : "Dinner"}
+                                  </span>
+                                </div>
+
+                                {/* Cooks */}
+                                <div className="leading-tight text-[10px] text-slate-700">
+                                  <span className="font-bold text-slate-500">🍳 </span>
+                                  {s.cooks.length > 0 ? (
+                                    s.cooks.map((c, i) => {
+                                      const isMe =
+                                        selectedMember &&
+                                        c.toLowerCase() === selectedMember.trim().toLowerCase();
+                                      return (
+                                        <span key={c}>
+                                          {i > 0 && ", "}
+                                          <span
+                                            className={
+                                              isMe
+                                                ? "font-black text-orange-900 bg-orange-100 px-0.5 rounded"
+                                                : ""
+                                            }
+                                          >
+                                            {c}
+                                          </span>
+                                        </span>
+                                      );
+                                    })
+                                  ) : (
+                                    <span className="text-slate-400 italic">None</span>
+                                  )}
+                                </div>
+
+                                {/* Cleaners */}
+                                <div className="leading-tight text-[10px] text-slate-700">
+                                  <span className="font-bold text-slate-500">🧼 </span>
+                                  {s.cleaners.length > 0 ? (
+                                    s.cleaners.map((c, i) => {
+                                      const isMe =
+                                        selectedMember &&
+                                        c.toLowerCase() === selectedMember.trim().toLowerCase();
+                                      return (
+                                        <span key={c}>
+                                          {i > 0 && ", "}
+                                          <span
+                                            className={
+                                              isMe
+                                                ? "font-black text-sky-900 bg-sky-100 px-0.5 rounded"
+                                                : ""
+                                            }
+                                          >
+                                            {c}
+                                          </span>
+                                        </span>
+                                      );
+                                    })
+                                  ) : (
+                                    <span className="text-slate-400 italic">None</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="flex-1" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* LIST VIEW */
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        {displayedSchedule.map((day, idx) => {
+          const isUserCook = (day.cooks || []).some(
+            (c) => c.toLowerCase() === selectedMember.toLowerCase()
+          );
+          const isUserCleaner = (day.cleaners || []).some(
+            (c) => c.toLowerCase() === selectedMember.toLowerCase()
+          );
+          const isUserInvolved = isUserCook || isUserCleaner;
+          const isNoMeal =
+            day.isNoMeal ||
+            (day.targetCookCount === 0 && day.targetCleanCount === 0) ||
+            (day.cooks.length === 0 && day.cleaners.length === 0);
+
+          return (
+            <div
+              key={`${day.dateKey}-${idx}`}
+              className={`bg-white rounded-2xl border p-4 sm:p-5 shadow-xs transition-colors space-y-3 ${
+                isUserInvolved
+                  ? "border-orange-400 bg-orange-50/20 ring-1 ring-orange-300"
+                  : "border-slate-200"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm sm:text-base font-black text-slate-900">
+                    {day.dateLabel || day.dateKey}
+                  </span>
+                  <span className="text-[11px] font-bold text-slate-500">
+                    {day.mealType === "BRUNCH" ? "Community Brunch" : "Community Dinner"}
+                  </span>
+                </div>
+
+                {isUserCook && isUserCleaner ? (
+                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-purple-100 text-purple-950 border border-purple-200 shadow-2xs">
+                    🍳+🧼 Cook & Clean
+                  </span>
+                ) : isUserCook ? (
+                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-orange-100 text-orange-950 border border-orange-200 shadow-2xs">
+                    🍳 Cook Shift
+                  </span>
+                ) : isUserCleaner ? (
+                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-sky-100 text-sky-950 border border-sky-200 shadow-2xs">
+                    🧼 Clean Shift
+                  </span>
+                ) : isUserInvolved ? (
+                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-orange-100 text-orange-950 border border-orange-200 shadow-2xs">
+                    ★ You are on this team
+                  </span>
+                ) : isNoMeal ? (
+                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-slate-100 text-slate-600 border border-slate-200">
+                    No Community Meal
+                  </span>
+                ) : null}
+              </div>
+
+              {!isNoMeal ? (
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="font-bold text-slate-500 block text-[11px] mb-1">
+                      🍳 Cooks:
+                    </span>
+                    {renderNamesWithHighlight(day.cooks, "cook")}
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-500 block text-[11px] mb-1">
+                      🧼 Cleaners:
+                    </span>
+                    {renderNamesWithHighlight(day.cleaners, "clean")}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 italic">No shifts scheduled for this date.</p>
+              )}
+
+              {day.specialNote && (
+                <div className="mt-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
+                  <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <span>{day.specialNote}</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between text-slate-900">
       {/* Toast Notification */}
@@ -553,7 +912,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
 
         {/* Tab 1: My Shifts */}
         {activeTab === "my_shifts" && (
-          <div className="space-y-3">
+          <div className="space-y-3.5">
             {!selectedMember ? (
               <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
                 <Users className="w-10 h-10 text-slate-400 mx-auto" />
@@ -563,33 +922,12 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                 </p>
               </div>
             ) : memberShifts.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
-                <Sparkles className="w-10 h-10 text-amber-500 mx-auto" />
-                <h3 className="text-base font-bold text-slate-900">
-                  {schedule.length === 0
-                    ? `No schedule published yet for ${monthTitle}`
-                    : `No shifts scheduled for ${selectedMember}`}
-                </h3>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  {schedule.length === 0
-                    ? `The meal team schedule for ${monthTitle} has not been published yet. Select another month in the top bar or check back once finalized!`
-                    : `You are not assigned to any cook or clean shifts in ${monthTitle}. Enjoy the community meals, or browse the full schedule below!`}
-                </p>
-                {schedule.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("full_schedule")}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 hover:underline pt-2 cursor-pointer"
-                  >
-                    <span>View Full Community Schedule</span>
-                  </button>
-                )}
-              </div>
+              renderScheduleContent(true)
             ) : (
-              <div className="space-y-3">
-                {/* Compact Shifts Summary Bar + Calendar Download */}
+              <>
+                {/* Compact Shifts Summary Bar + Calendar/List Switcher + Download */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white rounded-2xl border border-slate-200 p-3 sm:p-3.5 shadow-2xs">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs sm:text-sm font-extrabold text-slate-900">
                       {memberShifts.length} Shift{memberShifts.length === 1 ? "" : "s"} Assigned
                     </span>
@@ -603,101 +941,61 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleDownloadCalendar}
-                    disabled={memberShifts.length === 0}
-                    className={`min-h-[38px] px-3.5 py-1.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-2xs transition-all cursor-pointer ${
-                      memberShifts.length > 0
-                        ? "bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white shadow-orange-600/20 active:scale-[0.99]"
-                        : "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
-                    }`}
-                  >
-                    <Download className="w-4 h-4 shrink-0" />
-                    <span>Add All My Shifts to Calendar (.ics)</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                  {memberShifts.map((shift, idx) => (
-                    <div
-                      key={`${shift.dateKey}-${shift.role}-${idx}`}
-                      className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-3 hover:border-slate-300 transition-colors"
-                    >
-                      {/* Shift Header */}
-                      <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                        <div>
-                          <span className="text-base sm:text-lg font-black text-slate-900">
-                            {shift.dateLabel || shift.dateKey}
-                          </span>
-                          <span className="text-xs text-slate-500 font-semibold block">
-                            {shift.mealType === "BRUNCH" ? "Community Brunch" : "Community Dinner"}
-                          </span>
-                        </div>
-                        <span
-                          className={`text-xs font-black px-3 py-1.5 rounded-xl border flex items-center gap-1.5 shadow-2xs ${
-                            shift.role === "Cook"
-                              ? "bg-orange-50 text-orange-800 border-orange-200"
-                              : "bg-sky-50 text-sky-800 border-sky-200"
-                          }`}
-                        >
-                          {shift.role === "Cook" ? "🍳 Cook Shift" : "🧼 Clean Shift"}
-                        </span>
-                      </div>
-
-                      {/* Teammates List */}
-                      <div className="space-y-2 text-xs">
-                        <div>
-                          <span className="font-bold text-slate-500 block mb-1">
-                            Cook Team ({shift.teammatesCooks.length}):
-                          </span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {shift.teammatesCooks.map((name) => (
-                              <span
-                                key={name}
-                                className={`px-2.5 py-1 rounded-lg font-bold border ${
-                                  name.toLowerCase() === selectedMember.toLowerCase()
-                                    ? "bg-orange-600 text-white border-orange-700 shadow-2xs"
-                                    : "bg-slate-100 text-slate-800 border-slate-200"
-                                }`}
-                              >
-                                {name} {name.toLowerCase() === selectedMember.toLowerCase() && "(You)"}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <span className="font-bold text-slate-500 block mb-1">
-                            Clean Team ({shift.teammatesCleaners.length}):
-                          </span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {shift.teammatesCleaners.map((name) => (
-                              <span
-                                key={name}
-                                className={`px-2.5 py-1 rounded-lg font-bold border ${
-                                  name.toLowerCase() === selectedMember.toLowerCase()
-                                    ? "bg-sky-600 text-white border-sky-700 shadow-2xs"
-                                    : "bg-slate-100 text-slate-800 border-slate-200"
-                                }`}
-                              >
-                                {name} {name.toLowerCase() === selectedMember.toLowerCase() && "(You)"}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        {shift.specialNote && (
-                          <div className="mt-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
-                            <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                            <span>{shift.specialNote}</span>
-                          </div>
-                        )}
-                      </div>
+                  <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+                    {/* View Switcher Controls */}
+                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDisplayFormat("calendar");
+                          setUserToggledFormat(true);
+                        }}
+                        className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                          displayFormat === "calendar"
+                            ? "bg-white text-orange-950 font-black shadow-xs border border-slate-200"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                        aria-pressed={displayFormat === "calendar"}
+                      >
+                        <LayoutGrid className="w-3.5 h-3.5" />
+                        <span>Calendar</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDisplayFormat("list");
+                          setUserToggledFormat(true);
+                        }}
+                        className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                          displayFormat === "list"
+                            ? "bg-white text-orange-950 font-black shadow-xs border border-slate-200"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                        aria-pressed={displayFormat === "list"}
+                      >
+                        <List className="w-3.5 h-3.5" />
+                        <span>List</span>
+                      </button>
                     </div>
-                  ))}
+
+                    <button
+                      type="button"
+                      onClick={handleDownloadCalendar}
+                      disabled={memberShifts.length === 0}
+                      className={`min-h-[38px] px-3.5 py-1.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-2xs transition-all cursor-pointer ${
+                        memberShifts.length > 0
+                          ? "bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white shadow-orange-600/20 active:scale-[0.99]"
+                          : "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
+                      }`}
+                    >
+                      <Download className="w-4 h-4 shrink-0" />
+                      <span>Add All My Shifts to Calendar (.ics)</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
+
+                {renderScheduleContent(true)}
+              </>
             )}
           </div>
         )}
@@ -748,264 +1046,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
               </div>
             </div>
 
-            {schedule.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
-                <Calendar className="w-10 h-10 text-slate-300 mx-auto" />
-                <h3 className="text-base font-bold text-slate-900">
-                  No published schedule found for {monthTitle}
-                </h3>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  The schedule for this month has not been published yet. Select another month above to view past schedules.
-                </p>
-              </div>
-            ) : displayFormat === "calendar" ? (
-              /* CALENDAR GRID VIEW (Responsive with auto-scroll on narrow viewport) */
-              <div className="bg-white rounded-2xl border border-slate-200 p-3 sm:p-4 shadow-2xs overflow-hidden">
-                <div className="overflow-x-auto pb-1">
-                  <div className="min-w-[700px] md:min-w-0">
-                    {/* Days of week header */}
-                    <div className="grid grid-cols-7 gap-1.5 sm:gap-2 mb-2 text-center text-[11px] sm:text-xs font-black text-slate-500 uppercase tracking-wider">
-                      {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((dayName) => (
-                        <div key={dayName} className="py-1">
-                          {dayName}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Month Day Cells */}
-                    <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-                      {calendarData.days.map((dayItem, cellIdx) => {
-                        if (!dayItem.isCurrentMonth) {
-                          return (
-                            <div
-                              key={`pad-${dayItem.dateKey}-${cellIdx}`}
-                              className="min-h-[105px] sm:min-h-[125px] p-2 bg-slate-50/60 rounded-xl border border-slate-100 opacity-40 select-none flex flex-col justify-start"
-                            >
-                              <span className="text-[11px] font-semibold text-slate-400">
-                                {dayItem.dayNumber}
-                              </span>
-                            </div>
-                          );
-                        }
-
-                        const hasMeal = dayItem.daySchedules.length > 0;
-
-                        return (
-                          <div
-                            key={dayItem.dateKey}
-                            className={`min-h-[105px] sm:min-h-[125px] p-2 rounded-xl border transition-all flex flex-col justify-between ${
-                              dayItem.isUserInvolved
-                                ? "bg-orange-50/50 border-orange-300 ring-2 ring-orange-400/60 shadow-xs"
-                                : hasMeal
-                                ? "bg-white border-slate-200 shadow-2xs hover:border-slate-300"
-                                : "bg-slate-50/30 border-slate-100"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <span
-                                className={`text-xs font-black ${
-                                  dayItem.isUserInvolved
-                                    ? "text-orange-950 font-black"
-                                    : hasMeal
-                                    ? "text-slate-800"
-                                    : "text-slate-400"
-                                }`}
-                              >
-                                {dayItem.dayNumber}
-                              </span>
-                              {dayItem.isUserInvolved && (
-                                <span
-                                  className="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-orange-100 text-orange-950 border border-orange-300"
-                                  title="You are scheduled on this date"
-                                >
-                                  ★ You
-                                </span>
-                              )}
-                            </div>
-
-                            {hasMeal ? (
-                              <div className="space-y-1.5 flex-1 flex flex-col justify-between">
-                                {dayItem.daySchedules.map((s, sIdx) => {
-                                  const isNoMeal =
-                                    s.isNoMeal ||
-                                    (s.targetCookCount === 0 && s.targetCleanCount === 0) ||
-                                    (s.cooks.length === 0 && s.cleaners.length === 0);
-
-                                  if (isNoMeal) {
-                                    return (
-                                      <div
-                                        key={sIdx}
-                                        className="text-[10px] text-slate-400 italic py-1"
-                                      >
-                                        No Meal
-                                      </div>
-                                    );
-                                  }
-
-                                  return (
-                                    <div key={sIdx} className="space-y-1 text-[11px]">
-                                      <div className="flex items-center gap-1">
-                                        <span
-                                          className={`text-[9px] font-black px-1.5 py-0.2 rounded ${
-                                            s.mealType === "BRUNCH"
-                                              ? "bg-amber-100 text-amber-900 border border-amber-200"
-                                              : "bg-sky-100 text-sky-900 border border-sky-200"
-                                          }`}
-                                        >
-                                          {s.mealType === "BRUNCH" ? "Brunch" : "Dinner"}
-                                        </span>
-                                      </div>
-
-                                      {/* Cooks */}
-                                      <div className="leading-tight text-[10px] text-slate-700">
-                                        <span className="font-bold text-slate-500">🍳 </span>
-                                        {s.cooks.length > 0 ? (
-                                          s.cooks.map((c, i) => {
-                                            const isMe =
-                                              selectedMember &&
-                                              c.toLowerCase() === selectedMember.trim().toLowerCase();
-                                            return (
-                                              <span key={c}>
-                                                {i > 0 && ", "}
-                                                <span
-                                                  className={
-                                                    isMe
-                                                      ? "font-black text-orange-900 bg-orange-100 px-0.5 rounded"
-                                                      : ""
-                                                  }
-                                                >
-                                                  {c}
-                                                </span>
-                                              </span>
-                                            );
-                                          })
-                                        ) : (
-                                          <span className="text-slate-400 italic">None</span>
-                                        )}
-                                      </div>
-
-                                      {/* Cleaners */}
-                                      <div className="leading-tight text-[10px] text-slate-700">
-                                        <span className="font-bold text-slate-500">🧼 </span>
-                                        {s.cleaners.length > 0 ? (
-                                          s.cleaners.map((c, i) => {
-                                            const isMe =
-                                              selectedMember &&
-                                              c.toLowerCase() === selectedMember.trim().toLowerCase();
-                                            return (
-                                              <span key={c}>
-                                                {i > 0 && ", "}
-                                                <span
-                                                  className={
-                                                    isMe
-                                                      ? "font-black text-sky-900 bg-sky-100 px-0.5 rounded"
-                                                      : ""
-                                                  }
-                                                >
-                                                  {c}
-                                                </span>
-                                              </span>
-                                            );
-                                          })
-                                        ) : (
-                                          <span className="text-slate-400 italic">None</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <div className="flex-1" />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* LIST VIEW */
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {schedule.map((day, idx) => {
-                  const isUserCook = (day.cooks || []).some(
-                    (c) => c.toLowerCase() === selectedMember.toLowerCase()
-                  );
-                  const isUserCleaner = (day.cleaners || []).some(
-                    (c) => c.toLowerCase() === selectedMember.toLowerCase()
-                  );
-                  const isUserInvolved = isUserCook || isUserCleaner;
-                  const isNoMeal =
-                    day.isNoMeal ||
-                    (day.targetCookCount === 0 && day.targetCleanCount === 0) ||
-                    (day.cooks.length === 0 && day.cleaners.length === 0);
-
-                  return (
-                    <div
-                      key={`${day.dateKey}-${idx}`}
-                      className={`bg-white rounded-2xl border p-4 shadow-xs transition-colors space-y-2.5 ${
-                        isUserInvolved
-                          ? "border-orange-400 bg-orange-50/20 ring-1 ring-orange-300"
-                          : "border-slate-200"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm sm:text-base font-black text-slate-900">
-                            {day.dateLabel}
-                          </span>
-                          <span className="text-[11px] font-bold text-slate-500">
-                            {day.mealType === "BRUNCH" ? "Brunch" : "Dinner"}
-                          </span>
-                        </div>
-
-                        {isUserInvolved && (
-                          <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-orange-100 text-orange-950 border border-orange-300">
-                            ★ You are on this team
-                          </span>
-                        )}
-
-                        {isNoMeal && (
-                          <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                            No Community Meal
-                          </span>
-                        )}
-                      </div>
-
-                      {!isNoMeal ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <span className="font-bold text-slate-500 block text-[11px] mb-0.5">
-                              🍳 Cooks:
-                            </span>
-                            <span className="text-slate-800 font-medium">
-                              {day.cooks.length > 0 ? day.cooks.join(", ") : "(Need Volunteers)"}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="font-bold text-slate-500 block text-[11px] mb-0.5">
-                              🧼 Cleaners:
-                            </span>
-                            <span className="text-slate-800 font-medium">
-                              {day.cleaners.length > 0 ? day.cleaners.join(", ") : "(Need Volunteers)"}
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-slate-500 italic">No shifts scheduled for this date.</p>
-                      )}
-
-                      {day.specialNote && (
-                        <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-1.5">
-                          {day.specialNote}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {renderScheduleContent(false)}
           </div>
         )}
       </main>
