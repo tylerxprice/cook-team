@@ -594,7 +594,6 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
       const now = new Date();
       const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       const availableMonths = [
-        "2026-11",
         "2026-10",
         "2026-09",
         "2026-08",

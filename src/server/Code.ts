@@ -63,6 +63,105 @@ import {
 } from "./types";
 
 /**
+ * Canonical list of completed historical months with finalized schedules.
+ * Future months (e.g. 2026-11) are only added once the coordinator exports their schedule.
+ */
+const DEFAULT_COMPLETED_MONTHS = [
+  "2026-10",
+  "2026-09",
+  "2026-08",
+  "2026-07",
+  "2026-06",
+  "2026-05",
+  "2026-04",
+  "2026-03",
+  "2026-02",
+  "2026-01",
+];
+
+/**
+ * Returns the list of month keys that have had their schedules completed.
+ * Reads metadata from Master Registry Settings without expensive Drive scans.
+ */
+function getPublishedMonthKeys(masterSettings?: any): string[] {
+  try {
+    const raw = masterSettings?.published_months || masterSettings?.publishedMonths;
+    if (typeof raw === "string" && raw.trim()) {
+      const list = raw
+        .split(",")
+        .map((m: string) => m.trim())
+        .filter((m: string) => /^\d{4}-\d{2}$/.test(m));
+      if (list.length > 0) {
+        list.sort((a: string, b: string) => b.localeCompare(a));
+        return list;
+      }
+    }
+  } catch (e) {
+    console.warn("Could not read published_months from settings:", e);
+  }
+  return [...DEFAULT_COMPLETED_MONTHS];
+}
+
+/**
+ * Records a newly exported/published schedule month in Master Registry Settings metadata.
+ */
+function recordPublishedMonthInMaster(monthKey: string): void {
+  try {
+    const cleanKey = (monthKey || "").trim();
+    if (!/^\d{4}-\d{2}$/.test(cleanKey)) return;
+
+    const master = getMasterRegistrySpreadsheet();
+    if (!master) return;
+
+    let settingsSheet = master.getSheetByName("Settings");
+    if (!settingsSheet) {
+      settingsSheet = master.insertSheet("Settings");
+      settingsSheet.appendRow(["Key", "Value", "Description"]);
+    }
+
+    const data = settingsSheet.getDataRange().getValues();
+    let pubRow = -1;
+    let existingVal = "";
+
+    for (let i = 1; i < data.length; i++) {
+      const k = String(data[i][0] || "").trim().toLowerCase().replace(/[\s-_]+/g, "_");
+      if (k === "published_months" || k === "publishedmonths") {
+        pubRow = i + 1;
+        existingVal = String(data[i][1] || "").trim();
+        break;
+      }
+    }
+
+    const set = new Set<string>();
+    if (existingVal) {
+      existingVal
+        .split(",")
+        .map((m: string) => m.trim())
+        .filter((m: string) => /^\d{4}-\d{2}$/.test(m))
+        .forEach((m: string) => set.add(m));
+    } else {
+      DEFAULT_COMPLETED_MONTHS.forEach((m) => set.add(m));
+    }
+    set.add(cleanKey);
+
+    const updatedList = Array.from(set)
+      .sort((a, b) => b.localeCompare(a))
+      .join(",");
+    if (pubRow > 0) {
+      settingsSheet.getRange(pubRow, 2).setValue(updatedList);
+    } else {
+      settingsSheet.appendRow([
+        "published_months",
+        updatedList,
+        "Comma-separated list of months with finalized completed schedules",
+      ]);
+    }
+  } catch (e) {
+    console.warn("Could not record published month in master:", e);
+  }
+}
+
+/**
  * Generates server-side bootstrap payload for zero-RPC instant client hydration on load.
  */
 function getInitialBootstrapData(paramsOrEvent?: any): {
@@ -88,20 +187,6 @@ function getInitialBootstrapData(paramsOrEvent?: any): {
     }
   }
 
-  const DEFAULT_AVAILABLE_MONTHS = [
-    "2026-11",
-    "2026-10",
-    "2026-09",
-    "2026-08",
-    "2026-07",
-    "2026-06",
-    "2026-05",
-    "2026-04",
-    "2026-03",
-    "2026-02",
-    "2026-01",
-  ];
-
   try {
     const userInfo = getUserInfo();
     const registry = getMasterRegistryData(userInfo.isDevMode);
@@ -123,7 +208,7 @@ function getInitialBootstrapData(paramsOrEvent?: any): {
     const availableMonths =
       publicScheduleRes?.availableMonths && publicScheduleRes.availableMonths.length > 0
         ? publicScheduleRes.availableMonths
-        : getAvailableScheduleTabs();
+        : getPublishedMonthKeys(registry.settings);
 
     return {
       userInfo,
@@ -134,7 +219,7 @@ function getInitialBootstrapData(paramsOrEvent?: any): {
       publicMonthKey: publicScheduleRes?.monthKey || targetMonthKey,
       publicMonthTitle: publicScheduleRes?.monthTitle || formatMonthHeaderTitle(targetMonthKey),
       availableMonths:
-        availableMonths && availableMonths.length > 0 ? availableMonths : DEFAULT_AVAILABLE_MONTHS,
+        availableMonths && availableMonths.length > 0 ? availableMonths : DEFAULT_COMPLETED_MONTHS,
       publicScheduleSuccess: publicScheduleRes?.success ?? false,
     };
   } catch (err) {
@@ -144,7 +229,7 @@ function getInitialBootstrapData(paramsOrEvent?: any): {
       registry: { members: [], exceptions: [] },
       driveSheets: [],
       urlParameters: cleanParams,
-      availableMonths: DEFAULT_AVAILABLE_MONTHS,
+      availableMonths: DEFAULT_COMPLETED_MONTHS,
     };
   }
 }
@@ -2164,6 +2249,12 @@ function exportScheduleToSheet(
       outputTab.autoResizeColumn(c);
     }
 
+    try {
+      recordPublishedMonthInMaster(monthSuffix);
+    } catch (e) {
+      console.warn("Could not record published month in master:", e);
+    }
+
     const tabUrl = `${sheet.getUrl()}#gid=${outputTab.getSheetId()}`;
 
     return {
@@ -2686,76 +2777,13 @@ function runHistoricalImportOnce() {
  * Returns the list of month keys corresponding to Schedule_ tabs in the active spreadsheet
  */
 function getAvailableScheduleTabs(spreadsheetIdOrUrl?: string | any): string[] {
-  const discovered = new Set<string>();
-
-  if (Array.isArray(spreadsheetIdOrUrl)) {
-    spreadsheetIdOrUrl = spreadsheetIdOrUrl[0];
-  }
-
   try {
-    let sheet: GoogleAppsScript.Spreadsheet.Spreadsheet | null = null;
-    const clean = (typeof spreadsheetIdOrUrl === "string" ? spreadsheetIdOrUrl : "").trim();
-    if (clean.startsWith("http")) {
-      sheet = SpreadsheetApp.openByUrl(clean);
-    } else if (clean) {
-      sheet = SpreadsheetApp.openById(clean);
-    } else {
-      sheet = SpreadsheetApp.getActiveSpreadsheet();
-    }
-
-    if (sheet) {
-      for (const s of sheet.getSheets()) {
-        const name = s.getName();
-        if (/^Schedule[_\s-]/i.test(name)) {
-          discovered.add(name.replace(/^Schedule[_\s-]+/i, ""));
-        }
-      }
-    }
+    const masterData = getMasterRegistryData();
+    return getPublishedMonthKeys(masterData.settings);
   } catch (err: any) {
-    console.warn("getAvailableScheduleTabs active sheet error:", err);
+    console.warn("getAvailableScheduleTabs error:", err);
+    return [...DEFAULT_COMPLETED_MONTHS];
   }
-
-  try {
-    const driveItems = listDriveSpreadsheets();
-    for (const item of driveItems) {
-      const mMatch = item.name.match(/(?:20)?(\d{2})[-_](\d{2})/);
-      if (mMatch) {
-        discovered.add(`20${mMatch[1]}-${mMatch[2]}`);
-      }
-    }
-  } catch (err: any) {
-    console.warn("getAvailableScheduleTabs drive scan error:", err);
-  }
-
-  try {
-    const baseline = getBaselineHistoricalSchedules();
-    for (const b of baseline) {
-      discovered.add(b.monthKey);
-    }
-  } catch (err: any) {
-    console.warn("getAvailableScheduleTabs baseline error:", err);
-  }
-
-  const DEFAULT_MONTHS = [
-    "2026-11",
-    "2026-10",
-    "2026-09",
-    "2026-08",
-    "2026-07",
-    "2026-06",
-    "2026-05",
-    "2026-04",
-    "2026-03",
-    "2026-02",
-    "2026-01",
-  ];
-  for (const m of DEFAULT_MONTHS) {
-    discovered.add(m);
-  }
-
-  const list = Array.from(discovered);
-  list.sort((a, b) => b.localeCompare(a));
-  return list;
 }
 
 /**

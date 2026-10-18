@@ -73,7 +73,6 @@ import { ResidentScheduleView } from "./components/views/ResidentScheduleView";
 export type AppView = "portal" | "coordinator" | "resident";
 
 export const DEFAULT_AVAILABLE_MONTHS = [
-  "2026-11",
   "2026-10",
   "2026-09",
   "2026-08",
