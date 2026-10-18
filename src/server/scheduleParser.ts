@@ -497,37 +497,199 @@ export function parseScheduleGridData(data: any[][], responses?: SurveyResponse[
     };
   }
 
-  // Inspect header row to determine column indices dynamically
-  const headerRow = (data[0] || []).map((h: any) =>
-    String(h || "")
-      .trim()
-      .toLowerCase()
-  );
-  const cookColIndices: number[] = [];
-  const cleanColIndices: number[] = [];
+  // 1. Inspect rows 0 to 5 to determine column indices dynamically
+  let headerRowIdx = -1;
+  let cookColIndices: number[] = [];
+  let cleanColIndices: number[] = [];
   let dateColIdx = 0;
   let mealTypeColIdx = -1;
   let specialNoteColIdx = -1;
 
-  for (let c = 0; c < headerRow.length; c++) {
-    const h = headerRow[c];
-    if (h.includes("date")) {
-      dateColIdx = c;
-    } else if (h.includes("meal type") || h === "type") {
-      mealTypeColIdx = c;
-    } else if (h.startsWith("cook") || h.includes("cook team")) {
-      cookColIndices.push(c);
-    } else if (h.startsWith("clean") || h.includes("clean team")) {
-      cleanColIndices.push(c);
-    } else if (h.includes("special note") || h === "note") {
-      specialNoteColIdx = c;
+  for (let r = 0; r < Math.min(data.length, 6); r++) {
+    const row = (data[r] || []).map((h: any) =>
+      String(h || "")
+        .trim()
+        .toLowerCase()
+    );
+    const cooks: number[] = [];
+    const cleans: number[] = [];
+    let dIdx = -1;
+    let mIdx = -1;
+    let sIdx = -1;
+
+    for (let c = 0; c < row.length; c++) {
+      const h = row[c];
+      if (h.includes("date")) {
+        dIdx = c;
+      } else if (h.includes("meal type") || h === "type") {
+        mIdx = c;
+      } else if (h.startsWith("cook") || h.includes("cook team")) {
+        cooks.push(c);
+      } else if (h.startsWith("clean") || h.includes("clean team")) {
+        cleans.push(c);
+      } else if (h.includes("special note") || h === "note") {
+        sIdx = c;
+      }
+    }
+
+    if (
+      (dIdx >= 0 && (cooks.length > 0 || cleans.length > 0)) ||
+      (cooks.length > 0 && cleans.length > 0)
+    ) {
+      headerRowIdx = r;
+      dateColIdx = dIdx >= 0 ? dIdx : 0;
+      mealTypeColIdx = mIdx;
+      specialNoteColIdx = sIdx;
+      cookColIndices = cooks;
+      cleanColIndices = cleans;
+      break;
     }
   }
 
+  // Fallback: If no standard row header found, check for inverted Common Meal Sign-Up Workbook format
+  if (headerRowIdx === -1 || (cookColIndices.length === 0 && cleanColIndices.length === 0)) {
+    let signupDayRow = -1;
+    let signupDateRow = -1;
+    let signupCookRow = -1;
+    let signupCleanRow = -1;
+    let signupNoteRow = -1;
+
+    for (let r = 0; r < Math.min(data.length, 12); r++) {
+      const row = data[r] || [];
+      const col0 = String(row[0] || "")
+        .trim()
+        .toUpperCase();
+      const col1 = String(row[1] || "")
+        .trim()
+        .toUpperCase();
+      const rowHeader = col0 || (col1.length < 25 ? col1 : "");
+
+      if (/\bDAY\b/i.test(rowHeader) && !rowHeader.includes("DEADLINE")) {
+        signupDayRow = r;
+      } else if (rowHeader.includes("DATE")) {
+        signupDateRow = r;
+      } else if (rowHeader.includes("MEAL MAKER") || rowHeader.includes("COOK")) {
+        signupCookRow = r;
+      } else if (rowHeader.includes("CLEANER") || rowHeader.includes("CLEAN")) {
+        signupCleanRow = r;
+      } else if (
+        rowHeader.includes("MEAL NAME") ||
+        rowHeader.includes("MENU") ||
+        rowHeader.includes("NOTE")
+      ) {
+        signupNoteRow = r;
+      }
+    }
+
+    if (signupDateRow >= 0 && (signupCookRow >= 0 || signupCleanRow >= 0)) {
+      const schedule: DaySchedule[] = [];
+      let totalUnfilled = 0;
+      const maxCols = Math.max(...data.map((row) => (row ? row.length : 0)));
+
+      for (let c = 1; c < maxCols; c++) {
+        const rawDate = String(data[signupDateRow]?.[c] || "").trim();
+        const rawDay = signupDayRow >= 0 ? String(data[signupDayRow]?.[c] || "").trim() : "";
+        if (!rawDate && !rawDay) continue;
+
+        const hasDateOrDay =
+          /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{1,2}[/-]\d{1,2}|\d{1,2})\b/i.test(
+            rawDate
+          ) || /\b(sun|mon|tue|wed|thu|fri|sat|brunch|dinner)\b/i.test(rawDay);
+        if (!hasDateOrDay) continue;
+
+        const isBrunch = /brunch/i.test(rawDay) || /brunch/i.test(rawDate);
+        const mealType: MealType = isBrunch ? "BRUNCH" : "DINNER";
+        const dateLabel = formatScheduleDateLabel(rawDate, mealType) || `${rawDate} (${rawDay})`;
+        const dateObj = parseDateFromLabelOrKey(dateLabel, rawDate);
+        const dateKey = dateObj
+          ? dateObj.toISOString().slice(0, 10)
+          : `DATE-${c < 10 ? `0${c}` : c}`;
+
+        const cooksRaw = signupCookRow >= 0 ? String(data[signupCookRow]?.[c] || "").trim() : "";
+        const cleansRaw = signupCleanRow >= 0 ? String(data[signupCleanRow]?.[c] || "").trim() : "";
+        const noteRaw = signupNoteRow >= 0 ? String(data[signupNoteRow]?.[c] || "").trim() : "";
+
+        const isNoMeal =
+          /no community meal|no meal/i.test(cooksRaw) ||
+          /no community meal|no meal/i.test(noteRaw) ||
+          /no community meal|no meal/i.test(dateLabel);
+
+        const cooks = isNoMeal
+          ? []
+          : cooksRaw
+              .split(/[,;&+]/)
+              .map((s) => s.trim().replace(/^and\s+/i, ""))
+              .filter((s) => Boolean(s) && isValidMemberName(s));
+
+        const cleaners = isNoMeal
+          ? []
+          : cleansRaw
+              .split(/[,;&+]/)
+              .map((s) => s.trim().replace(/^and\s+/i, ""))
+              .filter((s) => Boolean(s) && isValidMemberName(s));
+
+        let targetCooks = isNoMeal ? 0 : mealType === "DINNER" ? 3 : 2;
+        const targetCleaners = isNoMeal ? 0 : mealType === "DINNER" ? 3 : 2;
+        let isTwoPersonDinnerWilling = false;
+
+        if (!isNoMeal && mealType === "DINNER" && cooks.length === 2) {
+          let allAgreed = true;
+          if (responses && responses.length > 0) {
+            allAgreed = cooks.every((cookName) => {
+              const resp = responses.find((r) => r.name.toLowerCase() === cookName.toLowerCase());
+              if (!resp) return true;
+              return isWillingTwoPersonDinner(resp.cookTeamSizePref);
+            });
+          }
+          if (allAgreed) {
+            targetCooks = 2;
+            isTwoPersonDinnerWilling = true;
+          }
+        }
+
+        const unfilledCooks = isNoMeal ? 0 : Math.max(0, targetCooks - cooks.length);
+        const unfilledCleaners = isNoMeal ? 0 : Math.max(0, targetCleaners - cleaners.length);
+        totalUnfilled += unfilledCooks + unfilledCleaners;
+
+        schedule.push({
+          dateKey,
+          dateLabel,
+          mealType,
+          specialNote: isNoMeal ? "NO COMMUNITY MEAL" : noteRaw || undefined,
+          cooks,
+          cleaners,
+          targetCookCount: targetCooks,
+          targetCleanCount: targetCleaners,
+          isTwoPersonDinnerWilling,
+          unfilledCooks,
+          unfilledCleaners,
+        });
+      }
+
+      if (schedule.length > 0) {
+        const memberStats =
+          responses && responses.length > 0
+            ? computeMemberQuotaStats(schedule, responses)
+            : computeMemberQuotaStats(schedule, []);
+
+        return {
+          success: true,
+          schedule,
+          memberStats,
+          violations: [],
+          unfilledSlotsCount: totalUnfilled,
+          solveTimeMs: 1,
+          cookPolicy: "ADAPTIVE_3_OR_2",
+        };
+      }
+    }
+  }
+
+  const startRow = headerRowIdx >= 0 ? headerRowIdx + 1 : 1;
   const schedule: DaySchedule[] = [];
   let totalUnfilled = 0;
 
-  for (let r = 1; r < data.length; r++) {
+  for (let r = startRow; r < data.length; r++) {
     const row = data[r];
     if (!row || !row[dateColIdx]) continue;
 

@@ -77,6 +77,7 @@ import { WebSurveySignupView } from "./components/views/WebSurveySignupView";
 export type AppView = "portal" | "coordinator" | "resident" | "survey";
 
 export const DEFAULT_AVAILABLE_MONTHS = [
+  "2026-11",
   "2026-10",
   "2026-09",
   "2026-08",
@@ -701,6 +702,7 @@ function MainApp() {
           months.length > 0
             ? months
             : [
+                "2026-11",
                 "2026-10",
                 "2026-09",
                 "2026-08",
@@ -721,6 +723,7 @@ function MainApp() {
     } catch (err: any) {
       console.error("scanReportMonths error:", err);
       const fallback = [
+        "2026-11",
         "2026-10",
         "2026-09",
         "2026-08",

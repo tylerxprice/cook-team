@@ -7,6 +7,7 @@ import {
   parseDateFromLabelOrKey,
   parseScheduleGridData,
 } from "../src/server/scheduleParser.ts";
+import { parseDateHeader } from "../src/server/parser.ts";
 import { computeCommunityReportSummary } from "../src/server/reports.ts";
 
 test("Schedule Parser - Multi-Column Layout (Cook 1..4, Clean 1..4)", () => {
@@ -975,4 +976,65 @@ test("Schedule Parser - Google Sheets numeric serial dates & October schedule wi
 
   // Rose must be in cleaners for Oct 4
   assert.ok(parsed.schedule[1].cleaners.includes("Rose"));
+});
+
+test("Schedule Parser - Common Meal Sign-Up Workbook (Inverted Layout)", () => {
+  const signupGrid = [
+    ["", "", "", "", "", "", ""],
+    ["", "", "", "", "", "", ""],
+    ["", "", "", "", "", "", ""],
+    ["DAY", "SUN - Brunch", "", "", "THUR", "", ""],
+    ["DATE & TIME", "Nov 1", "", "", "Nov 5", "", ""],
+    ["MEAL MAKERS", "Alice, Bob", "", "", "David, Emma, Frank", "", ""],
+    ["Cleaners", "Ian, Julia", "", "", "Kevin, Laura, Mike", "", ""],
+    ["SIGN UP DEADLINE", "Saturday 9:00 AM", "", "", "Wednesday 9:00 AM", "", ""],
+    ["MEAL NAME", "Pancakes", "", "", "Tacos", "", ""],
+  ];
+
+  const parsed = parseScheduleGridData(signupGrid);
+  assert.equal(parsed.success, true);
+  assert.equal(parsed.schedule.length, 2);
+
+  // Meal 1: Nov 1 Sunday Brunch
+  assert.equal(parsed.schedule[0].mealType, "BRUNCH");
+  assert.deepEqual(parsed.schedule[0].cooks, ["Alice", "Bob"]);
+  assert.deepEqual(parsed.schedule[0].cleaners, ["Ian", "Julia"]);
+
+  // Meal 2: Nov 5 Thursday Dinner
+  assert.equal(parsed.schedule[1].mealType, "DINNER");
+  assert.deepEqual(parsed.schedule[1].cooks, ["David", "Emma", "Frank"]);
+  assert.deepEqual(parsed.schedule[1].cleaners, ["Kevin", "Laura", "Mike"]);
+});
+
+test("Survey Parser - Flexible November Date Header Formats", () => {
+  // 1. Standard bracketed with "Select your available dates"
+  const h1 = parseDateHeader("Select your available dates [Nov 1 (Sun, Brunch)]", 0, 2026);
+  assert.ok(h1);
+  assert.equal(h1.dateKey, "2026-11-01");
+  assert.equal(h1.mealType, "BRUNCH");
+
+  // 2. Bracketed with colon or custom prefix
+  const h2 = parseDateHeader("Select your available dates: [Nov 5 (Thur)]", 1, 2026);
+  assert.ok(h2);
+  assert.equal(h2.dateKey, "2026-11-05");
+  assert.equal(h2.mealType, "DINNER");
+
+  // 3. Bracketed without "Select your available dates" prefix
+  const h3 = parseDateHeader("[Nov 8 (Sun, Dinner)]", 2, 2026);
+  assert.ok(h3);
+  assert.equal(h3.dateKey, "2026-11-08");
+  assert.equal(h3.mealType, "DINNER");
+
+  // 4. Parenthesized date header
+  const h4 = parseDateHeader("Available dates (Nov 15, Sun, Brunch)", 3, 2026);
+  assert.ok(h4);
+  assert.equal(h4.dateKey, "2026-11-15");
+  assert.equal(h4.mealType, "BRUNCH");
+
+  // 5. Non-date questions return null
+  assert.equal(parseDateHeader("Timestamp", 0, 2026), null);
+  assert.equal(parseDateHeader("Your name", 1, 2026), null);
+  assert.equal(parseDateHeader("Email Address", 2, 2026), null);
+  assert.equal(parseDateHeader("How many meals can you cook this month?", 3, 2026), null);
+  assert.equal(parseDateHeader("Can you cook and clean on the same day?", 4, 2026), null);
 });

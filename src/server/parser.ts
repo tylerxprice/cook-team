@@ -33,22 +33,71 @@ export function parseDateHeader(
   index: number,
   fallbackYear?: number
 ): MealDate | null {
-  const match = header.match(/Select your available dates\s*\[([^\]]+)\]/i);
-  if (!match) return null;
+  if (!header || typeof header !== "string") return null;
+  const trimmed = header.trim();
 
-  const dateLabel = match[1].trim(); // e.g. "Oct 4 (Sun, Brunch)" or "Oct 12 (Mon) - Thanksgiving" or "Aug 10 (Mon)"
+  // 1. Skip non-date survey questions
+  if (
+    /^(?:timestamp|time stamp)\b/i.test(trimmed) ||
+    /^(?:email|e-mail|username|user name)\b/i.test(trimmed) ||
+    /^(?:your name|name|who are you|resident|volunteer|respondent)\b/i.test(trimmed) ||
+    /^(?:how many|meals can you|cook.*quota|clean.*quota|maximum.*total.*shifts|max.*shifts)\b/i.test(
+      trimmed
+    ) ||
+    /^(?:what is your preference|preference for cook|minimum number of cooks|cook team size)\b/i.test(
+      trimmed
+    ) ||
+    /^(?:can you cook and clean|same day|both shifts)\b/i.test(trimmed) ||
+    /^(?:special instructions|notes|comments|dietary|instructions)\b/i.test(trimmed)
+  ) {
+    return null;
+  }
+
+  // 2. Extract dateLabel from brackets [ ... ] if present, or parentheses ( ... ), or whole header
+  let dateLabel = "";
+  const bracketMatch = trimmed.match(/\[([^\]]+)\]/);
+  if (bracketMatch) {
+    dateLabel = bracketMatch[1].trim();
+  } else {
+    // Check for parentheses if they look like a date
+    const parenMatch = trimmed.match(
+      /(?:select.*dates?|available.*dates?|dates?|availability)?.*?\(([^)]+(?:mon|tue|wed|thu|fri|sat|sun|brunch|dinner|\d{1,2})[^)]*)\)/i
+    );
+    if (parenMatch) {
+      dateLabel = parenMatch[1].trim();
+    } else {
+      dateLabel = trimmed;
+    }
+  }
+
+  // 3. Verify dateLabel contains a month, day of week, date number, or meal type indicator
+  const hasMonthOrDay =
+    /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\b/i.test(dateLabel) ||
+    /\b(mon|tue|wed|thu|fri|sat|sun)\b/i.test(dateLabel) ||
+    /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(dateLabel) ||
+    /\b\d{1,2}[/-]\d{1,2}\b/.test(dateLabel) ||
+    /\b(brunch|dinner)\b/i.test(dateLabel);
+
+  if (!hasMonthOrDay) {
+    return null;
+  }
 
   // Check for Brunch or Dinner
   let mealType: MealType = "DINNER";
-  if (/brunch/i.test(dateLabel)) {
+  if (/brunch/i.test(dateLabel) || /brunch/i.test(trimmed)) {
     mealType = "BRUNCH";
   }
 
   // Check for special notes after dash
   let specialNote: string | undefined = undefined;
-  if (dateLabel.includes("-")) {
+  if (dateLabel.includes(" - ")) {
+    const parts = dateLabel.split(" - ");
+    specialNote = parts.slice(1).join(" - ").trim();
+  } else if (dateLabel.includes("-")) {
     const parts = dateLabel.split("-");
-    specialNote = parts.slice(1).join("-").trim();
+    if (parts.length > 1 && !/^\s*\d+\s*$/.test(parts[1])) {
+      specialNote = parts.slice(1).join("-").trim();
+    }
   }
 
   // Parse day of week
@@ -70,7 +119,32 @@ export function parseDateHeader(
     const d = String(parsedDate.getDate()).padStart(2, "0");
     dateKey = `${y}-${m}-${d}`;
   } else {
-    dateKey = `${effectiveYear}-10-${String(index + 1).padStart(2, "0")}`;
+    // If not directly parseable, extract month name and day number
+    const mMatch = dateLabel.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\b/i);
+    const months = [
+      "jan",
+      "feb",
+      "mar",
+      "apr",
+      "may",
+      "jun",
+      "jul",
+      "aug",
+      "sep",
+      "oct",
+      "nov",
+      "dec",
+    ];
+    let mNum = 11;
+    if (mMatch) {
+      let rawM = mMatch[1].toLowerCase();
+      if (rawM === "sept") rawM = "sep";
+      const idx = months.indexOf(rawM.slice(0, 3));
+      if (idx >= 0) mNum = idx + 1;
+    }
+    const dMatch = dateLabel.match(/\b(\d{1,2})\b/);
+    const dNum = dMatch ? parseInt(dMatch[1], 10) : index + 1;
+    dateKey = `${effectiveYear}-${String(mNum).padStart(2, "0")}-${String(dNum).padStart(2, "0")}`;
   }
 
   return {
@@ -368,28 +442,32 @@ export function parseSurveySheetData(
   const headers: string[] = grid[0].map((h) => String(h || "").trim());
 
   // Find standard column indexes
-  const tsIdx = headers.findIndex((h) => /timestamp/i.test(h));
-  const emailIdx = headers.findIndex((h) => /email|e-mail|username|user name/i.test(h));
-  const nameIdx = headers.findIndex((h) => /name/i.test(h));
+  const tsIdx = headers.findIndex((h) => /timestamp|time\s*stamp/i.test(h));
+  const emailIdx = headers.findIndex((h) => /email|e-mail|username|user\s*name/i.test(h));
+  const nameIdx = headers.findIndex((h) =>
+    /name|resident|volunteer|who are you|respondent/i.test(h)
+  );
   const cookPrefIdx = headers.findIndex((h) =>
-    /minimum number of cooks|2-person|two-person|cook team size|open to.*2|team.*size|cook.*size/i.test(
+    /minimum number of cooks|2-person|two-person|cook team size|open to.*2|team.*size|cook.*size|preference.*cook/i.test(
       h
     )
   );
-  const sameDayIdx = headers.findIndex((h) => /cook and clean on the same day|same day/i.test(h));
+  const sameDayIdx = headers.findIndex((h) =>
+    /cook and clean on the same day|same day|both shifts/i.test(h)
+  );
   const cookQuotaIdx = headers.findIndex((h) =>
-    /how many.*cook|cook.*quota|cook.*shifts|meals.*cook/i.test(h)
+    /how many.*cook|cook.*quota|cook.*shifts|meals.*cook|number of.*cook/i.test(h)
   );
   const cleanQuotaIdx = headers.findIndex((h) =>
-    /how many.*clean|clean.*quota|clean.*shifts|meals.*clean/i.test(h)
+    /how many.*clean|clean.*quota|clean.*shifts|meals.*clean|number of.*clean/i.test(h)
   );
   const maxTotalShiftsIdx = headers.findIndex((h) =>
-    /maximum.*total.*shifts|max.*total.*shifts|total.*shifts.*max|combined.*shift.*limit|total.*shifts.*combined|max.*shifts/i.test(
+    /maximum.*total.*shifts|max.*total.*shifts|total.*shifts.*max|combined.*shift.*limit|total.*shifts.*combined|max.*shifts|total.*shifts/i.test(
       h
     )
   );
   const notesIdx = headers.findIndex((h) =>
-    /special instructions|notes|comments|instructions/i.test(h)
+    /special instructions|notes|comments|instructions|dietary/i.test(h)
   );
 
   // Find date columns

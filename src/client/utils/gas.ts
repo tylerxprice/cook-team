@@ -766,6 +766,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
       const now = new Date();
       const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       const availableMonths = [
+        "2026-11",
         "2026-10",
         "2026-09",
         "2026-08",
@@ -827,6 +828,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
 
     case "populatePublishedMonthsInMaster": {
       const targetMonths = [
+        "2026-11",
         "2026-10",
         "2026-09",
         "2026-08",
@@ -926,6 +928,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
     case "getAvailableScheduleTabs": {
       const baseline = getBaselineHistoricalSchedules();
       const list = baseline.map((b) => b.monthKey);
+      if (!list.includes("2026-11")) list.unshift("2026-11");
       if (!list.includes("2026-10")) list.unshift("2026-10");
       return list as unknown as T;
     }

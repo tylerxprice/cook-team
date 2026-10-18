@@ -35,6 +35,7 @@ export interface ResidentScheduleViewProps {
 const STORAGE_KEY = "cookteam_resident_name";
 
 export const DEFAULT_RESIDENT_MONTHS = [
+  "2026-11",
   "2026-10",
   "2026-09",
   "2026-08",
