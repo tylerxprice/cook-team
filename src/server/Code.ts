@@ -1135,10 +1135,25 @@ function getIntakeData(
         exceptions = MOCK_EXCEPTIONS;
       } else {
         const respondentsFromSurvey: Member[] = [];
+        const sHeaders = (surveyData[0] || []).map((h: any) => String(h || "").trim());
+        const sNameIdx = sHeaders.findIndex((h: string) =>
+          /name|resident|volunteer|who are you|respondent/i.test(h)
+        );
+        const sEmailIdx = sHeaders.findIndex((h: string) => /email|e-mail|username/i.test(h));
+        const effectiveNameIdx = sNameIdx >= 0 ? sNameIdx : sEmailIdx === 1 ? 2 : 1;
         for (let r = 1; r < surveyData.length; r++) {
           const row = surveyData[r];
-          const email = String(row[1] || "").trim();
-          const name = String(row[2] || "").trim();
+          const name = String(row[effectiveNameIdx] || "").trim();
+          let email = sEmailIdx >= 0 ? String(row[sEmailIdx] || "").trim() : "";
+          if (!email) {
+            for (let c = 0; c < row.length; c++) {
+              const val = String(row[c] || "").trim();
+              if (/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/i.test(val)) {
+                email = val;
+                break;
+              }
+            }
+          }
           if (
             name &&
             !respondentsFromSurvey.some((m) => m.name.toLowerCase() === name.toLowerCase())
@@ -1147,7 +1162,7 @@ function getIntakeData(
               name,
               google_email: email,
               active: true,
-              last_active_survey: "2026-10",
+              last_active_survey: undefined,
             });
           }
         }

@@ -444,9 +444,7 @@ export function parseSurveySheetData(
   // Find standard column indexes
   const tsIdx = headers.findIndex((h) => /timestamp|time\s*stamp/i.test(h));
   const emailIdx = headers.findIndex((h) => /email|e-mail|username|user\s*name/i.test(h));
-  const nameIdx = headers.findIndex((h) =>
-    /name|resident|volunteer|who are you|respondent/i.test(h)
-  );
+  let nameIdx = headers.findIndex((h) => /name|resident|volunteer|who are you|respondent/i.test(h));
   const cookPrefIdx = headers.findIndex((h) =>
     /minimum number of cooks|2-person|two-person|cook team size|open to.*2|team.*size|cook.*size|preference.*cook/i.test(
       h
@@ -479,6 +477,111 @@ export function parseSurveySheetData(
     }
   });
 
+  // Robust fallback for name column if standard header keywords (name|resident|volunteer|who are you|respondent) are missing
+  // (e.g. November 2026 form where the question title was accidentally set to a member name "Alejandra")
+  if (nameIdx === -1) {
+    // Strategy 1: Header matches a registered community member's name or alias in masterMembers
+    if (masterMembers && masterMembers.length > 0) {
+      const memberHeaderIdx = headers.findIndex((h, idx) => {
+        if (
+          idx === tsIdx ||
+          idx === emailIdx ||
+          idx === cookQuotaIdx ||
+          idx === cleanQuotaIdx ||
+          idx === maxTotalShiftsIdx ||
+          idx === cookPrefIdx ||
+          idx === sameDayIdx ||
+          idx === notesIdx ||
+          dateColumns.some((dc) => dc.colIdx === idx)
+        ) {
+          return false;
+        }
+        const cleanH = h.trim();
+        if (!cleanH) return false;
+        return masterMembers.some((m) => {
+          if (m.name.toLowerCase() === cleanH.toLowerCase()) return true;
+          if (
+            m.aliases &&
+            extractAliases(m.aliases).some((a) => a.toLowerCase() === cleanH.toLowerCase())
+          ) {
+            return true;
+          }
+          return false;
+        });
+      });
+      if (memberHeaderIdx >= 0) {
+        nameIdx = memberHeaderIdx;
+      }
+    }
+
+    // Strategy 2: Value sampling: inspect non-special, non-date columns to see if cell values match registered members
+    if (nameIdx === -1 && masterMembers && masterMembers.length > 0) {
+      let bestCol = -1;
+      let maxMemberHits = 0;
+      const sampleLimit = Math.min(grid.length, 15);
+      for (let c = 0; c < headers.length; c++) {
+        if (
+          c === tsIdx ||
+          c === emailIdx ||
+          c === cookQuotaIdx ||
+          c === cleanQuotaIdx ||
+          c === maxTotalShiftsIdx ||
+          c === cookPrefIdx ||
+          c === sameDayIdx ||
+          c === notesIdx ||
+          dateColumns.some((dc) => dc.colIdx === c)
+        ) {
+          continue;
+        }
+        let hits = 0;
+        for (let r = 1; r < sampleLimit; r++) {
+          const cellVal = String(grid[r]?.[c] || "").trim();
+          if (cellVal && findMatchingMember(cellVal, "", masterMembers)) {
+            hits++;
+          }
+        }
+        if (hits > maxMemberHits) {
+          maxMemberHits = hits;
+          bestCol = c;
+        }
+      }
+      if (bestCol >= 0 && maxMemberHits >= 1) {
+        nameIdx = bestCol;
+      }
+    }
+
+    // Strategy 3: Unclaimed positional column: first non-date, non-quota, non-timestamp column with text
+    if (nameIdx === -1 && headers.length > 1) {
+      const candidateCols = headers
+        .map((_, idx) => idx)
+        .filter(
+          (idx) =>
+            idx !== tsIdx &&
+            idx !== emailIdx &&
+            idx !== cookQuotaIdx &&
+            idx !== cleanQuotaIdx &&
+            idx !== maxTotalShiftsIdx &&
+            idx !== cookPrefIdx &&
+            idx !== sameDayIdx &&
+            idx !== notesIdx &&
+            !dateColumns.some((dc) => dc.colIdx === idx)
+        );
+
+      const bestCandidate = candidateCols.find((colIdx) => {
+        let nonEmptyCount = 0;
+        const sampleLimit = Math.min(grid.length, 10);
+        for (let r = 1; r < sampleLimit; r++) {
+          const val = String(grid[r]?.[colIdx] || "").trim();
+          if (val.length > 0) nonEmptyCount++;
+        }
+        return nonEmptyCount > 0;
+      });
+      if (bestCandidate !== undefined) {
+        nameIdx = bestCandidate;
+      }
+    }
+  }
+
   const mealDates = dateColumns.map((dc) => dc.mealDate);
   const responses: SurveyResponse[] = [];
   const respondedMemberNames = new Set<string>();
@@ -487,8 +590,7 @@ export function parseSurveySheetData(
 
   for (let r = 1; r < grid.length; r++) {
     const row = grid[r];
-    const rawName = String(row[nameIdx] || "").trim();
-    if (!rawName) continue; // Skip blank rows
+    let rawName = nameIdx >= 0 ? String(row[nameIdx] || "").trim() : "";
 
     let rawEmail = emailIdx >= 0 ? String(row[emailIdx] || "").trim() : "";
     if (!rawEmail || !rawEmail.includes("@")) {
@@ -501,6 +603,16 @@ export function parseSurveySheetData(
         }
       }
     }
+
+    // Fallback: If name was blank or column not found, but email was provided, try resolving member by email
+    if (!rawName && rawEmail) {
+      const emailMatch = findMatchingMember("", rawEmail, masterMembers);
+      if (emailMatch) {
+        rawName = emailMatch.name;
+      }
+    }
+
+    if (!rawName) continue; // Skip blank rows
     const matchedMember = findMatchingMember(rawName, rawEmail, masterMembers);
 
     const name = matchedMember ? matchedMember.name : rawName;

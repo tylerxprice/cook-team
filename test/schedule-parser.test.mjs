@@ -1034,7 +1034,88 @@ test("Survey Parser - Flexible November Date Header Formats", () => {
   // 5. Non-date questions return null
   assert.equal(parseDateHeader("Timestamp", 0, 2026), null);
   assert.equal(parseDateHeader("Your name", 1, 2026), null);
+  assert.equal(parseDateHeader("Alejandra", 1, 2026), null);
   assert.equal(parseDateHeader("Email Address", 2, 2026), null);
   assert.equal(parseDateHeader("How many meals can you cook this month?", 3, 2026), null);
   assert.equal(parseDateHeader("Can you cook and clean on the same day?", 4, 2026), null);
+
+  // 6. Changed date header label
+  const hChanged = parseDateHeader(
+    "Select your available dates [CHANGED! Nov 8 (Sun, Brunch)]",
+    5,
+    2026
+  );
+  assert.ok(hChanged);
+  assert.equal(hChanged.dateKey, "2026-11-08");
+  assert.equal(hChanged.mealType, "BRUNCH");
+});
+
+test("Survey Parser - Robust Name Column Detection when Question Header is a Member Name", () => {
+  // Simulates November 2026 survey where Header 1 was "Alejandra" instead of "Your name"
+  const testGrid = [
+    [
+      "Timestamp",
+      "Alejandra",
+      "How many meals can you cook this month?",
+      "How many meals can you clean this month?",
+      "Maximum total shifts (cooking + cleaning combined) this month",
+      "What is your preference for cook team size?",
+      "Can you cook and clean on the same day?",
+      "Select your available dates [Nov 1 (Sun, Brunch)]",
+      "Select your available dates [Nov 2 (Mon)]",
+      "Special instructions, dietary restrictions, or notes",
+      "Email Address",
+    ],
+    [
+      "2026-10-15T12:00:00Z",
+      "Tyler",
+      "1",
+      "2",
+      "No limit",
+      "Dinner = 3, Brunch = 2",
+      "No",
+      "Available",
+      "Unavailable",
+      "",
+      "tyler@example.com",
+    ],
+    [
+      "2026-10-15T12:05:00Z",
+      "Rose Price",
+      "1",
+      "1",
+      "No limit",
+      "Dinner = 3, Brunch = 2",
+      "Yes",
+      "Available",
+      "Available",
+      "",
+      "rose@example.com",
+    ],
+  ];
+
+  const mockMembers = [
+    { name: "Alejandra", google_email: "alejandra@example.com", active: true },
+    { name: "Tyler", google_email: "tyler@example.com", active: true },
+    { name: "Rose", google_email: "rose@example.com", active: true, aliases: ["Rose Price"] },
+  ];
+
+  // Test with registered members provided (Strategy 1 & 2)
+  const parsedWithMembers = parseSurveySheetData(
+    testGrid,
+    mockMembers,
+    "26-11 Nov Meal Team Sign-Up"
+  );
+  assert.equal(parsedWithMembers.mealDates.length, 2);
+  assert.equal(parsedWithMembers.responses.length, 2);
+  assert.equal(parsedWithMembers.responses[0].name, "Tyler");
+  assert.equal(parsedWithMembers.responses[0].cookQuota, 1);
+  assert.equal(parsedWithMembers.responses[0].cleanQuota, 2);
+  assert.equal(parsedWithMembers.responses[1].name, "Rose"); // Canonicalized from Rose Price
+
+  // Test without members provided (Strategy 3 unclaimed column positional fallback)
+  const parsedEmptyMembers = parseSurveySheetData(testGrid, [], "26-11 Nov Meal Team Sign-Up");
+  assert.equal(parsedEmptyMembers.responses.length, 2);
+  assert.equal(parsedEmptyMembers.responses[0].name, "Tyler");
+  assert.equal(parsedEmptyMembers.responses[1].name, "Rose Price");
 });
