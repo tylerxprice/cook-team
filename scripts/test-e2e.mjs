@@ -69,11 +69,52 @@ async function runE2ETest() {
     await page.waitForSelector("text=Add All My Shifts to Calendar (.ics)");
     console.log("✓ Selected member Brenda and verified shifts & calendar export button!");
 
+    // 1c. Verify Month Selector & Current Month Default
+    console.log("1c. Testing Resident View Month Selector & Current Month Default ...");
+    await page.waitForSelector("select[aria-label='Select meal month']");
+    const monthSelect = page.locator("select[aria-label='Select meal month']").first();
+    const defaultMonthVal = await monthSelect.inputValue();
+    console.log(`✓ Month select dropdown found with initial value: "${defaultMonthVal}"`);
+
+    // Verify month pill buttons are visible
+    const novPill = page.locator("button:has-text('Nov \\'26')").first();
+    const octPill = page.locator("button:has-text('Oct \\'26')").first();
+    await novPill.waitFor({ state: "visible" });
+    await octPill.waitFor({ state: "visible" });
+    console.log("✓ Available month pills (Nov '26, Oct '26) rendered!");
+
+    // Switch month to November via pill button
+    await novPill.click();
+    await page.waitForFunction(() => window.location.search.includes("month=2026-11"));
+    console.log("✓ Clicked November pill, URL updated with &month=2026-11!");
+
+    // Switch back to October via select dropdown
+    await monthSelect.selectOption("2026-10");
+    await page.waitForFunction(() => window.location.search.includes("month=2026-10"));
+    console.log("✓ Changed dropdown to October, URL updated with &month=2026-10!");
+
     // Toggle to Full Schedule tab
     const fullSchedTab = page.locator("button:has-text('Full Schedule')").first();
     await fullSchedTab.click();
     await page.waitForSelector("text=Showing all");
     console.log("✓ Full Community Schedule tab verified!");
+
+    // Click Home button to return to Portal Landing
+    const homeBtn = page.locator("button[title='Return to Hub Home']").first();
+    await homeBtn.click();
+    await page.waitForSelector("text=What would you like to do?");
+    console.log("✓ Returned to Portal Landing view via Home button!");
+
+    // Direct navigation with ?view=schedule without month parameter to test current month default
+    console.log("1d. Testing direct URL navigation to ?view=schedule (default current month) ...");
+    await page.goto("http://localhost:5174/?view=schedule", { waitUntil: "networkidle" });
+    await page.waitForSelector("select[aria-label='Select meal month']");
+    const directMonthSelect = page.locator("select[aria-label='Select meal month']").first();
+    const directVal = await directMonthSelect.inputValue();
+    if (!/^\d{4}-\d{2}$/.test(directVal)) {
+      throw new Error(`Expected direct navigation to resolve to YYYY-MM, got: ${directVal}`);
+    }
+    console.log(`✓ Direct navigation to ?view=schedule defaulted to current month: "${directVal}"`);
 
     // Click Coordinator button to enter 4-step wizard
     const coordBtn = page.locator("button:has-text('Coordinator')").first();

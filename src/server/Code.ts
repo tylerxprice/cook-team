@@ -1036,6 +1036,33 @@ function getPublicSchedule(
   monthKey?: string,
   spreadsheetIdOrUrl?: string
 ): PublicScheduleResult {
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  let availableMonths: string[] = [];
+  try {
+    availableMonths = getAvailableScheduleTabs(spreadsheetIdOrUrl);
+  } catch (e) {
+    console.warn("Could not load availableScheduleTabs:", e);
+  }
+
+  // If monthKey is explicitly provided, use it; otherwise prefer current month if published, or latest published
+  let targetMonthKey = (monthKey || "").trim();
+  if (!targetMonthKey) {
+    if (availableMonths.includes(currentMonthKey)) {
+      targetMonthKey = currentMonthKey;
+    } else if (availableMonths.length > 0) {
+      targetMonthKey = availableMonths[0];
+    } else {
+      targetMonthKey = currentMonthKey;
+    }
+  }
+
+  if (!availableMonths.includes(targetMonthKey)) {
+    availableMonths.unshift(targetMonthKey);
+  }
+  availableMonths.sort((a, b) => b.localeCompare(a));
+
   try {
     let sheetId = (spreadsheetIdOrUrl || "").trim();
     const masterData = getMasterRegistryData();
@@ -1044,13 +1071,13 @@ function getPublicSchedule(
     if (!sheetId) {
       // 1. Try finding in driveSheets
       const sheets = listAvailableDriveSheets();
-      if (monthKey) {
-        const cleanMo = monthKey.replace(/-/g, "");
+      if (targetMonthKey) {
+        const cleanMo = targetMonthKey.replace(/-/g, "");
         const matched = sheets.find(
           (s) =>
-            s.name.includes(monthKey) ||
+            s.name.includes(targetMonthKey) ||
             s.name.includes(cleanMo.slice(2, 6)) ||
-            (s.name.toLowerCase().includes("schedule") && s.name.includes(monthKey.slice(5, 7)))
+            (s.name.toLowerCase().includes("schedule") && s.name.includes(targetMonthKey.slice(5, 7)))
         );
         if (matched) {
           sheetId = matched.id;
@@ -1075,45 +1102,46 @@ function getPublicSchedule(
       return {
         success: false,
         schedule: [],
-        monthKey: monthKey || "",
+        monthKey: targetMonthKey,
         monthTitle: "Community Meals",
         communityName,
+        availableMonths,
         message: "No schedule spreadsheet found.",
       };
     }
 
-    const tabName = monthKey ? `Schedule_${monthKey}` : undefined;
+    const tabName = targetMonthKey ? `Schedule_${targetMonthKey}` : undefined;
     const loaded = loadExistingScheduleFromSheet(sheetId, tabName);
 
     let monthTitle = "Community Meals";
-    let derivedMonthKey = monthKey || "";
+    let derivedMonthKey = targetMonthKey;
     if (loaded.schedule.length > 0) {
       const first = loaded.schedule[0];
       const parsed = parseDateFromLabelOrKey(first.dateLabel, first.dateKey);
       if (parsed && !isNaN(parsed.getTime())) {
         monthTitle = parsed.toLocaleString("en-US", { month: "long", year: "numeric" });
-        if (!derivedMonthKey) {
-          derivedMonthKey = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
-        }
+        derivedMonthKey = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
       }
     }
 
     return {
       success: true,
       schedule: loaded.schedule,
-      monthKey: derivedMonthKey,
+      monthKey: derivedMonthKey || targetMonthKey,
       monthTitle,
       communityName,
-      sourceSheetName: `Schedule_${derivedMonthKey}`,
+      availableMonths,
+      sourceSheetName: `Schedule_${derivedMonthKey || targetMonthKey}`,
     };
   } catch (err: any) {
     console.warn("getPublicSchedule error:", err);
     return {
       success: false,
       schedule: [],
-      monthKey: monthKey || "",
+      monthKey: targetMonthKey,
       monthTitle: "Community Meals",
       communityName: "Vancouver Cohousing",
+      availableMonths,
       message: err.message,
     };
   }

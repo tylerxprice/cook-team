@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
+  Calendar,
+  ChevronDown,
   Sparkles,
   Download,
   Users,
@@ -20,7 +22,10 @@ export interface ResidentScheduleViewProps {
   schedule: DaySchedule[];
   members: Member[];
   monthTitle?: string;
+  monthKey?: string;
+  availableMonths?: string[];
   communityName?: string;
+  onSelectMonth?: (monthKey: string) => void;
   onBackToHome: () => void;
   onOpenCoordinator: () => void;
   initialMemberName?: string;
@@ -28,11 +33,66 @@ export interface ResidentScheduleViewProps {
 
 const STORAGE_KEY = "cookteam_resident_name";
 
+function formatMonthDisplay(mKey: string): string {
+  const parts = mKey.split("-");
+  if (parts.length >= 2) {
+    const yr = parts[0];
+    const mo = parseInt(parts[1], 10);
+    const months = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    if (mo >= 1 && mo <= 12) {
+      return `${months[mo - 1]} ${yr}`;
+    }
+  }
+  return mKey;
+}
+
+function formatMonthShort(mKey: string): string {
+  const parts = mKey.split("-");
+  if (parts.length >= 2) {
+    const yr = parts[0].slice(2);
+    const mo = parseInt(parts[1], 10);
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    if (mo >= 1 && mo <= 12) {
+      return `${months[mo - 1]} '${yr}`;
+    }
+  }
+  return mKey;
+}
+
 export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
   schedule,
   members,
-  monthTitle = "October 2026",
+  monthTitle = "Community Meals",
+  monthKey,
+  availableMonths,
   communityName = "Vancouver Cohousing",
+  onSelectMonth,
   onBackToHome,
   onOpenCoordinator,
   initialMemberName,
@@ -159,9 +219,27 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
               <Home className="w-4 h-4" />
             </button>
             <div>
-              <h1 className="text-sm sm:text-base font-black text-slate-900 leading-tight">
-                {monthTitle}
-              </h1>
+              {availableMonths && availableMonths.length > 1 ? (
+                <div className="relative inline-flex items-center">
+                  <select
+                    value={monthKey || ""}
+                    onChange={(e) => onSelectMonth && onSelectMonth(e.target.value)}
+                    aria-label="Select meal month"
+                    className="text-sm sm:text-base font-black text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl px-2.5 py-1 pr-7 focus:outline-none focus:ring-2 focus:ring-orange-500/20 cursor-pointer appearance-none"
+                  >
+                    {availableMonths.map((m) => (
+                      <option key={m} value={m}>
+                        {formatMonthDisplay(m)}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2 pointer-events-none" />
+                </div>
+              ) : (
+                <h1 className="text-sm sm:text-base font-black text-slate-900 leading-tight">
+                  {monthTitle}
+                </h1>
+              )}
               <p className="text-[11px] text-slate-500 font-medium">{communityName}</p>
             </div>
           </div>
@@ -180,6 +258,34 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
 
       {/* Main Content Area */}
       <main className="max-w-2xl mx-auto px-4 py-6 flex-1 w-full space-y-5">
+        {/* Month Selector Pills */}
+        {availableMonths && availableMonths.length > 1 && (
+          <section className="bg-white rounded-2xl border border-slate-200 p-3 shadow-2xs flex items-center justify-between gap-2 overflow-hidden">
+            <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5 shrink-0">
+              <Calendar className="w-3.5 h-3.5 text-orange-600" />
+              <span className="hidden sm:inline">Select Month:</span>
+            </span>
+            <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+              {availableMonths.map((m) => {
+                const isSelected = m === monthKey;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => onSelectMonth && onSelectMonth(m)}
+                    className={`min-h-[36px] px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                      isSelected
+                        ? "bg-orange-600 text-white shadow-2xs"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
+                    }`}
+                  >
+                    {formatMonthShort(m)}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
         {/* Member Selector Bar / Card */}
         <section className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
           {!selectedMember || isChangingMember ? (

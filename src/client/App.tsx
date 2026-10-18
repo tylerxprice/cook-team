@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   Utensils,
   Users,
@@ -97,6 +97,16 @@ function MainApp() {
   const [appView, setAppView] = useState<AppView>(getInitialAppView);
   const [publicSchedule, setPublicSchedule] = useState<DaySchedule[]>([]);
   const [publicMonthTitle, setPublicMonthTitle] = useState<string>("Community Meals");
+  const [publicMonthKey, setPublicMonthKey] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const m = params.get("month");
+      if (m && /^\d{4}-\d{2}$/.test(m)) return m;
+    }
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [publicAvailableMonths, setPublicAvailableMonths] = useState<string[]>([]);
   const [_loadingPublicSchedule, setLoadingPublicSchedule] = useState<boolean>(false);
   const [notification, setNotification] = useState<{
     msg: string;
@@ -247,36 +257,76 @@ function MainApp() {
     };
   }, [showMainMenu]);
 
-  // Fetch public schedule for Resident View
-  useEffect(() => {
-    if (appView !== "resident") return;
-
-    if (solverResult?.schedule && solverResult.schedule.length > 0 && publicSchedule.length === 0) {
-      setPublicSchedule(solverResult.schedule);
-    }
-
-    const fetchPublicSchedule = async () => {
+  // Fetch public schedule for Resident View / Portal
+  const fetchPublicSchedule = useCallback(
+    async (targetMonth?: string) => {
       try {
         setLoadingPublicSchedule(true);
-        const params = new URLSearchParams(window.location.search);
-        const monthParam = params.get("month") || undefined;
-        const sheetParam = params.get("sheet") || sheetInput || undefined;
+        const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+        const monthParam =
+          targetMonth || (params ? params.get("month") || undefined : undefined) || publicMonthKey;
+        const sheetParam =
+          (params ? params.get("sheet") || undefined : undefined) || sheetInput || undefined;
         const res = await callGas<PublicScheduleResult>("getPublicSchedule", monthParam, sheetParam);
-        if (res && res.schedule && res.schedule.length > 0) {
-          setPublicSchedule(res.schedule);
-          if (res.monthTitle) setPublicMonthTitle(res.monthTitle);
+        if (res) {
+          if (res.schedule) {
+            setPublicSchedule(res.schedule);
+          }
+          if (res.monthTitle) {
+            setPublicMonthTitle(res.monthTitle);
+          }
+          if (res.monthKey) {
+            setPublicMonthKey(res.monthKey);
+          }
+          if (res.availableMonths && res.availableMonths.length > 0) {
+            setPublicAvailableMonths(res.availableMonths);
+          }
         }
       } catch (err) {
         console.warn("Could not fetch public schedule:", err);
       } finally {
         setLoadingPublicSchedule(false);
       }
-    };
+    },
+    [sheetInput, publicMonthKey]
+  );
+
+  useEffect(() => {
+    if (appView !== "resident" && appView !== "portal") return;
+
+    if (solverResult?.schedule && solverResult.schedule.length > 0 && publicSchedule.length === 0) {
+      setPublicSchedule(solverResult.schedule);
+    }
 
     if (publicSchedule.length === 0) {
       fetchPublicSchedule();
     }
-  }, [appView, solverResult?.schedule, sheetInput, publicSchedule.length]);
+  }, [appView, solverResult?.schedule, publicSchedule.length, fetchPublicSchedule]);
+
+  const handleSelectPublicMonth = (newMonthKey: string) => {
+    setPublicMonthKey(newMonthKey);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("view", "schedule");
+      url.searchParams.set("month", newMonthKey);
+      window.history.pushState(null, "", url.toString());
+    }
+    if (typeof (window as any).google !== "undefined" && (window as any).google?.script?.history) {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        params.set("view", "schedule");
+        params.set("month", newMonthKey);
+        (window as any).google.script.history.push(
+          null,
+          Object.fromEntries(params.entries()),
+          params.toString()
+        );
+      } catch (err) {
+        console.warn("GAS history push failed:", err);
+      }
+    }
+    fetchPublicSchedule(newMonthKey);
+  };
 
   // Synchronize wizard navigation with browser history (Back / Forward buttons)
   const goToStep = (step: 1 | 2 | 3 | 4, replace = false) => {
@@ -2533,6 +2583,11 @@ function MainApp() {
         }}
         onSelectResident={() => {
           setAppView("resident");
+          if (typeof window !== "undefined") {
+            const url = new URL(window.location.href);
+            url.searchParams.set("view", "schedule");
+            window.history.pushState(null, "", url.toString());
+          }
         }}
       />
     );
@@ -2546,9 +2601,19 @@ function MainApp() {
         schedule={publicSchedule.length > 0 ? publicSchedule : (solverResult?.schedule || [])}
         members={members}
         monthTitle={publicMonthTitle}
+        monthKey={publicMonthKey}
+        availableMonths={publicAvailableMonths}
         communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
+        onSelectMonth={handleSelectPublicMonth}
         initialMemberName={initialName}
-        onBackToHome={() => setAppView("portal")}
+        onBackToHome={() => {
+          setAppView("portal");
+          if (typeof window !== "undefined") {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("view");
+            window.history.pushState(null, "", url.toString());
+          }
+        }}
         onOpenCoordinator={() => {
           setAppView("coordinator");
           if (!window.location.hash) window.location.hash = "#step-1";

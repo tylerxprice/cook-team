@@ -340,6 +340,7 @@ export interface PublicScheduleResult {
   monthKey: string;
   monthTitle: string;
   communityName: string;
+  availableMonths?: string[];
   sourceSheetName?: string;
   spreadsheetUrl?: string;
   message?: string;

@@ -591,15 +591,50 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
 
     case "getPublicSchedule": {
       const [monthKey, customSheetId] = args as [string | undefined, string | undefined];
-      const targetMonthKey = monthKey || "2026-10";
-      const sched = (await callGas<ScheduleOutput>("loadExistingScheduleFromSheet", customSheetId || "mock-sheet")) || { schedule: [] };
+      const now = new Date();
+      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const availableMonths = ["2026-11", "2026-10", "2026-09", "2026-08", "2026-07"];
+      if (!availableMonths.includes(currentMonthKey)) {
+        availableMonths.unshift(currentMonthKey);
+      }
+      availableMonths.sort((a, b) => b.localeCompare(a));
+
+      const targetMonthKey =
+        (monthKey || "").trim() ||
+        (availableMonths.includes(currentMonthKey) ? currentMonthKey : availableMonths[0]);
+
+      const sched =
+        (await callGas<ScheduleOutput>("loadExistingScheduleFromSheet", customSheetId || "mock-sheet")) || {
+          schedule: [],
+        };
+
+      const monthNames = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ];
+      const mParts = targetMonthKey.split("-");
+      const y = mParts[0] || "2026";
+      const mIdx = parseInt(mParts[1] || "10", 10) - 1;
+      const monthTitle = `${monthNames[mIdx] || "October"} ${y}`;
+
       const res: PublicScheduleResult = {
         success: true,
         schedule: sched.schedule || [],
         monthKey: targetMonthKey,
-        monthTitle: "October 2026",
+        monthTitle,
         communityName: mockMasterSettings.communityName || "Vancouver Cohousing",
-        sourceSheetName: "Schedule_2026-10",
+        availableMonths,
+        sourceSheetName: `Schedule_${targetMonthKey}`,
         spreadsheetUrl: "https://docs.google.com/spreadsheets/d/mock-schedule",
       };
       return res as unknown as T;
