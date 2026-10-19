@@ -150,13 +150,94 @@ export function solveSinglePass(
     });
   }
 
+  function parseWhitelist(names?: string): string[] {
+    if (!names) return [];
+    return names
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  function hasAvailableEligibleMentor(
+    whitelist: string[],
+    role: Role,
+    md: MealDate,
+    entryCooks: string[],
+    entryCleaners: string[]
+  ): boolean {
+    for (const mentorNameLower of whitelist) {
+      const cand = Array.from(candidates.values()).find(
+        (c) => c.name.toLowerCase() === mentorNameLower
+      );
+      if (!cand) continue;
+
+      if (role === "COOK") {
+        if (cand.assignedCookDates.has(md.dateKey)) continue;
+        if (cand.assignedCookDates.size >= cand.cookQuota) continue;
+      } else {
+        if (cand.assignedCleanDates.has(md.dateKey)) continue;
+        if (cand.assignedCleanDates.size >= cand.cleanQuota) continue;
+      }
+      if (cand.assignedCookDates.size + cand.assignedCleanDates.size >= cand.maxTotalShifts)
+        continue;
+
+      const avail = getCandidateAvailability(cand, md);
+      if (role === "COOK" && avail !== "AVAILABLE" && avail !== "COOK_ONLY") continue;
+      if (role === "CLEAN" && avail !== "AVAILABLE" && avail !== "CLEAN_ONLY") continue;
+
+      if (!cand.canSameDay) {
+        if (role === "COOK" && cand.assignedCleanDates.has(md.dateKey)) continue;
+        if (
+          role === "CLEAN" &&
+          (entryCooks.includes(cand.name) || cand.assignedCookDates.has(md.dateKey))
+        ) {
+          continue;
+        }
+      }
+
+      let mentorBlocked = false;
+      for (const r of exceptions) {
+        if (!r.is_hard_rule || r.rule_type === "REQUIRE_ONE_OF_TEAM") continue;
+        const other =
+          r.person_a.toLowerCase() === cand.name.toLowerCase()
+            ? r.person_b
+            : r.person_b?.toLowerCase() === cand.name.toLowerCase()
+              ? r.person_a
+              : null;
+        if (!other) continue;
+        const otherAssignedToday = entryCooks
+          .concat(entryCleaners)
+          .some((m) => m.toLowerCase() === other.toLowerCase());
+        if (r.rule_type === "NOT_SAME_DAY" && otherAssignedToday) {
+          mentorBlocked = true;
+          break;
+        }
+        const sameTeamAssigned = (role === "COOK" ? entryCooks : entryCleaners).some(
+          (m) => m.toLowerCase() === other.toLowerCase()
+        );
+        if (
+          (r.rule_type === "NOT_SAME_TEAM" || r.rule_type === "SAME_DAY_DIFF_TEAM") &&
+          sameTeamAssigned
+        ) {
+          mentorBlocked = true;
+          break;
+        }
+      }
+      if (mentorBlocked) continue;
+
+      return true;
+    }
+    return false;
+  }
+
   // Helper: check hard rule violation for a prospective assignment
   function violatesHardRule(
     memberName: string,
     role: Role,
     _dateKey: string,
     currentCooks: string[],
-    currentCleaners: string[]
+    currentCleaners: string[],
+    targetCount?: number
   ): boolean {
     for (const rule of exceptions) {
       if (!rule.is_hard_rule) continue;
@@ -185,6 +266,56 @@ export function solveSinglePass(
         const team = role === "COOK" ? currentCooks : currentCleaners;
         if (memberName === pA && team.includes(pB)) return true;
         if (memberName === pB && team.includes(pA)) return true;
+      }
+
+      // REQUIRE_ONE_OF_TEAM (Must pair with at least one approved co-worker / mentor on team)
+      if (rule.rule_type === "REQUIRE_ONE_OF_TEAM" && pB) {
+        const appliesToRole =
+          !rule.target_role_a || rule.target_role_a === "ANY" || rule.target_role_a === role;
+        if (appliesToRole) {
+          const whitelist = parseWhitelist(pB);
+          const currentTeam = role === "COOK" ? currentCooks : currentCleaners;
+          const isMemberPersonA = memberName.toLowerCase() === pA.toLowerCase();
+          const isPersonAOnTeam = currentTeam.some((m) => m.toLowerCase() === pA.toLowerCase());
+
+          if (isMemberPersonA) {
+            const teamHasMentor = currentTeam.some((m) => whitelist.includes(m.toLowerCase()));
+            if (!teamHasMentor) {
+              const prospectiveSize = currentTeam.length + 1;
+              const maxSlots = targetCount ?? (role === "COOK" ? 3 : 2);
+              const remainingSlots = maxSlots - prospectiveSize;
+              if (remainingSlots <= 0) {
+                return true;
+              }
+              const md = adjustedMealDates.find((d) => d.dateKey === _dateKey);
+              if (
+                md &&
+                !hasAvailableEligibleMentor(whitelist, role, md, currentCooks, currentCleaners)
+              ) {
+                return true;
+              }
+            }
+          } else if (isPersonAOnTeam) {
+            const teamHasMentor = currentTeam.some((m) => whitelist.includes(m.toLowerCase()));
+            const memberIsMentor = whitelist.includes(memberName.toLowerCase());
+
+            if (!teamHasMentor && !memberIsMentor) {
+              const prospectiveSize = currentTeam.length + 1;
+              const maxSlots = targetCount ?? (role === "COOK" ? 3 : 2);
+              const remainingSlots = maxSlots - prospectiveSize;
+              if (remainingSlots <= 0) {
+                return true;
+              }
+              const md = adjustedMealDates.find((d) => d.dateKey === _dateKey);
+              if (
+                md &&
+                !hasAvailableEligibleMentor(whitelist, role, md, currentCooks, currentCleaners)
+              ) {
+                return true;
+              }
+            }
+          }
+        }
       }
     }
     return false;
@@ -245,17 +376,43 @@ export function solveSinglePass(
         const avail = getCandidateAvailability(c, md);
         if (avail !== "AVAILABLE" && avail !== "COOK_ONLY") return false;
         if (!c.canSameDay && c.assignedCleanDates.has(md.dateKey)) return false;
-        if (violatesHardRule(c.name, "COOK", md.dateKey, entry.cooks, entry.cleaners)) return false;
+        if (
+          violatesHardRule(c.name, "COOK", md.dateKey, entry.cooks, entry.cleaners, maxSlotsForPass)
+        ) {
+          return false;
+        }
         return true;
       });
 
+      // Whitelist priority: if this date already has person_a from a REQUIRE_ONE_OF_TEAM rule and lacks a mentor, prioritize whitelist mentors
+      const activeCookWhitelists: string[][] = [];
+      for (const rule of exceptions) {
+        if (rule.rule_type === "REQUIRE_ONE_OF_TEAM" && rule.person_b) {
+          const applies =
+            !rule.target_role_a || rule.target_role_a === "ANY" || rule.target_role_a === "COOK";
+          if (applies && entry.cooks.some((m) => m.toLowerCase() === rule.person_a.toLowerCase())) {
+            const wl = parseWhitelist(rule.person_b);
+            if (!entry.cooks.some((m) => wl.includes(m.toLowerCase()))) {
+              activeCookWhitelists.push(wl);
+            }
+          }
+        }
+      }
+
       // Sort candidate cooks:
-      // 1. Willing 2-person dinner team members in pass 1
-      // 2. Round-robin fair share: candidate with fewest currently assigned cook shifts
+      // 1. Whitelist mentors if teen is on the team without one
+      // 2. Willing 2-person dinner team members in pass 1
+      // 3. Round-robin fair share: candidate with fewest currently assigned cook shifts
       //    (Ensures everyone gets their 1st shift before anyone gets a 2nd or 3rd)
-      // 3. MRV: candidates with fewer total available cook opportunities so they aren't squeezed out
-      // 4. Highest remaining cook quota (tie-breaker)
+      // 4. MRV: candidates with fewer total available cook opportunities so they aren't squeezed out
+      // 5. Highest remaining cook quota (tie-breaker)
       eligible.sort((a, b) => {
+        if (activeCookWhitelists.length > 0) {
+          const aIsMentor = activeCookWhitelists.some((wl) => wl.includes(a.name.toLowerCase()));
+          const bIsMentor = activeCookWhitelists.some((wl) => wl.includes(b.name.toLowerCase()));
+          if (aIsMentor !== bIsMentor) return aIsMentor ? -1 : 1;
+        }
+
         if (cookPolicy === "ADAPTIVE_3_OR_2" && passLimit === 2) {
           const aWilling = a.minCooksPref === "TWO_REGARDLESS" ? 1 : 0;
           const bWilling = b.minCooksPref === "TWO_REGARDLESS" ? 1 : 0;
@@ -281,7 +438,18 @@ export function solveSinglePass(
 
       for (const cand of eligible) {
         if (entry.cooks.length >= maxSlotsForPass) break;
-        if (violatesHardRule(cand.name, "COOK", md.dateKey, entry.cooks, entry.cleaners)) continue;
+        if (
+          violatesHardRule(
+            cand.name,
+            "COOK",
+            md.dateKey,
+            entry.cooks,
+            entry.cleaners,
+            maxSlotsForPass
+          )
+        ) {
+          continue;
+        }
         entry.cooks.push(cand.name);
         cand.assignedCookDates.add(md.dateKey);
       }
@@ -316,15 +484,41 @@ export function solveSinglePass(
       const avail = getCandidateAvailability(c, md);
       if (avail !== "AVAILABLE" && avail !== "CLEAN_ONLY") return false;
       if (!c.canSameDay && entry.cooks.includes(c.name)) return false;
-      if (violatesHardRule(c.name, "CLEAN", md.dateKey, entry.cooks, entry.cleaners)) return false;
+      if (violatesHardRule(c.name, "CLEAN", md.dateKey, entry.cooks, entry.cleaners, target)) {
+        return false;
+      }
       return true;
     });
 
+    const activeCleanWhitelists: string[][] = [];
+    for (const rule of exceptions) {
+      if (rule.rule_type === "REQUIRE_ONE_OF_TEAM" && rule.person_b) {
+        const applies =
+          !rule.target_role_a || rule.target_role_a === "ANY" || rule.target_role_a === "CLEAN";
+        if (
+          applies &&
+          entry.cleaners.some((m) => m.toLowerCase() === rule.person_a.toLowerCase())
+        ) {
+          const wl = parseWhitelist(rule.person_b);
+          if (!entry.cleaners.some((m) => wl.includes(m.toLowerCase()))) {
+            activeCleanWhitelists.push(wl);
+          }
+        }
+      }
+    }
+
     // Sort cleaners:
-    // 1. Members who PREFER same-day cook & clean if they are cooking today
-    // 2. Candidates with FEWEST available clean opportunities (MRV) so limited cleaners (Miriam, Olive, etc.) get scheduled
-    // 3. Fewest assigned cleans, then fewest total assignments, then randomized tie-breaker
+    // 1. Whitelist mentors if teen is on the clean team without one
+    // 2. Members who PREFER same-day cook & clean if they are cooking today
+    // 3. Candidates with FEWEST available clean opportunities (MRV) so limited cleaners (Miriam, Olive, etc.) get scheduled
+    // 4. Fewest assigned cleans, then fewest total assignments, then randomized tie-breaker
     eligible.sort((a, b) => {
+      if (activeCleanWhitelists.length > 0) {
+        const aIsMentor = activeCleanWhitelists.some((wl) => wl.includes(a.name.toLowerCase()));
+        const bIsMentor = activeCleanWhitelists.some((wl) => wl.includes(b.name.toLowerCase()));
+        if (aIsMentor !== bIsMentor) return aIsMentor ? -1 : 1;
+      }
+
       const aPrefSame =
         entry.cooks.includes(a.name) && (a.sameDayPref === "PREFERRED" || a.hasPrefSameDayRule);
       const bPrefSame =
@@ -348,7 +542,9 @@ export function solveSinglePass(
 
     for (const cand of eligible) {
       if (entry.cleaners.length >= target) break;
-      if (violatesHardRule(cand.name, "CLEAN", md.dateKey, entry.cooks, entry.cleaners)) continue;
+      if (violatesHardRule(cand.name, "CLEAN", md.dateKey, entry.cooks, entry.cleaners, target)) {
+        continue;
+      }
       entry.cleaners.push(cand.name);
       cand.assignedCleanDates.add(md.dateKey);
     }
@@ -385,6 +581,30 @@ export function solveSinglePass(
             dateKey: md.dateKey,
             members: [pA, pB],
           });
+        }
+      } else if (rule.rule_type === "REQUIRE_ONE_OF_TEAM" && pB) {
+        const whitelist = parseWhitelist(pB);
+        const checkRoles: Role[] =
+          rule.target_role_a === "COOK"
+            ? ["COOK"]
+            : rule.target_role_a === "CLEAN"
+              ? ["CLEAN"]
+              : ["COOK", "CLEAN"];
+
+        for (const r of checkRoles) {
+          const team = r === "COOK" ? entry.cooks : entry.cleaners;
+          if (team.some((m) => m.toLowerCase() === pA.toLowerCase())) {
+            const hasMentor = team.some((m) => whitelist.includes(m.toLowerCase()));
+            if (!hasMentor) {
+              violations.push({
+                ruleId: rule.id,
+                severity: rule.is_hard_rule ? "hard" : "soft",
+                description: `${pA} is on ${r.toLowerCase()} team on ${md.dateLabel}, but no approved co-worker (${pB}) was assigned to that team.`,
+                dateKey: md.dateKey,
+                members: [pA, ...pB.split(",").map((s) => s.trim())],
+              });
+            }
+          }
         }
       }
     }

@@ -1,5 +1,13 @@
 import React from "react";
-import { Plus, MessageSquare, Pencil, Trash2, Sparkles, RefreshCw } from "lucide-react";
+import {
+  Plus,
+  MessageSquare,
+  Pencil,
+  Trash2,
+  Sparkles,
+  RefreshCw,
+  ShieldCheck,
+} from "lucide-react";
 import { ExceptionRule } from "../../../server/types";
 
 export interface MemberAttentionItem {
@@ -13,6 +21,7 @@ export interface MemberAttentionItem {
 interface Step2NotesRulesProps {
   membersRequiringAttention: MemberAttentionItem[];
   handleOpenAddGenericRule: () => void;
+  handleOpenAddWhitelistRule: () => void;
   handleOpenAddRuleForMember: (memberName: string, contextNote?: string) => void;
   handleOpenEditRule: (rule: ExceptionRule) => void;
   handleDeleteRule: (ruleId: string) => void;
@@ -24,6 +33,7 @@ interface Step2NotesRulesProps {
 export const Step2NotesRules: React.FC<Step2NotesRulesProps> = ({
   membersRequiringAttention,
   handleOpenAddGenericRule,
+  handleOpenAddWhitelistRule,
   handleOpenAddRuleForMember,
   handleOpenEditRule,
   handleDeleteRule,
@@ -45,13 +55,24 @@ export const Step2NotesRules: React.FC<Step2NotesRulesProps> = ({
             member.
           </p>
         </div>
-        <button
-          onClick={handleOpenAddGenericRule}
-          className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-colors cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add General Rule</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleOpenAddWhitelistRule}
+            className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2.5 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-colors cursor-pointer"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Add Mentor Whitelist</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenAddGenericRule}
+            className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add General Rule</span>
+          </button>
+        </div>
       </div>
 
       {/* Per-Member Cards */}
@@ -115,55 +136,103 @@ export const Step2NotesRules: React.FC<Step2NotesRulesProps> = ({
 
                 {item.rules.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {item.rules.map((rule) => (
-                      <div
-                        key={rule.id}
-                        className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-2"
-                      >
-                        <div className="flex items-start gap-2.5 min-w-0">
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-lg font-bold uppercase shrink-0 ${
-                              rule.is_hard_rule
-                                ? "bg-rose-100 text-rose-950 border border-rose-300"
-                                : "bg-sky-100 text-sky-950 border border-sky-300"
-                            }`}
-                          >
-                            {rule.is_hard_rule ? "Hard" : "Soft"}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-slate-900 truncate">
-                              <span className="text-orange-800 font-mono">{rule.rule_type}</span>
-                              {rule.person_b &&
-                                ` ↔ ${rule.person_a === item.name ? rule.person_b : rule.person_a}`}
-                            </p>
-                            {rule.notes && (
-                              <p className="text-xs text-slate-700 truncate max-w-[220px]">
-                                {rule.notes}
-                              </p>
-                            )}
+                    {item.rules.map((rule) => {
+                      const isWhitelist = rule.rule_type === "REQUIRE_ONE_OF_TEAM";
+                      const mentorList =
+                        isWhitelist && rule.person_b
+                          ? rule.person_b
+                              .split(",")
+                              .map((s) => s.trim())
+                              .filter(Boolean)
+                          : [];
+
+                      return (
+                        <div
+                          key={rule.id}
+                          className={`p-3 rounded-xl border flex items-center justify-between gap-2 ${
+                            isWhitelist
+                              ? "bg-purple-50/60 border-purple-200"
+                              : "bg-slate-50 border-slate-200"
+                          }`}
+                        >
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded-lg font-bold uppercase shrink-0 ${
+                                rule.is_hard_rule
+                                  ? "bg-rose-100 text-rose-950 border border-rose-300"
+                                  : "bg-sky-100 text-sky-950 border border-sky-300"
+                              }`}
+                            >
+                              {rule.is_hard_rule ? "Hard" : "Soft"}
+                            </span>
+                            <div className="min-w-0">
+                              {isWhitelist ? (
+                                <div>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-xs font-black text-purple-900 bg-purple-100 px-2 py-0.5 rounded-md border border-purple-200 inline-flex items-center gap-1">
+                                      <ShieldCheck className="w-3 h-3 text-purple-700" />
+                                      Mentor Whitelist
+                                    </span>
+                                    <span className="text-[11px] font-bold text-slate-600">
+                                      {rule.target_role_a === "COOK"
+                                        ? "(Cooks Only)"
+                                        : rule.target_role_a === "CLEAN"
+                                          ? "(Cleans Only)"
+                                          : "(Cook & Clean)"}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs font-bold text-slate-900 mt-1">
+                                    Must pair with at least one of:
+                                  </p>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {mentorList.map((m) => (
+                                      <span
+                                        key={m}
+                                        className="inline-block px-1.5 py-0.5 bg-white border border-purple-300 text-purple-950 rounded text-[11px] font-bold"
+                                      >
+                                        ✓ {m}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-xs font-bold text-slate-900 truncate">
+                                  <span className="text-orange-800 font-mono">
+                                    {rule.rule_type}
+                                  </span>
+                                  {rule.person_b &&
+                                    ` ↔ ${rule.person_a === item.name ? rule.person_b : rule.person_a}`}
+                                </p>
+                              )}
+                              {rule.notes && (
+                                <p className="text-xs text-slate-700 truncate max-w-[220px] mt-0.5">
+                                  {rule.notes}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => handleOpenEditRule(rule)}
+                              aria-label={`Edit rule for ${rule.person_a}`}
+                              className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-600 hover:text-orange-700 hover:bg-orange-50 rounded-xl transition-colors cursor-pointer"
+                              title="Edit Rule"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteRule(rule.id)}
+                              aria-label={`Delete rule for ${rule.person_a}`}
+                              className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                              title="Delete Rule"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={() => handleOpenEditRule(rule)}
-                            aria-label={`Edit rule for ${rule.person_a}`}
-                            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-600 hover:text-orange-700 hover:bg-orange-50 rounded-xl transition-colors cursor-pointer"
-                            title="Edit Rule"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteRule(rule.id)}
-                            aria-label={`Delete rule for ${rule.person_a}`}
-                            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                            title="Delete Rule"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-xs text-slate-600 italic">

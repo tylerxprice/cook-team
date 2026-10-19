@@ -70,6 +70,7 @@ import { OverwriteSurveyConfirmModal } from "./components/modals/OverwriteSurvey
 import { NearCompleteOpportunityModal } from "./components/modals/NearCompleteOpportunityModal";
 import { ResendConfirmModal } from "./components/modals/ResendConfirmModal";
 import { ManualSurveyResponseModal } from "./components/modals/ManualSurveyResponseModal";
+import { WhitelistRuleModal } from "./components/modals/WhitelistRuleModal";
 
 import { PortalLandingView } from "./components/views/PortalLandingView";
 import { ResidentScheduleView } from "./components/views/ResidentScheduleView";
@@ -346,6 +347,8 @@ function MainApp() {
   const [bulkImportText, setBulkImportText] = useState("");
   const [bulkImportSaving, setBulkImportSaving] = useState(false);
   const [showAddRuleModal, setShowAddRuleModal] = useState(false);
+  const [showWhitelistModal, setShowWhitelistModal] = useState(false);
+  const [editingWhitelistRule, setEditingWhitelistRule] = useState<ExceptionRule | null>(null);
   const [modalContextNote, setModalContextNote] = useState<string | null>(null);
   const [selectedQuotaMember, setSelectedQuotaMember] = useState<string | null>(null);
   const [selectedQuotaFocusDateKey, setSelectedQuotaFocusDateKey] = useState<string | null>(null);
@@ -1969,6 +1972,9 @@ function MainApp() {
         } else if (showAddRuleModal) {
           setShowAddRuleModal(false);
           setModalContextNote(null);
+        } else if (showWhitelistModal) {
+          setShowWhitelistModal(false);
+          setEditingWhitelistRule(null);
         } else if (showOverwriteSurveyModal) {
           setShowOverwriteSurveyModal(false);
         } else if (showMealSignupModal) setShowMealSignupModal(false);
@@ -1987,6 +1993,7 @@ function MainApp() {
     swapModal,
     selectedQuotaMember,
     showAddRuleModal,
+    showWhitelistModal,
     showOverwriteSurveyModal,
     showMealSignupModal,
     showReportsModal,
@@ -2358,7 +2365,36 @@ function MainApp() {
     setShowAddRuleModal(true);
   };
 
+  const handleOpenAddWhitelistRule = () => {
+    setEditingWhitelistRule(null);
+    setShowWhitelistModal(true);
+  };
+
+  const handleSaveWhitelistRule = async (rule: ExceptionRule) => {
+    const isEdit = !!rule.id;
+    try {
+      const updated = await callGas<ExceptionRule[]>(
+        "saveExceptionRule",
+        rule,
+        masterSheetInput,
+        isDevMode
+      );
+      intakeCacheRef.current = {};
+      setExceptions(updated);
+      setShowWhitelistModal(false);
+      setEditingWhitelistRule(null);
+      showToast(isEdit ? "Mentor whitelist rule updated!" : "Mentor whitelist rule added!");
+    } catch (err: any) {
+      showToast(`Failed to save whitelist rule: ${err.message}`, "error");
+    }
+  };
+
   const handleOpenEditRule = (rule: ExceptionRule) => {
+    if (rule.rule_type === "REQUIRE_ONE_OF_TEAM") {
+      setEditingWhitelistRule(rule);
+      setShowWhitelistModal(true);
+      return;
+    }
     // Look up note for person_a
     const resp = intakeData?.responses.find(
       (r) => r.name.toLowerCase() === rule.person_a.toLowerCase()
@@ -3671,6 +3707,7 @@ function MainApp() {
           <Step2NotesRules
             membersRequiringAttention={membersRequiringAttention}
             handleOpenAddGenericRule={handleOpenAddGenericRule}
+            handleOpenAddWhitelistRule={handleOpenAddWhitelistRule}
             handleOpenAddRuleForMember={handleOpenAddRuleForMember}
             handleOpenEditRule={handleOpenEditRule}
             handleDeleteRule={handleDeleteRule}
@@ -3768,6 +3805,17 @@ function MainApp() {
         modalContextNote={modalContextNote}
         members={members}
         handleSaveRule={handleSaveRule}
+      />
+
+      <WhitelistRuleModal
+        show={showWhitelistModal}
+        onClose={() => {
+          setShowWhitelistModal(false);
+          setEditingWhitelistRule(null);
+        }}
+        ruleToEdit={editingWhitelistRule}
+        members={members}
+        onSaveRule={handleSaveWhitelistRule}
       />
 
       <MemberCalendarInspectorModal

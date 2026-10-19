@@ -79,6 +79,9 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
                 SAME_DAY_DIFF_TEAM (Same date, different team)
               </option>
               <option value="PAIR_WITH_ROLE">PAIR_WITH_ROLE (Assign together for role)</option>
+              <option value="REQUIRE_ONE_OF_TEAM">
+                REQUIRE_ONE_OF_TEAM (Must pair with approved mentor pool)
+              </option>
             </select>
           </div>
 

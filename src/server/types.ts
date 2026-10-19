@@ -9,7 +9,12 @@ export type MealType = "DINNER" | "BRUNCH";
 export type AvailabilityStatus = "AVAILABLE" | "COOK_ONLY" | "CLEAN_ONLY" | "UNAVAILABLE";
 
 export type RuleType =
-  "NOT_SAME_TEAM" | "NOT_SAME_DAY" | "SAME_DAY_DIFF_TEAM" | "PAIR_WITH_ROLE" | "PREF_SAME_DAY";
+  | "NOT_SAME_TEAM"
+  | "NOT_SAME_DAY"
+  | "SAME_DAY_DIFF_TEAM"
+  | "PAIR_WITH_ROLE"
+  | "PREF_SAME_DAY"
+  | "REQUIRE_ONE_OF_TEAM";
 
 export type CookTeamPolicy = "ADAPTIVE_3_OR_2" | "DINNER_3_BRUNCH_2" | "TWO_REGARDLESS";
 
