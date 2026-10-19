@@ -3822,8 +3822,14 @@ function setMonthStatus(monthKey: string, status: MonthStatus): SetMonthStatusRe
     ...existingConfig,
     monthKey: cleanMonth,
     status,
-    closedAt: status === "CLOSED" ? now : existingConfig.closedAt,
-    openedAt: status === "OPEN" ? existingConfig.openedAt || now : existingConfig.openedAt,
+    closedAt:
+      status === "CLOSED" ? now : status === "NOT_OPEN" ? undefined : existingConfig.closedAt,
+    openedAt:
+      status === "OPEN"
+        ? existingConfig.openedAt || now
+        : status === "NOT_OPEN"
+          ? undefined
+          : existingConfig.openedAt,
   };
 
   try {

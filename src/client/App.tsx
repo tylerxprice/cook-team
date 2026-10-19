@@ -962,7 +962,10 @@ function MainApp() {
       );
 
       setMealSignupExportResult(res);
-      setSurveyFormMonthStatus("CLOSED");
+      const scheduledMonth = intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7);
+      if (scheduledMonth === surveyFormMonthKey) {
+        setSurveyFormMonthStatus("CLOSED");
+      }
       if (intakeData) {
         setIntakeData({ ...intakeData, monthStatus: "CLOSED" });
       }
@@ -1074,15 +1077,19 @@ function MainApp() {
       (activeDates[0]?.dateKey ? activeDates[0].dateKey.slice(0, 7) : "2026-11")
     ).trim();
 
+    // Draft dates preserve OPEN if currently OPEN; otherwise (CLOSED or NOT_OPEN), set/keep NOT_OPEN (Draft)
+    const targetStatus: MonthStatus = surveyFormMonthStatus === "OPEN" ? "OPEN" : "NOT_OPEN";
+
     setSurveyFormSavingDates(true);
     try {
       const res = await callGas<SaveMonthDatesResult>("saveMonthDatesAndOpen", {
         monthKey: targetMonth,
         title: surveyFormTitle.trim(),
         dates: surveyFormDates,
-        status: surveyFormMonthStatus === "OPEN" ? "OPEN" : "NOT_OPEN",
+        status: targetStatus,
       });
       setSurveyFormMonthKey(targetMonth);
+      setSurveyFormMonthStatus(res.status || targetStatus);
       showToast(res.message || "Meal dates draft saved successfully!");
     } catch (err: any) {
       console.error("handleSaveDraftDates error:", err);
@@ -1092,13 +1099,20 @@ function MainApp() {
     }
   };
 
-  const handleSetMonthStatus = async (status: MonthStatus) => {
-    const targetMonth =
-      surveyFormMonthKey || intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7) || "2026-11";
+  const handleSetMonthStatus = async (status: MonthStatus, targetMonthOverride?: string) => {
+    const targetMonth = (
+      targetMonthOverride ||
+      (appView === "form-generator" ? surveyFormMonthKey : undefined) ||
+      intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7) ||
+      surveyFormMonthKey ||
+      "2026-11"
+    ).trim();
     try {
       const res = await callGas<SetMonthStatusResult>("setMonthStatus", targetMonth, status);
-      setSurveyFormMonthStatus(status);
-      if (intakeData) {
+      if (targetMonth === surveyFormMonthKey) {
+        setSurveyFormMonthStatus(status);
+      }
+      if (intakeData && targetMonth === intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7)) {
         setIntakeData({ ...intakeData, monthStatus: status });
       }
       showToast(res.message || `Sign-up status set to ${status}.`);
@@ -3090,7 +3104,10 @@ function MainApp() {
         message: string;
       }>("exportScheduleToSheet", sheetInput, activeResult);
       setExportedResult(res);
-      setSurveyFormMonthStatus("CLOSED");
+      const scheduledMonth = intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7);
+      if (scheduledMonth === surveyFormMonthKey) {
+        setSurveyFormMonthStatus("CLOSED");
+      }
       if (intakeData) {
         setIntakeData({ ...intakeData, monthStatus: "CLOSED" });
       }
@@ -3746,7 +3763,10 @@ function MainApp() {
             handleMarkInactive={handleMarkInactive}
             handleOpenManualSurveyModal={handleOpenManualSurveyModal}
             goToStep={goToStep}
-            onToggleMonthStatus={handleSetMonthStatus}
+            onToggleMonthStatus={(newStatus) => {
+              const intakeMonth = intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7);
+              handleSetMonthStatus(newStatus, intakeMonth);
+            }}
           />
         )}
 

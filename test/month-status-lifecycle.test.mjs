@@ -108,4 +108,41 @@ test("Month Status Lifecycle - Reopening and status toggling by coordinator", ()
   // Coordinator reopens for late submissions
   configs[monthKey].status = "OPEN";
   assert.equal(configs[monthKey].status, "OPEN");
+
+  // Coordinator resets to draft (NOT_OPEN)
+  configs[monthKey].status = "NOT_OPEN";
+  configs[monthKey].closedAt = undefined;
+  configs[monthKey].openedAt = undefined;
+  assert.equal(configs[monthKey].status, "NOT_OPEN");
+  assert.equal(configs[monthKey].closedAt, undefined);
+  assert.equal(configs[monthKey].openedAt, undefined);
+});
+
+test("Month Status Lifecycle - Saving draft dates preserves or sets status to NOT_OPEN", () => {
+  const configs = JSON.parse(JSON.stringify(MOCK_MONTH_CONFIGS));
+  const monthKey = "2026-12";
+
+  // If month was previously CLOSED in error, saving draft dates switches it to NOT_OPEN
+  configs[monthKey].status = "CLOSED";
+  configs[monthKey].closedAt = "2026-12-01T00:00:00.000Z";
+
+  const targetStatus = configs[monthKey].status === "OPEN" ? "OPEN" : "NOT_OPEN";
+  configs[monthKey] = {
+    ...configs[monthKey],
+    status: targetStatus,
+    closedAt: undefined,
+    isConfigured: true,
+    dates: [
+      {
+        dateKey: "2026-12-03",
+        dateLabel: "Thu Dec 3 - Dinner",
+        mealType: "DINNER",
+        included: true,
+      },
+    ],
+  };
+
+  assert.equal(configs[monthKey].status, "NOT_OPEN");
+  assert.equal(configs[monthKey].closedAt, undefined);
+  assert.equal(configs[monthKey].dates.length, 1);
 });

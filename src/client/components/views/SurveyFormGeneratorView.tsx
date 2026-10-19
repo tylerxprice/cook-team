@@ -65,7 +65,7 @@ export interface SurveyFormGeneratorViewProps {
   onSaveDraftDates?: (targetMonthKey?: string) => Promise<void>;
   onSaveDatesAndOpen?: (targetMonthKey?: string) => Promise<void>;
   savingDates?: boolean;
-  onSetMonthStatus?: (status: MonthStatus) => Promise<void>;
+  onSetMonthStatus?: (status: MonthStatus, targetMonth?: string) => Promise<void>;
   deploymentUrl?: string;
   onBackToHome: () => void;
   onOpenCoordinator: () => void;
@@ -340,26 +340,60 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
               )}
 
               {onSetMonthStatus && monthStatus === "OPEN" && (
-                <button
-                  type="button"
-                  onClick={() => onSetMonthStatus("CLOSED")}
-                  className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-purple-900 hover:text-purple-950 bg-purple-50 hover:bg-purple-100 border border-purple-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  title="Close sign-ups (teams scheduled)"
-                >
-                  <Lock className="w-3.5 h-3.5 text-purple-700" />
-                  <span>Close Sign-Ups</span>
-                </button>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => onSetMonthStatus("CLOSED", monthKey)}
+                    className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-purple-900 hover:text-purple-950 bg-purple-50 hover:bg-purple-100 border border-purple-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Close sign-ups (teams scheduled)"
+                  >
+                    <Lock className="w-3.5 h-3.5 text-purple-700" />
+                    <span>Close Sign-Ups</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onSetMonthStatus("NOT_OPEN", monthKey)}
+                    className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Return sign-ups to draft mode"
+                  >
+                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Set to Draft</span>
+                  </button>
+                </div>
               )}
 
               {onSetMonthStatus && monthStatus === "CLOSED" && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => onSetMonthStatus("NOT_OPEN", monthKey)}
+                    className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Reset status to draft (not scheduled / not open)"
+                  >
+                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Set to Draft</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onSetMonthStatus("OPEN", monthKey)}
+                    className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Reopen sign-ups"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Reopen Sign-Ups</span>
+                  </button>
+                </div>
+              )}
+
+              {onSetMonthStatus && monthStatus === "NOT_OPEN" && (
                 <button
                   type="button"
-                  onClick={() => onSetMonthStatus("OPEN")}
+                  onClick={() => onSetMonthStatus("OPEN", monthKey)}
                   className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  title="Reopen sign-ups"
+                  title="Open sign-ups for resident submissions"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Reopen Sign-Ups</span>
+                  <span>Open Sign-Ups</span>
                 </button>
               )}
             </div>

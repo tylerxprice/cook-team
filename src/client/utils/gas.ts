@@ -1073,8 +1073,18 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
       mockMonthConfigs[monthKey] = {
         ...existing,
         status,
-        closedAt: status === "CLOSED" ? new Date().toISOString() : existing.closedAt,
-        openedAt: status === "OPEN" ? new Date().toISOString() : existing.openedAt,
+        closedAt:
+          status === "CLOSED"
+            ? new Date().toISOString()
+            : status === "NOT_OPEN"
+              ? undefined
+              : existing.closedAt,
+        openedAt:
+          status === "OPEN"
+            ? new Date().toISOString()
+            : status === "NOT_OPEN"
+              ? undefined
+              : existing.openedAt,
       };
       mockMasterSettings[`month_status_${monthKey}`] = status;
       const openSet = new Set<string>();
