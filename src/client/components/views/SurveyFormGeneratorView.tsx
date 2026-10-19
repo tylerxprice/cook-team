@@ -21,7 +21,8 @@ import {
   Search,
   Clock,
   Lock,
-  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Utensils,
   CheckCircle,
   AlertTriangle,
@@ -78,8 +79,8 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
   loadDatesPreview,
   formTitle,
   setFormTitle,
-  folderId,
-  setFolderId,
+  folderId: _folderId,
+  setFolderId: _setFolderId,
   dates,
   setDates,
   loadingDates,
@@ -96,13 +97,13 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
   monthStatus = "NOT_OPEN",
   existingSurvey = null,
   onSaveDraftDates,
-  onSaveDatesAndOpen,
+  onSaveDatesAndOpen: _onSaveDatesAndOpen,
   savingDates = false,
   onSetMonthStatus,
   deploymentUrl = "",
   onBackToHome,
   onOpenCoordinator,
-  onOpenSchedule,
+  onOpenSchedule: _onOpenSchedule,
   onToast: _onToast,
 }) => {
   const [activeTab, setActiveTab] = useState<"form" | "beta">("form");
@@ -139,8 +140,18 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
     return "";
   }, [formResult, driveSheets, monthKey]);
 
-  // Quick jump month buttons (e.g. 2026-10 through 2027-01)
-  const quickMonths = ["2026-10", "2026-11", "2026-12", "2027-01"];
+  // Step forward or backward by one month
+  const stepMonth = (delta: number) => {
+    const parts = monthKey.split("-");
+    const year = parseInt(parts[0], 10) || new Date().getFullYear();
+    const month = parseInt(parts[1], 10) || 1;
+    const date = new Date(Date.UTC(year, month - 1 + delta, 1));
+    const newYear = date.getUTCFullYear();
+    const newMonth = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const newKey = `${newYear}-${newMonth}`;
+    setMonthKey(newKey);
+    loadDatesPreview(newKey);
+  };
 
   // Sync default subject when month changes
   useEffect(() => {
@@ -255,126 +266,102 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
             >
               <span>Coordinator Wizard</span>
             </button>
-            {onOpenSchedule && (
-              <button
-                type="button"
-                onClick={onOpenSchedule}
-                className="min-h-[40px] px-3.5 py-1.5 text-xs sm:text-sm font-bold text-orange-700 hover:text-orange-900 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 hidden md:flex"
-              >
-                <Calendar className="w-4 h-4 text-orange-600" />
-                <span>Resident Shifts</span>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onBackToHome}
-              className="min-h-[40px] px-3 py-1.5 text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Hub Home</span>
-            </button>
           </div>
         </div>
       </header>
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full space-y-6">
-        {/* Top Control Bar: Target Month, Fast Jump Buttons & Status Badges (ALWAYS VISIBLE) */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Target Scheduling Cycle
-                </span>
-                {monthStatus === "OPEN" ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 rounded-full">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    Sign-Ups Open
-                  </span>
-                ) : monthStatus === "CLOSED" ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-bold text-purple-900 bg-purple-100 border border-purple-300 rounded-full">
-                    <Lock className="w-3.5 h-3.5 text-purple-700" />
-                    Closed (Scheduled)
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-bold text-slate-700 bg-slate-100 border border-slate-300 rounded-full">
-                    <Clock className="w-3.5 h-3.5 text-slate-500" />
-                    Draft (Not Open)
-                  </span>
-                )}
+        {/* Top Control Bar: Target Month & Status (ALWAYS VISIBLE) */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-100 border border-violet-200 flex items-center justify-center shrink-0 text-violet-700">
+                <Calendar className="w-5 h-5" />
               </div>
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                  {monthKey}
-                </h2>
-                <input
-                  type="month"
-                  value={monthKey}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val) {
-                      setMonthKey(val);
-                      loadDatesPreview(val);
-                    }
-                  }}
-                  className="min-h-[40px] px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-bold text-slate-900 cursor-pointer"
-                />
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                  Target Scheduling Month
+                </span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => stepMonth(-1)}
+                    disabled={loadingDates}
+                    aria-label="Previous month"
+                    title="Previous month"
+                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <input
+                    type="month"
+                    value={monthKey}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val) {
+                        setMonthKey(val);
+                        loadDatesPreview(val);
+                      }
+                    }}
+                    className="min-h-[36px] px-3 py-1 text-sm sm:text-base border border-slate-300 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-bold text-slate-900 cursor-pointer"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => stepMonth(1)}
+                    disabled={loadingDates}
+                    aria-label="Next month"
+                    title="Next month"
+                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Quick Month Switch Buttons & Actions */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold text-slate-500 mr-1 hidden sm:inline">
-                Quick Jump:
-              </span>
-              {quickMonths.map((mKey) => (
+            {/* Status Badges & Action Toggle */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              {monthStatus === "OPEN" ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 rounded-full">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Sign-Ups Open
+                </span>
+              ) : monthStatus === "CLOSED" ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-purple-900 bg-purple-100 border border-purple-300 rounded-full">
+                  <Lock className="w-3.5 h-3.5 text-purple-700" />
+                  Closed (Scheduled)
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-slate-700 bg-slate-100 border border-slate-300 rounded-full">
+                  <Clock className="w-3.5 h-3.5 text-slate-500" />
+                  Draft (Not Open)
+                </span>
+              )}
+
+              {onSetMonthStatus && monthStatus === "OPEN" && (
                 <button
-                  key={mKey}
                   type="button"
-                  onClick={() => {
-                    if (monthKey !== mKey) {
-                      setMonthKey(mKey);
-                      loadDatesPreview(mKey);
-                    }
-                  }}
-                  disabled={loadingDates}
-                  className={`min-h-[40px] px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer ${
-                    monthKey === mKey
-                      ? "bg-violet-700 text-white shadow-xs scale-102"
-                      : "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
-                  } disabled:opacity-50`}
+                  onClick={() => onSetMonthStatus("CLOSED")}
+                  className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-purple-900 hover:text-purple-950 bg-purple-50 hover:bg-purple-100 border border-purple-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Close sign-ups (teams scheduled)"
                 >
-                  {mKey}
+                  <Lock className="w-3.5 h-3.5 text-purple-700" />
+                  <span>Close Sign-Ups</span>
                 </button>
-              ))}
+              )}
 
-              {/* Status Action Buttons */}
-              <div className="flex items-center gap-2 ml-auto">
-                {onSetMonthStatus && monthStatus === "OPEN" && (
-                  <button
-                    type="button"
-                    onClick={() => onSetMonthStatus("CLOSED")}
-                    className="min-h-[40px] px-3.5 py-1.5 text-xs font-bold text-purple-900 hover:text-purple-950 bg-purple-50 hover:bg-purple-100 border border-purple-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                    title="Close sign-ups (teams scheduled)"
-                  >
-                    <Lock className="w-3.5 h-3.5 text-purple-700" />
-                    <span>Close Sign-Ups</span>
-                  </button>
-                )}
-
-                {onSetMonthStatus && monthStatus === "CLOSED" && (
-                  <button
-                    type="button"
-                    onClick={() => onSetMonthStatus("OPEN")}
-                    className="min-h-[40px] px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                    title="Reopen sign-ups"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Reopen Sign-Ups</span>
-                  </button>
-                )}
-              </div>
+              {onSetMonthStatus && monthStatus === "CLOSED" && (
+                <button
+                  type="button"
+                  onClick={() => onSetMonthStatus("OPEN")}
+                  className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Reopen sign-ups"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Reopen Sign-Ups</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -570,100 +557,9 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                   </div>
                 )}
 
-                {/* Form Settings Card */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                      <Settings className="w-4 h-4 text-violet-600" />
-                      Google Form Name &amp; Storage Location
-                    </h3>
-                    <span className="text-xs text-slate-500 font-medium">
-                      Stored in Google Drive
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label
-                        htmlFor="survey-form-title"
-                        className="block text-xs sm:text-sm font-bold text-slate-800 mb-1.5"
-                      >
-                        Google Form Title
-                      </label>
-                      <input
-                        id="survey-form-title"
-                        type="text"
-                        value={formTitle}
-                        onChange={(e) => setFormTitle(e.target.value)}
-                        placeholder="e.g. 26-11 Nov Meal Team Sign-Up"
-                        className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-semibold text-slate-900"
-                      />
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="survey-form-folder-id"
-                        className="block text-xs sm:text-sm font-bold text-slate-800 mb-1.5"
-                      >
-                        Target Google Drive Folder ID
-                      </label>
-                      <input
-                        id="survey-form-folder-id"
-                        type="text"
-                        value={folderId}
-                        onChange={(e) => setFolderId(e.target.value)}
-                        placeholder="1miNkXw-7co1ncAMZvaRJYUZXkFT07R4o"
-                        className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono text-slate-800"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Standard Question Suite Preview Summary */}
-                <div className="bg-violet-50/70 border border-violet-200 rounded-2xl p-4 space-y-2">
-                  <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-violet-950">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-violet-600 shrink-0" />
-                      <span>Standard 8-Question Suite Included</span>
-                    </div>
-                    <span className="text-xs font-bold text-violet-900 bg-violet-100 border border-violet-200 px-3 py-0.5 rounded-full">
-                      Automated Defaults
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-slate-700 pt-1">
-                    <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                      1. Verified Email (1-Click Consent)
-                    </div>
-                    <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                      2. Member Name (Text)
-                    </div>
-                    <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                      3. Cook Quota (Prefilled 1)
-                    </div>
-                    <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                      4. Clean Quota (Prefilled 1)
-                    </div>
-                    <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                      5. Max Total Shifts (Combined Cap)
-                    </div>
-                    <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                      6. Cook Team Size (Prefilled 3/2)
-                    </div>
-                    <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                      7. Same-Day Shift (Prefilled No)
-                    </div>
-                    <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                      8. Date Grid (Prefilled &apos;Not Available&apos;, Required)
-                    </div>
-                    <div className="bg-white p-2.5 rounded-xl border border-violet-200 font-medium shadow-2xs">
-                      9. Notes &amp; Special Instructions
-                    </div>
-                  </div>
-                </div>
-
-                {/* Interactive Meal Dates Table */}
+                {/* Interactive Meal Dates Table with Merged Form Title */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden space-y-4 p-5">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
                     <div>
                       <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
                         <Calendar className="w-5 h-5 text-violet-600" />
@@ -673,101 +569,29 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                         </span>
                       </h3>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Toggle dates on/off, change meal types (Dinner / Brunch), or specify special
-                        event notes.
+                        Set the Google Form title, toggle meal dates, adjust meal types (Dinner /
+                        Brunch), or specify special event notes.
                       </p>
                     </div>
+                  </div>
 
-                    {/* Table Control Buttons */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const allIncluded = dates.every((d) => d.included);
-                          setDates((prev) => prev.map((d) => ({ ...d, included: !allIncluded })));
-                        }}
-                        className="min-h-[40px] px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl transition-colors cursor-pointer"
-                      >
-                        {dates.every((d) => d.included) ? "Deselect All" : "Select All"}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={onAddCustomDate}
-                        className="min-h-[40px] px-3.5 py-1.5 text-xs font-bold text-violet-800 hover:text-violet-950 bg-violet-50 hover:bg-violet-100 border border-violet-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Add Custom Date</span>
-                      </button>
-
-                      {/* Save Draft Dates Button */}
-                      {onSaveDraftDates && (
-                        <button
-                          type="button"
-                          onClick={onSaveDraftDates}
-                          disabled={savingDates || activeDatesCount === 0}
-                          className="min-h-[40px] px-4 py-1.5 text-xs font-bold text-slate-800 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
-                          title="Saves configured meal dates/types/notes to Master Settings without opening sign-ups"
-                        >
-                          <CheckCircle className="w-4 h-4 text-slate-600" />
-                          <span>{savingDates ? "Saving Draft..." : "Save Draft Dates"}</span>
-                        </button>
-                      )}
-
-                      {/* Generate Form & Open Sign-Ups Button */}
-                      <button
-                        type="button"
-                        onClick={onExecuteCreateForm}
-                        disabled={
-                          loadingCreate ||
-                          activeDatesCount === 0 ||
-                          existingSurvey?.canOverwrite === false
-                        }
-                        title={
-                          existingSurvey?.canOverwrite === false
-                            ? `Generating a new form is blocked because ${existingSurvey.responseCount} responses have already been received.`
-                            : undefined
-                        }
-                        className={`min-h-[40px] px-4 py-1.5 text-xs font-bold rounded-xl transition-all shadow-xs hover:shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                          existingSurvey?.canOverwrite === false
-                            ? "bg-slate-400 text-white cursor-not-allowed"
-                            : "bg-violet-700 hover:bg-violet-800 text-white"
-                        }`}
-                      >
-                        {loadingCreate ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 animate-spin" />
-                            <span>Creating Form &amp; Sheet...</span>
-                          </>
-                        ) : existingSurvey?.canOverwrite === false ? (
-                          <>
-                            <Lock className="w-4 h-4" />
-                            <span>
-                              Form Exists ({existingSurvey.responseCount} Responses) — Locked
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <FileText className="w-4 h-4" />
-                            <span>Generate Form &amp; Open Sign-Ups</span>
-                          </>
-                        )}
-                      </button>
-
-                      {/* Optional Save Dates & Open Sign-Ups directly (if form already created or web-only) */}
-                      {onSaveDatesAndOpen && monthStatus !== "OPEN" && (
-                        <button
-                          type="button"
-                          onClick={onSaveDatesAndOpen}
-                          disabled={savingDates || activeDatesCount === 0}
-                          className="min-h-[40px] px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
-                          title="Opens sign-ups directly using these configured meal dates"
-                        >
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          <span>{savingDates ? "Opening..." : "Open Sign-Ups"}</span>
-                        </button>
-                      )}
-                    </div>
+                  {/* Merged Google Form Title Input */}
+                  <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <label
+                      htmlFor="survey-form-title"
+                      className="text-xs font-bold text-slate-700 sm:w-36 shrink-0 flex items-center gap-1.5"
+                    >
+                      <FileText className="w-4 h-4 text-violet-600" />
+                      <span>Google Form Title</span>
+                    </label>
+                    <input
+                      id="survey-form-title"
+                      type="text"
+                      value={formTitle}
+                      onChange={(e) => setFormTitle(e.target.value)}
+                      placeholder="e.g. 26-11 Nov Meal Team Sign-Up"
+                      className="flex-1 min-h-[40px] px-3.5 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-semibold text-slate-900"
+                    />
                   </div>
 
                   {dates.length === 0 ? (
@@ -907,6 +731,74 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                       </table>
                     </div>
                   )}
+
+                  {/* Action / Control Buttons: Placed AFTER Date Entry */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={onAddCustomDate}
+                      className="min-h-[40px] px-3.5 py-1.5 text-xs sm:text-sm font-bold text-violet-800 hover:text-violet-950 bg-violet-50 hover:bg-violet-100 border border-violet-300 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer self-start sm:self-auto"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Custom Date</span>
+                    </button>
+
+                    <div className="flex items-center gap-2.5 flex-wrap sm:ml-auto">
+                      {/* Save Draft Dates Button */}
+                      {onSaveDraftDates && (
+                        <button
+                          type="button"
+                          onClick={onSaveDraftDates}
+                          disabled={savingDates || activeDatesCount === 0}
+                          className="min-h-[40px] px-4 py-1.5 text-xs sm:text-sm font-bold text-slate-800 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
+                          title="Saves configured meal dates/types/notes to Master Settings without opening sign-ups"
+                        >
+                          <CheckCircle className="w-4 h-4 text-slate-600" />
+                          <span>{savingDates ? "Saving Draft..." : "Save Draft Dates"}</span>
+                        </button>
+                      )}
+
+                      {/* Generate Form & Open Sign-Ups Button */}
+                      <button
+                        type="button"
+                        onClick={onExecuteCreateForm}
+                        disabled={
+                          loadingCreate ||
+                          activeDatesCount === 0 ||
+                          existingSurvey?.canOverwrite === false
+                        }
+                        title={
+                          existingSurvey?.canOverwrite === false
+                            ? `Generating a new form is blocked because ${existingSurvey.responseCount} responses have already been received.`
+                            : undefined
+                        }
+                        className={`min-h-[40px] px-5 py-1.5 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-xs hover:shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                          existingSurvey?.canOverwrite === false
+                            ? "bg-slate-400 text-white cursor-not-allowed"
+                            : "bg-violet-700 hover:bg-violet-800 text-white"
+                        }`}
+                      >
+                        {loadingCreate ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span>Creating Form &amp; Sheet...</span>
+                          </>
+                        ) : existingSurvey?.canOverwrite === false ? (
+                          <>
+                            <Lock className="w-4 h-4" />
+                            <span>
+                              Form Exists ({existingSurvey.responseCount} Responses) — Locked
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="w-4 h-4" />
+                            <span>Generate Form &amp; Open Sign-Ups</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
 
                   {/* Persistence information callout */}
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 flex items-center justify-between">
