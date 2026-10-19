@@ -587,7 +587,11 @@ async function runE2ETest() {
     // Execute Form & Response Sheet generation
     const generateSurveyBtn = page.locator("button:has-text('Generate Form & Open Sign-Ups')").first();
     await generateSurveyBtn.click();
-    await page.waitForSelector("text=Successfully created Google Form", { timeout: 5000 });
+    const overwriteConfirmBtn = page.locator("button:has-text('Yes, Overwrite & Create Form')").first();
+    if (await overwriteConfirmBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await overwriteConfirmBtn.click();
+    }
+    await page.waitForSelector("text=Successfully created Google Form", { timeout: 8000 });
     console.log("✓ Google Form & Response Sheet generation executed successfully!");
 
     // Return to Step 4 via browser back button

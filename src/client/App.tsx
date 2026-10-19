@@ -1026,21 +1026,28 @@ function MainApp() {
     }
   };
 
-  const handleSaveMonthDatesAndOpen = async () => {
+  const handleSaveMonthDatesAndOpen = async (targetMonthOverride?: string) => {
     const activeDates = surveyFormDates.filter((d) => d.included);
     if (activeDates.length === 0) {
       showToast("Please include at least one meal date.", "error");
       return;
     }
 
+    const targetMonth = (
+      targetMonthOverride ||
+      surveyFormMonthKey ||
+      (activeDates[0]?.dateKey ? activeDates[0].dateKey.slice(0, 7) : "2026-11")
+    ).trim();
+
     setSurveyFormSavingDates(true);
     try {
       const res = await callGas<SaveMonthDatesResult>("saveMonthDatesAndOpen", {
-        monthKey: surveyFormMonthKey,
+        monthKey: targetMonth,
         title: surveyFormTitle.trim(),
         dates: surveyFormDates,
         status: "OPEN",
       });
+      setSurveyFormMonthKey(targetMonth);
       setSurveyFormMonthStatus("OPEN");
       if (intakeData) {
         setIntakeData({ ...intakeData, monthStatus: "OPEN" });
@@ -1054,21 +1061,28 @@ function MainApp() {
     }
   };
 
-  const handleSaveDraftDates = async () => {
+  const handleSaveDraftDates = async (targetMonthOverride?: string) => {
     const activeDates = surveyFormDates.filter((d) => d.included);
     if (activeDates.length === 0) {
       showToast("Please include at least one meal date.", "error");
       return;
     }
 
+    const targetMonth = (
+      targetMonthOverride ||
+      surveyFormMonthKey ||
+      (activeDates[0]?.dateKey ? activeDates[0].dateKey.slice(0, 7) : "2026-11")
+    ).trim();
+
     setSurveyFormSavingDates(true);
     try {
       const res = await callGas<SaveMonthDatesResult>("saveMonthDatesAndOpen", {
-        monthKey: surveyFormMonthKey,
+        monthKey: targetMonth,
         title: surveyFormTitle.trim(),
         dates: surveyFormDates,
         status: surveyFormMonthStatus === "OPEN" ? "OPEN" : "NOT_OPEN",
       });
+      setSurveyFormMonthKey(targetMonth);
       showToast(res.message || "Meal dates draft saved successfully!");
     } catch (err: any) {
       console.error("handleSaveDraftDates error:", err);
@@ -1093,12 +1107,21 @@ function MainApp() {
     }
   };
 
-  const handleExecuteCreateSurveyForm = async (confirmedOverwrite?: boolean) => {
+  const handleExecuteCreateSurveyForm = async (
+    confirmedOverwrite?: boolean,
+    targetMonthOverride?: string
+  ) => {
     const activeDates = surveyFormDates.filter((d) => d.included);
     if (activeDates.length === 0) {
       showToast("Please include at least one meal date.", "error");
       return;
     }
+
+    const targetMonth = (
+      targetMonthOverride ||
+      surveyFormMonthKey ||
+      (activeDates[0]?.dateKey ? activeDates[0].dateKey.slice(0, 7) : "2026-11")
+    ).trim();
 
     if (surveyFormExistingSurvey?.exists) {
       if (!surveyFormExistingSurvey.canOverwrite) {
@@ -1117,7 +1140,7 @@ function MainApp() {
     setSurveyFormLoadingCreate(true);
     try {
       const res = await callGas<CreateSurveyFormResult>("createMonthlySurveyForm", {
-        monthKey: surveyFormMonthKey,
+        monthKey: targetMonth,
         title: surveyFormTitle.trim(),
         folderId:
           surveyFormFolderId.trim() || driveFolderId.trim() || "1miNkXw-7co1ncAMZvaRJYUZXkFT07R4o",
@@ -1125,12 +1148,14 @@ function MainApp() {
         allowOverwrite: confirmedOverwrite || false,
       });
 
+      setSurveyFormMonthKey(targetMonth);
       setSurveyFormResult(res);
       setSurveyFormMonthStatus("OPEN");
       if (res.spreadsheetId) {
         setSurveyFormExistingSurvey({
           exists: true,
           spreadsheetId: res.spreadsheetId,
+          spreadsheetName: `${res.formTitle || targetMonth} (Responses)`,
           spreadsheetUrl: res.spreadsheetUrl || "",
           responseCount: 0,
           canOverwrite: true,
@@ -1385,6 +1410,26 @@ function MainApp() {
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setNotification({ msg, type });
     setTimeout(() => setNotification(null), 3500);
+  };
+
+  const renderToast = () => {
+    if (!notification) return null;
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className={`fixed top-16 right-6 z-50 px-4 py-3 rounded-xl shadow-lg flex items-center gap-2.5 text-xs sm:text-sm font-bold text-white transition-all transform animate-in fade-in slide-in-from-top-4 ${
+          notification.type === "success" ? "bg-slate-900" : "bg-rose-700"
+        }`}
+      >
+        {notification.type === "success" ? (
+          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+        ) : (
+          <AlertTriangle className="w-5 h-5 text-amber-300 shrink-0" />
+        )}
+        <span>{notification.msg}</span>
+      </div>
+    );
   };
 
   const fetchDriveSheets = async () => {
@@ -1782,6 +1827,7 @@ function MainApp() {
     } else if (initialView === "form-generator") {
       const p = getAppUrlParams();
       const m = p.get("month") || surveyFormMonthKey || "2026-11";
+      setSurveyFormMonthKey(m);
       loadSurveyFormDatesPreview(m);
     }
 
@@ -3291,13 +3337,16 @@ function MainApp() {
 
   if (appView === "portal") {
     return (
-      <PortalLandingView
-        communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
-        monthTitle={publicMonthTitle}
-        onSelectCoordinator={() => navigateToView("coordinator", { step: 1 })}
-        onSelectResident={() => navigateToView("resident")}
-        onSelectFormGenerator={() => handleOpenSurveyFormGenerator()}
-      />
+      <>
+        <PortalLandingView
+          communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
+          monthTitle={publicMonthTitle}
+          onSelectCoordinator={() => navigateToView("coordinator", { step: 1 })}
+          onSelectResident={() => navigateToView("resident")}
+          onSelectFormGenerator={() => handleOpenSurveyFormGenerator()}
+        />
+        {renderToast()}
+      </>
     );
   }
 
@@ -3305,19 +3354,22 @@ function MainApp() {
     const params = getAppUrlParams();
     const initialName = urlMemberName || params.get("name") || params.get("user") || undefined;
     return (
-      <ResidentScheduleView
-        schedule={publicSchedule.length > 0 ? publicSchedule : solverResult?.schedule || []}
-        members={members}
-        monthTitle={publicMonthTitle}
-        monthKey={publicMonthKey}
-        availableMonths={publicAvailableMonths}
-        communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
-        onSelectMonth={handleSelectPublicMonth}
-        initialMemberName={initialName}
-        isLoading={loadingPublicSchedule}
-        onBackToHome={() => navigateToView("portal")}
-        onOpenCoordinator={() => navigateToView("coordinator", { step: 1 })}
-      />
+      <>
+        <ResidentScheduleView
+          schedule={publicSchedule.length > 0 ? publicSchedule : solverResult?.schedule || []}
+          members={members}
+          monthTitle={publicMonthTitle}
+          monthKey={publicMonthKey}
+          availableMonths={publicAvailableMonths}
+          communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
+          onSelectMonth={handleSelectPublicMonth}
+          initialMemberName={initialName}
+          isLoading={loadingPublicSchedule}
+          onBackToHome={() => navigateToView("portal")}
+          onOpenCoordinator={() => navigateToView("coordinator", { step: 1 })}
+        />
+        {renderToast()}
+      </>
     );
   }
 
@@ -3343,15 +3395,15 @@ function MainApp() {
           copiedLink={surveyFormCopiedLink}
           onCopyLink={handleCopySurveyLink}
           onAddCustomDate={handleAddCustomSurveyDate}
-          onExecuteCreateForm={handleExecuteCreateSurveyForm}
+          onExecuteCreateForm={(targetMonth) => handleExecuteCreateSurveyForm(false, targetMonth)}
           members={members}
           coordinatorEmail={emailTo}
           spreadsheetId={sheetInput}
           driveSheets={driveSheets}
           monthStatus={surveyFormMonthStatus}
           existingSurvey={surveyFormExistingSurvey}
-          onSaveDraftDates={handleSaveDraftDates}
-          onSaveDatesAndOpen={handleSaveMonthDatesAndOpen}
+          onSaveDraftDates={(targetMonth) => handleSaveDraftDates(targetMonth)}
+          onSaveDatesAndOpen={(targetMonth) => handleSaveMonthDatesAndOpen(targetMonth)}
           savingDates={surveyFormSavingDates}
           onSetMonthStatus={handleSetMonthStatus}
           deploymentUrl={deploymentUrl}
@@ -3366,13 +3418,14 @@ function MainApp() {
             onClose={() => setShowOverwriteSurveyModal(false)}
             onConfirm={() => {
               setShowOverwriteSurveyModal(false);
-              handleExecuteCreateSurveyForm(true);
+              handleExecuteCreateSurveyForm(true, surveyFormMonthKey);
             }}
             monthKey={surveyFormMonthKey}
             existingSurvey={surveyFormExistingSurvey}
             loading={surveyFormLoadingCreate}
           />
         )}
+        {renderToast()}
       </>
     );
   }
@@ -3385,17 +3438,20 @@ function MainApp() {
     const initialSheet = params.get("sheetId") || sheetInput || undefined;
 
     return (
-      <WebSurveySignupView
-        monthKey={initialMonth}
-        initialMemberName={initialName}
-        spreadsheetId={initialSheet}
-        members={members}
-        mealDates={intakeData?.mealDates || []}
-        existingResponses={intakeData?.responses || []}
-        communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
-        onBackToHome={() => navigateToView("portal")}
-        onNavigateToSchedule={(month) => navigateToView("resident", { month })}
-      />
+      <>
+        <WebSurveySignupView
+          monthKey={initialMonth}
+          initialMemberName={initialName}
+          spreadsheetId={initialSheet}
+          members={members}
+          mealDates={intakeData?.mealDates || []}
+          existingResponses={intakeData?.responses || []}
+          communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
+          onBackToHome={() => navigateToView("portal")}
+          onNavigateToSchedule={(month) => navigateToView("resident", { month })}
+        />
+        {renderToast()}
+      </>
     );
   }
 
@@ -3590,22 +3646,7 @@ function MainApp() {
       </header>
 
       {/* Toast Notification */}
-      {notification && (
-        <div
-          role="status"
-          aria-live="polite"
-          className={`fixed top-16 right-6 z-50 px-4 py-3 rounded-xl shadow-lg flex items-center gap-2.5 text-xs sm:text-sm font-bold text-white transition-all transform animate-in fade-in slide-in-from-top-4 ${
-            notification.type === "success" ? "bg-slate-900" : "bg-rose-700"
-          }`}
-        >
-          {notification.type === "success" ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-          ) : (
-            <AlertTriangle className="w-5 h-5 text-amber-300 shrink-0" />
-          )}
-          <span>{notification.msg}</span>
-        </div>
-      )}
+      {renderToast()}
 
       {/* Step Wizard Navigation Bar */}
       <div

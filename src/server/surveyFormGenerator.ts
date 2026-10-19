@@ -44,6 +44,35 @@ export function deriveFormTitle(monthKey: string): string {
 }
 
 /**
+ * Evaluates whether a Google Drive spreadsheet name corresponds to the survey / responses for a month.
+ * Strictly prevents false positives where an empty or mismatched month matches other months.
+ */
+export function matchesSurveySheetForMonth(sheetName: string, monthKey: string): boolean {
+  const cleanMonth = (monthKey || "").trim();
+  if (!cleanMonth || !/^\d{4}[-_]\d{2}$/.test(cleanMonth)) return false;
+
+  const [yearStr, monthStr] = cleanMonth.split(/[-_]/);
+  const yy = yearStr.slice(2);
+  const mm = monthStr;
+  const yyMm = `${yy}-${mm}`;
+  const yyyyMm = `${yearStr}-${monthStr}`;
+  const monthIdx = parseInt(mm, 10) - 1;
+  const shortName = (MONTH_NAMES[monthIdx] || "").toLowerCase();
+
+  const n = (sheetName || "").toLowerCase();
+  const isSurveySheet =
+    n.includes("meal team sign-up") || n.includes("cook team survey") || n.includes("responses");
+  if (!isSurveySheet) return false;
+
+  const hasExactYyMm = n.includes(yyMm) || n.includes(yyMm.replace("-", "_"));
+  const hasExactYyyyMm = n.includes(yyyyMm) || n.includes(yyyyMm.replace("-", "_"));
+  const hasMonthAndYear =
+    Boolean(shortName) && n.includes(shortName) && (n.includes(yearStr) || n.includes(yy));
+
+  return Boolean(hasExactYyMm || hasExactYyyyMm || hasMonthAndYear);
+}
+
+/**
  * Automatically generates all standard Sundays (alternating Brunch/Dinner),
  * Mondays (Dinner), and Thursdays (Dinner) for a given monthKey (e.g. "2026-11").
  */

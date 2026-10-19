@@ -4,6 +4,7 @@ import {
   generateMonthlySurveyDates,
   deriveFormTitle,
   buildFormGridRowLabel,
+  matchesSurveySheetForMonth,
 } from "../src/server/surveyFormGenerator.ts";
 
 test("Survey Form Generator - Form Title Derivation", () => {
@@ -112,4 +113,37 @@ test("Survey Form Generator - Continuous Sunday Alternating Pattern (Nov Brunch 
   assert.equal(janSundays[0].dateKey, "2027-01-03");
   assert.equal(janSundays[0].mealType, "DINNER");
   assert.equal(janSundays[0].dateLabel, "Jan 3 (Sun, Dinner)");
+});
+
+test("Survey Form Generator - matchesSurveySheetForMonth strictly matches target month and rejects false positives", () => {
+  const janSheet = "26-01 JAN Cook Team Survey (Responses)";
+  const novSheet = "26-11 Nov Meal Team Sign-Up (Responses)";
+  const decSheet = "26-12 Dec Meal Team Sign-Up (Responses)";
+  const masterSheet = "Master Community Registry (Vancouver Cohousing)";
+
+  // December 2026 MUST NOT match January sheet (the bug that caused the false block)
+  assert.equal(matchesSurveySheetForMonth(janSheet, "2026-12"), false);
+  assert.equal(matchesSurveySheetForMonth(novSheet, "2026-12"), false);
+  assert.equal(matchesSurveySheetForMonth(decSheet, "2026-12"), true);
+
+  // January 2026 matches January sheet
+  assert.equal(matchesSurveySheetForMonth(janSheet, "2026-01"), true);
+  assert.equal(matchesSurveySheetForMonth(decSheet, "2026-01"), false);
+
+  // November 2026 matches November sheet
+  assert.equal(matchesSurveySheetForMonth(novSheet, "2026-11"), true);
+  assert.equal(matchesSurveySheetForMonth(janSheet, "2026-11"), false);
+
+  // Empty, null, undefined, or invalid month keys MUST NEVER match any sheet
+  assert.equal(matchesSurveySheetForMonth(janSheet, ""), false);
+  assert.equal(matchesSurveySheetForMonth(janSheet, "   "), false);
+  assert.equal(matchesSurveySheetForMonth(janSheet, null), false);
+  assert.equal(matchesSurveySheetForMonth(janSheet, undefined), false);
+  assert.equal(matchesSurveySheetForMonth(janSheet, "invalid-month"), false);
+  assert.equal(matchesSurveySheetForMonth(janSheet, "2026"), false);
+  assert.equal(matchesSurveySheetForMonth(decSheet, ""), false);
+
+  // Non-survey sheets must never match
+  assert.equal(matchesSurveySheetForMonth(masterSheet, "2026-12"), false);
+  assert.equal(matchesSurveySheetForMonth(masterSheet, "2026-01"), false);
 });

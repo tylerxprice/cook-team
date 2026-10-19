@@ -58,6 +58,7 @@ import {
   generateMonthlySurveyDates,
   deriveFormTitle,
   executeCreateSurveyForm,
+  matchesSurveySheetForMonth,
 } from "./surveyFormGenerator";
 import {
   SurveyFormDateConfig,
@@ -1560,18 +1561,9 @@ function saveWebSurveyResponse(
   if (!targetId) {
     // Attempt auto-resolve by monthKey from drive files
     try {
-      const driveSheets = listAvailableDriveSheets();
-      const monthPart = payload.monthKey || "";
-      const yyMm = monthPart && monthPart.length >= 7 ? monthPart.slice(2) : "";
-      const match = driveSheets.find((s) => {
-        const n = s.name.toLowerCase();
-        if (monthPart) {
-          return n.includes(monthPart.toLowerCase()) || (yyMm && n.includes(yyMm));
-        }
-        return n.includes("meal team sign-up") || n.includes("responses");
-      });
-      if (match) {
-        targetId = match.id;
+      const existing = checkExistingSurveyForMonth(payload.monthKey);
+      if (existing.exists && existing.spreadsheetId) {
+        targetId = existing.spreadsheetId;
       }
     } catch (e) {
       console.warn("Could not auto-resolve survey spreadsheet for month:", e);
@@ -3863,17 +3855,18 @@ function setMonthStatus(monthKey: string, status: MonthStatus): SetMonthStatusRe
  */
 function checkExistingSurveyForMonth(monthKey: string): ExistingSurveyInfo {
   const cleanMonth = (monthKey || "").trim();
-  const yyMm = cleanMonth.length >= 7 ? cleanMonth.slice(2) : "";
+  if (!cleanMonth || !/^\d{4}[-_]\d{2}$/.test(cleanMonth)) {
+    return {
+      exists: false,
+      responseCount: 0,
+      canOverwrite: true,
+    };
+  }
 
   let matchedSheet: DriveSheetItem | null = null;
   try {
     const driveSheets = listAvailableDriveSheets();
-    matchedSheet =
-      driveSheets.find((s) => {
-        const n = s.name.toLowerCase();
-        const hasMonth = n.includes(cleanMonth.toLowerCase()) || (yyMm && n.includes(yyMm));
-        return hasMonth && (n.includes("meal team sign-up") || n.includes("responses"));
-      }) || null;
+    matchedSheet = driveSheets.find((s) => matchesSurveySheetForMonth(s.name, cleanMonth)) || null;
   } catch (e) {
     console.warn("Could not check drive sheets for month:", e);
   }
@@ -3974,7 +3967,15 @@ function getSurveyFormDatesPreview(monthKey: string): SurveyFormDatesPreviewResu
  * and marks the month sign-up as OPEN with the configured dates.
  */
 function createMonthlySurveyForm(payload: CreateSurveyFormPayload): CreateSurveyFormResult {
-  const existing = checkExistingSurveyForMonth(payload.monthKey);
+  const resolvedMonthKey = (
+    payload.monthKey ||
+    (payload.dates && payload.dates.length > 0 && payload.dates[0].dateKey
+      ? payload.dates[0].dateKey.slice(0, 7)
+      : "")
+  ).trim();
+  payload.monthKey = resolvedMonthKey;
+
+  const existing = checkExistingSurveyForMonth(resolvedMonthKey);
   if (existing.exists) {
     if (existing.responseCount > 1) {
       throw new Error(
@@ -3983,7 +3984,7 @@ function createMonthlySurveyForm(payload: CreateSurveyFormPayload): CreateSurvey
     }
     if (!payload.allowOverwrite) {
       throw new Error(
-        `A survey spreadsheet already exists for ${payload.monthKey} ('${existing.spreadsheetName}'). Overwrite confirmation is required.`
+        `A survey spreadsheet already exists for ${resolvedMonthKey} ('${existing.spreadsheetName}'). Overwrite confirmation is required.`
       );
     }
   }
@@ -3991,7 +3992,7 @@ function createMonthlySurveyForm(payload: CreateSurveyFormPayload): CreateSurvey
   const result = executeCreateSurveyForm(payload);
   try {
     saveMonthDatesAndOpen({
-      monthKey: payload.monthKey,
+      monthKey: resolvedMonthKey,
       dates: payload.dates,
       title: payload.title,
       status: "OPEN",

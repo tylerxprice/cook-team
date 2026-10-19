@@ -55,15 +55,15 @@ export interface SurveyFormGeneratorViewProps {
   copiedLink: boolean;
   onCopyLink: (url: string) => void;
   onAddCustomDate: () => void;
-  onExecuteCreateForm: () => void;
+  onExecuteCreateForm: (targetMonthKey?: string) => void;
   members?: Member[];
   coordinatorEmail?: string;
   spreadsheetId?: string;
   driveSheets?: any[];
   monthStatus?: MonthStatus;
   existingSurvey?: ExistingSurveyInfo | null;
-  onSaveDraftDates?: () => Promise<void>;
-  onSaveDatesAndOpen?: () => Promise<void>;
+  onSaveDraftDates?: (targetMonthKey?: string) => Promise<void>;
+  onSaveDatesAndOpen?: (targetMonthKey?: string) => Promise<void>;
   savingDates?: boolean;
   onSetMonthStatus?: (status: MonthStatus) => Promise<void>;
   deploymentUrl?: string;
@@ -129,7 +129,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
   // Safely resolve the response spreadsheet ID specifically for THIS target monthKey
   const activeSpreadsheetId = React.useMemo(() => {
     if (formResult?.spreadsheetId) return formResult.spreadsheetId;
-    if (driveSheets && driveSheets.length > 0) {
+    if (driveSheets && driveSheets.length > 0 && /^\d{4}[-_]\d{2}$/.test(monthKey)) {
       const yyMm = monthKey.length >= 7 ? monthKey.slice(2) : "";
       const match = driveSheets.find((s) => {
         const n = (s.name || "").toLowerCase();
@@ -729,7 +729,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                       {onSaveDraftDates && (
                         <button
                           type="button"
-                          onClick={onSaveDraftDates}
+                          onClick={() => onSaveDraftDates && onSaveDraftDates(monthKey)}
                           disabled={savingDates || activeDatesCount === 0}
                           className="min-h-[40px] px-4 py-1.5 text-xs sm:text-sm font-bold text-slate-800 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
                           title="Saves configured meal dates/types/notes to Master Settings without opening sign-ups"
@@ -742,7 +742,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                       {/* Generate Form & Open Sign-Ups Button */}
                       <button
                         type="button"
-                        onClick={onExecuteCreateForm}
+                        onClick={() => onExecuteCreateForm(monthKey)}
                         disabled={
                           loadingCreate ||
                           activeDatesCount === 0 ||
