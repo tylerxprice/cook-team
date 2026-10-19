@@ -91,7 +91,7 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
       aria-labelledby="modal-title-meal-signup"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
     >
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Modal Header */}
         <div className="px-6 py-4 bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 text-white flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-3">
@@ -124,18 +124,18 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
         {/* Modal Body */}
         <div
           ref={mealSignupModalBodyRef}
-          className="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-50/50"
+          className="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-50/50 dark:bg-slate-900/50"
         >
           {/* Success Result Banner */}
           {mealSignupExportResult && mealSignupExportResult.success && (
-            <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl space-y-3">
+            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 border-2 border-emerald-300 dark:border-emerald-800 rounded-2xl space-y-3">
               <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-2 text-emerald-950 font-bold text-sm sm:text-base">
+                <div className="flex items-center gap-2 text-emerald-950 dark:text-emerald-200 font-bold text-sm sm:text-base">
                   <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />
                   <span>{mealSignupExportResult.message}</span>
                 </div>
                 {mealSignupExportResult.isBackupCreated && mealSignupExportResult.backupTabName && (
-                  <span className="text-xs font-bold bg-emerald-100 text-emerald-950 px-2.5 py-1 rounded-full border border-emerald-300">
+                  <span className="text-xs font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-200 px-2.5 py-1 rounded-full border border-emerald-300 dark:border-emerald-800">
                     📦 Backup Saved: {mealSignupExportResult.backupTabName}
                   </span>
                 )}
@@ -151,7 +151,7 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                   <span>Open &apos;{mealSignupExportResult.tabName}&apos; in Sign-Up Workbook</span>
                   <ExternalLink className="w-4 h-4" />
                 </a>
-                <span className="text-xs text-emerald-900 font-bold">
+                <span className="text-xs text-emerald-900 dark:text-emerald-300 font-bold">
                   ✓ {mealSignupExportResult.totalMealColumns} meal columns configured and sorted.
                 </span>
               </div>
@@ -161,17 +161,17 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
           {/* Source & Target Configuration Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* 1. Source Schedule Selection */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
+            <div className="bg-white dark:bg-slate-800/80 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <label
                   htmlFor="meal-signup-source-sheet-select"
-                  className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-1.5"
+                  className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5"
                 >
                   <Calendar className="w-4 h-4 text-orange-600" />
                   <span>1. Source Schedule (Brenda&apos;s Survey)</span>
                 </label>
                 {mealSignupSchedule.length > 0 && (
-                  <span className="text-xs font-bold bg-orange-100 text-orange-950 border border-orange-300 px-2.5 py-0.5 rounded-full">
+                  <span className="text-xs font-bold bg-orange-100 dark:bg-orange-950/60 text-orange-950 dark:text-orange-200 border border-orange-300 dark:border-orange-800 px-2.5 py-0.5 rounded-full">
                     {mealSignupSchedule.length} Dates Found
                   </span>
                 )}
@@ -184,7 +184,7 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                   setMealSignupSourceSheet(e.target.value);
                   initMealSignupModal(e.target.value);
                 }}
-                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-900"
+                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-300 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-900 dark:text-slate-100"
               >
                 <option value="">
                   {solverResult
@@ -203,17 +203,17 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                 ))}
               </select>
 
-              <p className="text-xs text-slate-700">
+              <p className="text-xs text-slate-700 dark:text-slate-400">
                 Reads the finalized <code>Schedule_YYYY-MM</code> tab created in Step 4.
               </p>
             </div>
 
             {/* 2. Target Common Meal Sign-Up Workbook */}
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
+            <div className="bg-white dark:bg-slate-800/80 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <label
                   htmlFor="meal-signup-target-workbook-id-input"
-                  className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-1.5"
+                  className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5"
                 >
                   <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
                   <span>2. Target Sign-Up Workbook</span>
@@ -223,7 +223,7 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                     href={mealSignupWorkbookInfo.spreadsheetUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 hover:text-emerald-950 underline"
+                    className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 dark:text-emerald-400 hover:text-emerald-950 dark:hover:text-emerald-300 underline"
                   >
                     <span>Open Workbook</span>
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -247,19 +247,19 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                       checkTargetWorkbook(mealSignupTargetWorkbookId);
                     }
                   }}
-                  className={`w-full min-h-[44px] pl-3.5 pr-24 py-2 text-xs sm:text-sm bg-slate-50 border rounded-xl focus:outline-none font-medium text-slate-900 font-mono transition-colors ${
+                  className={`w-full min-h-[44px] pl-3.5 pr-24 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-900/60 border rounded-xl focus:outline-none font-medium text-slate-900 dark:text-slate-100 font-mono transition-colors ${
                     mealSignupWorkbookError
-                      ? "border-rose-400 focus:ring-2 focus:ring-rose-500/20 bg-rose-50 text-rose-950"
+                      ? "border-rose-400 focus:ring-2 focus:ring-rose-500/20 bg-rose-50 dark:bg-rose-950/30 text-rose-950 dark:text-rose-200"
                       : mealSignupWorkbookInfo
-                        ? "border-emerald-300 focus:ring-2 focus:ring-emerald-500/20"
-                        : "border-slate-300 focus:ring-2 focus:ring-emerald-500/20"
+                        ? "border-emerald-300 dark:border-emerald-700 focus:ring-2 focus:ring-emerald-500/20"
+                        : "border-slate-300 dark:border-slate-600 focus:ring-2 focus:ring-emerald-500/20"
                   }`}
                 />
                 <button
                   type="button"
                   onClick={() => checkTargetWorkbook(mealSignupTargetWorkbookId)}
                   disabled={mealSignupLoadingWorkbook || !mealSignupTargetWorkbookId.trim()}
-                  className="min-h-[36px] absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1"
+                  className="min-h-[36px] absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1"
                   title="Click to check and verify spreadsheet link"
                 >
                   <RefreshCw
@@ -271,12 +271,12 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
 
               {/* Status / Error feedback */}
               {mealSignupLoadingWorkbook ? (
-                <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
                   <RefreshCw className="w-4 h-4 animate-spin text-emerald-600" />
                   <span>Checking spreadsheet in Google Sheets...</span>
                 </div>
               ) : mealSignupWorkbookError ? (
-                <div className="p-3 bg-rose-50 border border-rose-300 rounded-xl flex items-start gap-2 text-xs text-rose-900 font-medium animate-in fade-in">
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-xl flex items-start gap-2 text-xs text-rose-900 dark:text-rose-200 font-medium animate-in fade-in">
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                   <div>
                     <strong className="block font-bold">Spreadsheet Error</strong>
@@ -284,22 +284,22 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                   </div>
                 </div>
               ) : mealSignupWorkbookInfo ? (
-                <div className="flex items-center justify-between text-xs text-slate-700 bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl">
-                  <div className="truncate mr-2 font-bold text-slate-900">
+                <div className="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-2.5 rounded-xl">
+                  <div className="truncate mr-2 font-bold text-slate-900 dark:text-slate-100">
                     📄 {mealSignupWorkbookInfo.spreadsheetName}
                   </div>
                   {mealSignupWorkbookInfo.hasTemplate ? (
-                    <span className="text-emerald-950 font-bold shrink-0 text-xs bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md">
+                    <span className="text-emerald-950 dark:text-emerald-200 font-bold shrink-0 text-xs bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 px-2 py-0.5 rounded-md">
                       ✓ Template Tab Found
                     </span>
                   ) : (
-                    <span className="text-amber-950 font-bold shrink-0 text-xs bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md">
+                    <span className="text-amber-950 dark:text-amber-200 font-bold shrink-0 text-xs bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 px-2 py-0.5 rounded-md">
                       ⚠️ No &apos;Template&apos; tab found
                     </span>
                   )}
                 </div>
               ) : (
-                <div className="text-xs text-slate-600">
+                <div className="text-xs text-slate-600 dark:text-slate-400">
                   Paste a Google Sheet URL or ID and press Enter or click Verify.
                 </div>
               )}
@@ -307,12 +307,12 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
           </div>
 
           {/* Month Tab & Options */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
+          <div className="bg-white dark:bg-slate-800/80 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
               <div>
                 <label
                   htmlFor="meal-signup-target-tab-name-input"
-                  className="text-xs sm:text-sm font-bold text-slate-800 block mb-1"
+                  className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 block mb-1"
                 >
                   New Sheet Tab Name:
                 </label>
@@ -322,12 +322,12 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                   value={mealSignupTargetTabName}
                   onChange={(e) => setMealSignupTargetTabName(e.target.value)}
                   placeholder="e.g. OCT 2026"
-                  className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-900/60 border border-slate-300 dark:border-slate-600 rounded-xl font-bold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 />
               </div>
 
               <div className="sm:col-span-2 space-y-2 pt-1">
-                <label className="flex items-center gap-2 min-h-[36px] text-xs font-bold text-slate-800 cursor-pointer">
+                <label className="flex items-center gap-2 min-h-[36px] text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={mealSignupBackupExisting}
@@ -340,7 +340,7 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                   </span>
                 </label>
 
-                <label className="flex items-center gap-2 min-h-[36px] text-xs font-bold text-slate-800 cursor-pointer">
+                <label className="flex items-center gap-2 min-h-[36px] text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={mealSignupHideOlder}
@@ -356,7 +356,7 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
 
             {/* Overwrite Warning Banner */}
             {mealSignupWorkbookInfo?.isTargetTabExisting && (
-              <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl flex items-center gap-2 text-xs text-amber-950 font-medium">
+              <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl flex items-center gap-2 text-xs text-amber-950 dark:text-amber-200 font-medium">
                 <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0" />
                 <span>
                   <strong>Notice:</strong> &apos;{mealSignupTargetTabName}&apos; already exists in
@@ -370,14 +370,14 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
           </div>
 
           {/* Live Meal Date Columns Preview Table */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-            <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+          <div className="bg-white dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs overflow-hidden">
+            <div className="p-4 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
               <div>
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                   <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
                   <span>Meal Date Columns Preview ({mealSignupSchedule.length} Meals)</span>
                 </h3>
-                <p className="text-xs text-slate-600 mt-0.5">
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                   Injected in 3-column blocks across the duplicated Template tab. Deadlines default
                   to the day before at 9:00 AM.
                 </p>
@@ -385,22 +385,22 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
             </div>
 
             {mealSignupLoadingInfo ? (
-              <div className="p-8 text-center text-slate-600 text-xs sm:text-sm flex items-center justify-center gap-2">
+              <div className="p-8 text-center text-slate-600 dark:text-slate-400 text-xs sm:text-sm flex items-center justify-center gap-2">
                 <RefreshCw className="w-5 h-5 animate-spin text-emerald-600" />
                 <span>Loading schedule &amp; workbook preview...</span>
               </div>
             ) : mealSignupSchedule.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 text-xs sm:text-sm">
+              <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-xs sm:text-sm">
                 No meals found. Please select a source survey spreadsheet above.
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                  <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-700">
                     <tr>
                       <th
                         scope="col"
-                        className="px-3.5 py-2.5 border-r border-slate-200 bg-slate-200/80 sticky left-0 z-10 w-28"
+                        className="px-3.5 py-2.5 border-r border-slate-200 dark:border-slate-700 bg-slate-200/80 dark:bg-slate-700/80 text-slate-800 dark:text-slate-200 sticky left-0 z-10 w-28"
                       >
                         Row Header
                       </th>
@@ -412,19 +412,19 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                         <th
                           scope="col"
                           key={col.dateKey}
-                          className="px-3.5 py-2.5 border-r border-slate-200 min-w-[160px] text-center font-bold text-slate-900"
+                          className="px-3.5 py-2.5 border-r border-slate-200 dark:border-slate-700 min-w-[160px] text-center font-bold text-slate-900 dark:text-white"
                         >
                           {col.dayLabel}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                     {/* Row 4: DAY (Editable) */}
-                    <tr className="bg-white">
+                    <tr className="bg-white dark:bg-slate-900">
                       <th
                         scope="row"
-                        className="px-3.5 py-2 font-bold text-slate-700 bg-slate-50 border-r border-slate-200 sticky left-0 z-10 text-left"
+                        className="px-3.5 py-2 font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 sticky left-0 z-10 text-left"
                       >
                         Row 4: DAY
                       </th>
@@ -435,7 +435,7 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                       ).map((col) => (
                         <td
                           key={`day-${col.dateKey}`}
-                          className="px-2 py-1.5 border-r border-slate-200"
+                          className="px-2 py-1.5 border-r border-slate-200 dark:border-slate-700"
                         >
                           <label htmlFor={`day-edit-${col.dateKey}`} className="sr-only">
                             Day label for {col.dateKey}
@@ -450,7 +450,7 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                                 [col.dateKey]: e.target.value,
                               }))
                             }
-                            className="w-full min-h-[36px] px-2 py-1 text-xs bg-slate-50 border border-slate-300 rounded-lg font-bold text-slate-900 text-center focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                            className="w-full min-h-[36px] px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg font-bold text-slate-900 dark:text-slate-100 text-center focus:bg-white dark:focus:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                             placeholder="e.g. MON - T&R Day"
                           />
                         </td>
@@ -458,10 +458,10 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                     </tr>
 
                     {/* Row 5: DATE & TIME */}
-                    <tr className="bg-slate-50/50">
+                    <tr className="bg-slate-50/50 dark:bg-slate-900/60">
                       <th
                         scope="row"
-                        className="px-3.5 py-2 font-bold text-slate-700 bg-slate-50 border-r border-slate-200 sticky left-0 z-10 text-left"
+                        className="px-3.5 py-2 font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 sticky left-0 z-10 text-left"
                       >
                         Row 5: DATE
                       </th>
@@ -472,7 +472,7 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                       ).map((col) => (
                         <td
                           key={`date-${col.dateKey}`}
-                          className="px-3.5 py-2 border-r border-slate-200 text-center font-bold text-emerald-900"
+                          className="px-3.5 py-2 border-r border-slate-200 dark:border-slate-700 text-center font-bold text-emerald-900 dark:text-emerald-300"
                         >
                           {col.dateShort}
                         </td>
@@ -480,10 +480,10 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                     </tr>
 
                     {/* Row 6: MEAL MAKERS */}
-                    <tr className="bg-white">
+                    <tr className="bg-white dark:bg-slate-900">
                       <th
                         scope="row"
-                        className="px-3.5 py-2 font-bold text-slate-700 bg-slate-50 border-r border-slate-200 sticky left-0 z-10 text-left"
+                        className="px-3.5 py-2 font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 sticky left-0 z-10 text-left"
                       >
                         Row 6: Cooks
                       </th>
@@ -494,7 +494,7 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                       ).map((col) => (
                         <td
                           key={`cooks-${col.dateKey}`}
-                          className="px-3.5 py-2 border-r border-slate-200 text-xs text-orange-950 font-bold"
+                          className="px-3.5 py-2 border-r border-slate-200 dark:border-slate-700 text-xs text-orange-950 dark:text-orange-200 font-bold"
                         >
                           {col.isNoMeal ? (
                             <span className="font-bold text-slate-400 italic">
@@ -508,10 +508,10 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                     </tr>
 
                     {/* Row 7: Cleaners */}
-                    <tr className="bg-slate-50/50">
+                    <tr className="bg-slate-50/50 dark:bg-slate-900/60">
                       <th
                         scope="row"
-                        className="px-3.5 py-2 font-bold text-slate-700 bg-slate-50 border-r border-slate-200 sticky left-0 z-10 text-left"
+                        className="px-3.5 py-2 font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 sticky left-0 z-10 text-left"
                       >
                         Row 7: Cleaners
                       </th>
@@ -522,7 +522,7 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                       ).map((col) => (
                         <td
                           key={`cleaners-${col.dateKey}`}
-                          className="px-3.5 py-2 border-r border-slate-200 text-xs text-sky-950 font-bold"
+                          className="px-3.5 py-2 border-r border-slate-200 dark:border-slate-700 text-xs text-sky-950 dark:text-sky-200 font-bold"
                         >
                           {col.isNoMeal
                             ? ""
@@ -534,10 +534,10 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                     </tr>
 
                     {/* Row 8: SIGN UP DEADLINE (Editable) */}
-                    <tr className="bg-white">
+                    <tr className="bg-white dark:bg-slate-900">
                       <th
                         scope="row"
-                        className="px-3.5 py-2 font-bold text-slate-700 bg-slate-50 border-r border-slate-200 sticky left-0 z-10 text-left"
+                        className="px-3.5 py-2 font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 sticky left-0 z-10 text-left"
                       >
                         Row 8: Deadline
                       </th>
@@ -548,7 +548,7 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                       ).map((col) => (
                         <td
                           key={`deadline-${col.dateKey}`}
-                          className="px-2 py-1.5 border-r border-slate-200"
+                          className="px-2 py-1.5 border-r border-slate-200 dark:border-slate-700"
                         >
                           {col.isNoMeal ? (
                             <span className="text-slate-400 text-center block font-bold">—</span>
@@ -567,7 +567,7 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                                     [col.dateKey]: e.target.value,
                                   }))
                                 }
-                                className="w-full min-h-[36px] px-2 py-1 text-xs bg-slate-50 border border-slate-300 rounded-lg font-bold text-slate-900 text-center focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                className="w-full min-h-[36px] px-2 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg font-bold text-slate-900 dark:text-slate-100 text-center focus:bg-white dark:focus:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                                 placeholder="e.g. Saturday 9am"
                               />
                             </div>
@@ -583,10 +583,10 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="p-4 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
           {mealSignupExportResult && mealSignupExportResult.success ? (
             <>
-              <div className="flex items-center gap-2 text-xs sm:text-sm text-emerald-950 font-bold">
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-emerald-950 dark:text-emerald-200 font-bold">
                 <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />
                 <span>
                   ✓ &apos;{mealSignupExportResult.tabName}&apos; sheet created in Sign-Up Workbook!
@@ -597,7 +597,7 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                 <button
                   type="button"
                   onClick={onClose}
-                  className="min-h-[44px] px-5 py-2 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-950 bg-white border border-slate-300 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors"
+                  className="min-h-[44px] px-5 py-2 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                 >
                   Close
                 </button>
@@ -616,7 +616,7 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
             </>
           ) : (
             <>
-              <div className="text-xs sm:text-sm text-slate-700 font-semibold">
+              <div className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-semibold">
                 {mealSignupSchedule.length > 0
                   ? `Ready to generate '${mealSignupTargetTabName || "OCT 2026"}' with ${mealSignupSchedule.length} meal dates.`
                   : "Please select a schedule to proceed."}
@@ -626,7 +626,7 @@ export const MealSignupGeneratorModal: React.FC<MealSignupGeneratorModalProps> =
                 <button
                   type="button"
                   onClick={onClose}
-                  className="min-h-[44px] px-5 py-2 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-950 bg-white border border-slate-300 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors"
+                  className="min-h-[44px] px-5 py-2 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                 >
                   Cancel
                 </button>

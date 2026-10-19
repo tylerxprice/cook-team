@@ -82,19 +82,19 @@ export const FillMissingSlotModal: React.FC<FillMissingSlotModalProps> = ({
       aria-labelledby="modal-title-fill-slot"
       className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
     >
-      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl p-6 space-y-4 max-h-[90vh] flex flex-col border border-slate-200">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full shadow-2xl p-6 space-y-4 max-h-[90vh] flex flex-col border border-slate-200 dark:border-slate-800">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
           <div>
             <h3
               id="modal-title-fill-slot"
-              className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2"
+              className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2"
             >
               <UserPlus className={`w-5 h-5 ${isCookRole ? "text-orange-600" : "text-sky-600"}`} />
               Fill Missing {isCookRole ? "Cook" : "Cleaner"} Slot
             </h3>
-            <p className="text-xs text-slate-700 mt-1">
-              <strong className="text-slate-900">
+            <p className="text-xs text-slate-700 dark:text-slate-400 mt-1">
+              <strong className="text-slate-900 dark:text-white">
                 {formatDisplayDateLabel(selectedSlotToFill.dateLabel)}
               </strong>{" "}
               ({targetDay.mealType}) • Current Team:{" "}
@@ -106,21 +106,21 @@ export const FillMissingSlotModal: React.FC<FillMissingSlotModalProps> = ({
           <button
             onClick={onClose}
             aria-label="Close dialog"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Informational Callout */}
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-700 font-medium">
+        <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
           💡 Select a community member below to fill this slot. Members who have already fulfilled
           their requested quota will be marked as <strong>Oversubscribed</strong> in the
           distribution summary.
         </div>
 
         {/* Candidate List */}
-        <div className="overflow-y-auto flex-1 divide-y divide-slate-100 pr-1 space-y-2">
+        <div className="overflow-y-auto flex-1 divide-y divide-slate-100 dark:divide-slate-800 pr-1 space-y-2">
           {candidateList.map((item) => {
             const {
               resp,
@@ -141,79 +141,79 @@ export const FillMissingSlotModal: React.FC<FillMissingSlotModalProps> = ({
                 key={resp.name}
                 className={`p-3.5 rounded-xl border transition-colors ${
                   alreadyAssignedOnRole
-                    ? "bg-slate-50 border-slate-200 opacity-60"
+                    ? "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 opacity-60"
                     : isAvailableForRole && !conflict
-                      ? "bg-white border-slate-200 hover:border-slate-300 shadow-2xs"
-                      : "bg-slate-50/50 border-slate-200 opacity-60"
+                      ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 shadow-2xs"
+                      : "bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 opacity-60"
                 }`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   {/* Left: Member info */}
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs sm:text-sm font-bold text-slate-900">
+                      <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
                         {resp.name}
                       </span>
                       <span
                         className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${
                           avail === "AVAILABLE"
-                            ? "bg-emerald-100 text-emerald-950 border-emerald-300"
+                            ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800"
                             : avail === "COOK_ONLY"
-                              ? "bg-orange-100 text-orange-950 border-orange-300"
+                              ? "bg-orange-100 dark:bg-orange-950/60 text-orange-950 dark:text-orange-200 border-orange-300 dark:border-orange-800"
                               : avail === "CLEAN_ONLY"
-                                ? "bg-sky-100 text-sky-950 border-sky-300"
-                                : "bg-slate-100 text-slate-700 border-slate-300"
+                                ? "bg-sky-100 dark:bg-sky-950/60 text-sky-950 dark:text-sky-200 border-sky-300 dark:border-sky-800"
+                                : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600"
                         }`}
                       >
                         Survey: {avail.replace("_", " ")}
                       </span>
                       {isCookRole &&
                         (isWillingTwoPersonDinner(resp.cookTeamSizePref) ? (
-                          <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-blue-100 text-blue-950 border border-blue-300">
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-950 dark:text-blue-200 border border-blue-300 dark:border-blue-800">
                             👥 2-Cook Team OK ({resp.cookTeamSizePref})
                           </span>
                         ) : (
-                          <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-800 border border-slate-200">
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-600">
                             Pref: {resp.cookTeamSizePref || "Dinner = 3, Brunch = 2"}
                           </span>
                         ))}
                       {isOversubscribed ? (
-                        <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-purple-100 text-purple-950 border border-purple-300">
+                        <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-800">
                           ⚠️ Oversubscribes ({assignedCount}/{quota} shifts)
                         </span>
                       ) : (
-                        <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-blue-50 text-blue-900 border border-blue-200">
+                        <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-blue-50 dark:bg-blue-950/50 text-blue-900 dark:text-blue-200 border border-blue-200 dark:border-blue-800">
                           Has Quota ({assignedCount}/{quota})
                         </span>
                       )}
                     </div>
 
-                    <div className="text-xs text-slate-700 mt-1.5 flex items-center gap-3">
+                    <div className="text-xs text-slate-700 dark:text-slate-300 mt-1.5 flex items-center gap-3">
                       <span>
                         Total shifts:{" "}
-                        <strong className="text-slate-900">{stat?.totalAssigned || 0}</strong>
+                        <strong className="text-slate-900 dark:text-white">{stat?.totalAssigned || 0}</strong>
                       </span>
                       <span>
                         Cooks:{" "}
-                        <strong className="text-slate-900">{stat?.assignedCooks || 0}</strong>
+                        <strong className="text-slate-900 dark:text-white">{stat?.assignedCooks || 0}</strong>
                       </span>
                       <span>
                         Cleans:{" "}
-                        <strong className="text-slate-900">{stat?.assignedCleans || 0}</strong>
+                        <strong className="text-slate-900 dark:text-white">{stat?.assignedCleans || 0}</strong>
                       </span>
                       {resp.canCookCleanSameDay && (
-                        <span className="text-emerald-800 font-bold">✓ Same-day willing</span>
+                        <span className="text-emerald-800 dark:text-emerald-400 font-bold">✓ Same-day willing</span>
                       )}
                     </div>
 
                     {resp.specialInstructions && (
-                      <p className="text-xs text-amber-900 font-medium italic mt-1">
+                      <p className="text-xs text-amber-900 dark:text-amber-300 font-medium italic mt-1">
                         &quot;{resp.specialInstructions}&quot;
                       </p>
                     )}
 
                     {conflict && (
-                      <p className="text-xs text-rose-800 font-bold mt-1">
+                      <p className="text-xs text-rose-800 dark:text-rose-400 font-bold mt-1">
                         ⚠️ Conflict: {conflict}
                       </p>
                     )}
@@ -222,9 +222,9 @@ export const FillMissingSlotModal: React.FC<FillMissingSlotModalProps> = ({
                   {/* Right: Action */}
                   <div className="shrink-0">
                     {alreadyAssignedOnRole ? (
-                      <span className="text-xs text-slate-500 font-bold">Already Assigned</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-bold">Already Assigned</span>
                     ) : conflict ? (
-                      <span className="text-xs text-rose-700 font-bold">Blocked by Rule</span>
+                      <span className="text-xs text-rose-700 dark:text-rose-400 font-bold">Blocked by Rule</span>
                     ) : (
                       <button
                         onClick={() => {
@@ -248,10 +248,10 @@ export const FillMissingSlotModal: React.FC<FillMissingSlotModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end pt-3 border-t border-slate-200">
+        <div className="flex justify-end pt-3 border-t border-slate-200 dark:border-slate-800">
           <button
             onClick={onClose}
-            className="min-h-[44px] px-5 py-2 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-950 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            className="min-h-[44px] px-5 py-2 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           >
             Cancel
           </button>

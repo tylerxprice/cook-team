@@ -26,19 +26,19 @@ export const ResendConfirmModal: React.FC<ResendConfirmModalProps> = ({
       aria-labelledby="duplicate-email-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in"
     >
-      <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-scale-up">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 animate-scale-up">
         <div className="flex items-start gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-300 text-amber-800 flex items-center justify-center shrink-0">
-            <AlertTriangle className="w-6 h-6 text-amber-700" />
+          <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-6 h-6 text-amber-700 dark:text-amber-400" />
           </div>
           <div>
             <h3
               id="duplicate-email-modal-title"
-              className="text-base sm:text-lg font-bold text-slate-900"
+              className="text-base sm:text-lg font-bold text-slate-900 dark:text-white"
             >
               Send Duplicate Announcement?
             </h3>
-            <p className="text-xs sm:text-sm text-slate-600 mt-1">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
               An announcement email for this schedule was already sent to{" "}
               <strong>{emailDispatchInfo?.to || emailTo}</strong>
               {emailDispatchInfo?.sentAt
@@ -54,9 +54,9 @@ export const ResendConfirmModal: React.FC<ResendConfirmModalProps> = ({
           </div>
         </div>
 
-        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-950 space-y-1">
+        <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl text-xs text-amber-950 dark:text-amber-200 space-y-1">
           <p className="font-bold">⚠️ Are you sure you want to send another email?</p>
-          <p className="text-amber-800">
+          <p className="text-amber-800 dark:text-amber-300">
             This will dispatch a new email notification to all group members immediately.
           </p>
         </div>
@@ -65,7 +65,7 @@ export const ResendConfirmModal: React.FC<ResendConfirmModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs sm:text-sm font-bold transition-colors cursor-pointer"
+            className="min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white text-xs sm:text-sm font-bold transition-colors cursor-pointer"
           >
             Cancel
           </button>

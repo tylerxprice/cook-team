@@ -190,15 +190,15 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
       aria-labelledby="manual-survey-modal-title"
       className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
     >
-      <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl max-h-[92vh] flex flex-col border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-3xl w-full shadow-2xl max-h-[92vh] flex flex-col border border-slate-200 dark:border-slate-800 overflow-hidden">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
+        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/80">
           <div className="flex items-center gap-3">
             <div
               className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
                 isEditingExisting
-                  ? "bg-blue-100 text-blue-800 border-blue-200"
-                  : "bg-orange-100 text-orange-800 border-orange-200"
+                  ? "bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                  : "bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800"
               }`}
             >
               <ClipboardEdit className="w-5 h-5" />
@@ -207,19 +207,19 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
               <div className="flex items-center gap-2">
                 <h3
                   id="manual-survey-modal-title"
-                  className="text-base sm:text-lg font-bold text-slate-900"
+                  className="text-base sm:text-lg font-bold text-slate-900 dark:text-white"
                 >
                   {isEditingExisting
                     ? `Modify Survey Response`
                     : `Enter Availability Survey for Member`}
                 </h3>
                 {isEditingExisting && (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-900 border border-blue-300">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-900 dark:text-blue-200 border border-blue-300 dark:border-blue-800">
                     Existing Response
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-600 mt-0.5">
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                 {isEditingExisting
                   ? `Update submitted quotas, dates, or notes for ${selectedMemberName || "this resident"}`
                   : `Record survey responses on behalf of a resident (via phone, text, or email)`}
@@ -229,7 +229,7 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
           <button
             onClick={onClose}
             disabled={loading}
-            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer"
+            className="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />
@@ -239,29 +239,29 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
         {/* Scrollable Form Content */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-6">
           {errorMessage && (
-            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs sm:text-sm text-rose-800 flex items-center gap-2">
+            <div className="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-xs sm:text-sm text-rose-800 dark:text-rose-200 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
               <span>{errorMessage}</span>
             </div>
           )}
 
           {/* Section 1: Member Selection & Contact */}
-          <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200 space-y-3.5">
-            <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
+          <div className="bg-slate-50/70 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3.5">
+            <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <User className="w-4 h-4 text-orange-600" />
               Community Member Info
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
                   Select Member: *
                 </label>
                 <select
                   value={selectedMemberName}
                   onChange={(e) => handleMemberSelect(e.target.value)}
                   disabled={loading}
-                  className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 font-medium text-slate-900 cursor-pointer"
+                  className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 font-medium text-slate-900 dark:text-slate-100 cursor-pointer"
                   required
                 >
                   <option value="" disabled>
@@ -302,7 +302,7 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
 
               {selectedMemberName === "custom" && (
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
                     Resident Full Name: *
                   </label>
                   <input
@@ -311,15 +311,15 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
                     onChange={(e) => setCustomName(e.target.value)}
                     placeholder="e.g. Robin Banks"
                     disabled={loading}
-                    className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                    className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 text-slate-900 dark:text-slate-100"
                     required
                   />
                 </div>
               )}
 
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1 flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-slate-500" />
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1 flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                   Email Address:
                 </label>
                 <input
@@ -328,7 +328,7 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="resident@example.com (optional)"
                   disabled={loading}
-                  className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                  className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 text-slate-900 dark:text-slate-100"
                 />
               </div>
             </div>
@@ -358,12 +358,12 @@ export const ManualSurveyResponseModal: React.FC<ManualSurveyResponseModalProps>
         </form>
 
         {/* Footer Actions */}
-        <div className="p-4 sm:p-5 border-t border-slate-200 flex items-center justify-between bg-slate-50/80">
+        <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/80">
           <button
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="min-h-[44px] px-4 py-2 text-xs sm:text-sm font-bold text-slate-700 hover:bg-slate-200/70 rounded-xl transition-colors cursor-pointer"
+            className="min-h-[44px] px-4 py-2 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           >
             Cancel
           </button>

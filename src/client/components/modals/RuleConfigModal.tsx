@@ -30,15 +30,15 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
       aria-labelledby="modal-title-rule"
       className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
     >
-      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl p-6 space-y-4 border border-slate-200">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <h3 id="modal-title-rule" className="text-base sm:text-lg font-bold text-slate-900">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full shadow-2xl p-6 space-y-4 border border-slate-200 dark:border-slate-800">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+          <h3 id="modal-title-rule" className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
             {newRule.id ? "Edit Exception Rule" : "Add Exception Rule"}
           </h3>
           <button
             onClick={onClose}
             aria-label="Close dialog"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -46,13 +46,13 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
 
         {/* Display Special Note Context if available */}
         {modalContextNote && (
-          <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 flex items-start gap-2.5">
-            <MessageSquare className="w-4 h-4 text-amber-800 mt-0.5 shrink-0" />
+          <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl p-3 flex items-start gap-2.5">
+            <MessageSquare className="w-4 h-4 text-amber-800 dark:text-amber-400 mt-0.5 shrink-0" />
             <div>
-              <span className="text-xs font-bold text-amber-950">
+              <span className="text-xs font-bold text-amber-950 dark:text-amber-200">
                 Survey Request from {newRule.person_a}:
               </span>
-              <p className="text-xs text-amber-900 mt-0.5 font-medium italic">
+              <p className="text-xs text-amber-900 dark:text-amber-300 mt-0.5 font-medium italic">
                 &quot;{modalContextNote}&quot;
               </p>
             </div>
@@ -63,7 +63,7 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
           <div>
             <label
               htmlFor="rule-type-select"
-              className="text-xs font-bold text-slate-800 block mb-1"
+              className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1"
             >
               Rule Type
             </label>
@@ -71,7 +71,7 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
               id="rule-type-select"
               value={newRule.rule_type}
               onChange={(e) => setNewRule({ ...newRule, rule_type: e.target.value as RuleType })}
-              className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white text-slate-900 font-medium"
+              className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
             >
               <option value="NOT_SAME_TEAM">NOT_SAME_TEAM (Cannot be in same team)</option>
               <option value="NOT_SAME_DAY">NOT_SAME_DAY (Cannot be scheduled on same date)</option>
@@ -86,7 +86,7 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
             <div>
               <label
                 htmlFor="person-a-select"
-                className="text-xs font-bold text-slate-800 block mb-1"
+                className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1"
               >
                 Person A
               </label>
@@ -94,7 +94,7 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
                 id="person-a-select"
                 value={newRule.person_a}
                 onChange={(e) => setNewRule({ ...newRule, person_a: e.target.value })}
-                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white text-slate-900 font-medium"
+                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
               >
                 <option value="">Select Member...</option>
                 {[...members]
@@ -110,7 +110,7 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
             <div>
               <label
                 htmlFor="person-b-select"
-                className="text-xs font-bold text-slate-800 block mb-1"
+                className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1"
               >
                 Person B (Optional)
               </label>
@@ -118,7 +118,7 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
                 id="person-b-select"
                 value={newRule.person_b || ""}
                 onChange={(e) => setNewRule({ ...newRule, person_b: e.target.value })}
-                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white text-slate-900 font-medium"
+                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
               >
                 <option value="">Select Member (if paired)...</option>
                 {[...members]
@@ -133,11 +133,11 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
           </div>
 
           <div>
-            <span className="text-xs font-bold text-slate-800 block mb-1.5">
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1.5">
               Constraint Strictness
             </span>
             <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2 min-h-[44px] px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-800 cursor-pointer">
+              <label className="flex items-center gap-2 min-h-[44px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
                 <input
                   type="radio"
                   name="strictness"
@@ -147,7 +147,7 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
                 />
                 Hard Rule (Strictly enforced)
               </label>
-              <label className="flex items-center gap-2 min-h-[44px] px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-800 cursor-pointer">
+              <label className="flex items-center gap-2 min-h-[44px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
                 <input
                   type="radio"
                   name="strictness"
@@ -163,7 +163,7 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
           <div>
             <label
               htmlFor="rule-notes-input"
-              className="text-xs font-bold text-slate-800 block mb-1"
+              className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1"
             >
               Rationale / Notes
             </label>
@@ -173,15 +173,15 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
               value={newRule.notes || ""}
               onChange={(e) => setNewRule({ ...newRule, notes: e.target.value })}
               placeholder="e.g. Roommates, Childcare conflict..."
-              className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white text-slate-900 font-medium"
+              className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className="min-h-[44px] px-4 py-2 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-950 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              className="min-h-[44px] px-4 py-2 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
             >
               Cancel
             </button>

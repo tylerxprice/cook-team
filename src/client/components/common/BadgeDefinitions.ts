@@ -17,7 +17,7 @@ export const BADGE_DEFINITIONS: Record<string, { label: string; desc: string; co
   "⚡ Same-Day Star": {
     label: "Same-Day Star",
     desc: "3+ same-day double shifts (cooking and cleaning on the same meal date).",
-    color: "bg-purple-50 text-purple-900 border-purple-300",
+    color: "bg-amber-50 text-amber-950 border-amber-300",
   },
   "⚖️ Equity Leader": {
     label: "Equity Leader",

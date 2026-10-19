@@ -5,18 +5,18 @@ import {
   Sparkles,
   Download,
   Users,
-  CheckCircle2,
   Search,
   X,
   Info,
-  Loader2,
   LayoutGrid,
   List,
-  Utensils,
 } from "lucide-react";
 import { DaySchedule, Member } from "../../../server/types";
 import { parseDateFromLabelOrKey } from "../../../server/scheduleParser";
 import { extractMemberShifts, generateMemberIcs, downloadIcsFile } from "../../utils/ics";
+import { TopHeader } from "../common/TopHeader";
+import { Toast } from "../common/Toast";
+import { LoadingSpinner } from "../common/LoadingSpinner";
 
 export interface ResidentScheduleViewProps {
   schedule: DaySchedule[];
@@ -452,7 +452,9 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
   // Helper to render teammate chips with high-visibility highlight for the active user
   const renderNamesWithHighlight = (names: string[], role: "cook" | "clean") => {
     if (!names || names.length === 0) {
-      return <span className="text-slate-400 italic text-xs">(Need Volunteers)</span>;
+      return (
+        <span className="text-slate-400 dark:text-slate-500 italic text-xs">(Need Volunteers)</span>
+      );
     }
     return (
       <div className="flex flex-wrap gap-1.5">
@@ -466,7 +468,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                   ? role === "cook"
                     ? "bg-orange-600 text-white border-orange-700 shadow-2xs font-black"
                     : "bg-sky-600 text-white border-sky-700 shadow-2xs font-black"
-                  : "bg-slate-100 text-slate-800 border-slate-200"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700"
               }`}
             >
               {name} {isMe && "(You)"}
@@ -481,14 +483,14 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
   const renderScheduleContent = (isMyShiftsView: boolean) => {
     if (isLoading) {
       return (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 sm:p-16 text-center space-y-3.5 min-h-[380px] sm:min-h-[440px] flex flex-col items-center justify-center shadow-2xs animate-in fade-in duration-150">
-          <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center border border-orange-100 mb-1">
-            <Loader2 className="w-6 h-6 animate-spin text-orange-600" />
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-12 sm:p-16 text-center space-y-3.5 min-h-[380px] sm:min-h-[440px] flex flex-col items-center justify-center shadow-2xs animate-in fade-in duration-150">
+          <div className="w-12 h-12 rounded-2xl bg-orange-50 dark:bg-orange-950/40 flex items-center justify-center border border-orange-100 dark:border-orange-900/60 mb-1">
+            <LoadingSpinner size="md" color="orange" />
           </div>
-          <h3 className="text-base sm:text-lg font-black text-slate-900">
+          <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
             Loading schedule for {formatMonthDisplay(monthKey || "")}...
           </h3>
-          <p className="text-xs sm:text-sm text-slate-500 max-w-xs mx-auto">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
             Fetching meal dates, cooks, and clean assignments...
           </p>
         </div>
@@ -500,14 +502,14 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
     if (displayedSchedule.length === 0) {
       if (isMyShiftsView) {
         return (
-          <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center space-y-3">
             <Sparkles className="w-10 h-10 text-amber-500 mx-auto" />
-            <h3 className="text-base font-bold text-slate-900">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
               {schedule.length === 0
                 ? `No schedule published yet for ${monthTitle}`
                 : `No shifts scheduled for ${selectedMember}`}
             </h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
               {schedule.length === 0
                 ? `The meal team schedule for ${monthTitle} has not been published yet. Select another month in the top bar or check back once finalized!`
                 : `You are not assigned to any cook or clean shifts in ${monthTitle}. Enjoy the community meals, or browse the full schedule below!`}
@@ -526,12 +528,12 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
         );
       } else {
         return (
-          <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
-            <Calendar className="w-10 h-10 text-slate-300 mx-auto" />
-            <h3 className="text-base font-bold text-slate-900">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center space-y-3">
+            <Calendar className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto" />
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
               No published schedule found for {monthTitle}
             </h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
               The schedule for this month has not been published yet. Select another month above to
               view past schedules.
             </p>
@@ -543,11 +545,11 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
     if (displayFormat === "calendar") {
       return (
         /* CALENDAR GRID VIEW (Responsive with auto-scroll on narrow viewport) */
-        <div className="bg-white rounded-2xl border border-slate-200 p-3 sm:p-4 shadow-2xs overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3 sm:p-4 shadow-2xs overflow-hidden">
           <div className="overflow-x-auto pb-1">
             <div className="min-w-[700px] md:min-w-0">
               {/* Days of week header */}
-              <div className="grid grid-cols-7 gap-1.5 sm:gap-2 mb-2 text-center text-[11px] sm:text-xs font-black text-slate-500 uppercase tracking-wider">
+              <div className="grid grid-cols-7 gap-1.5 sm:gap-2 mb-2 text-center text-[11px] sm:text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((dayName) => (
                   <div key={dayName} className="py-1">
                     {dayName}
@@ -562,9 +564,9 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                     return (
                       <div
                         key={`pad-${dayItem.dateKey}-${cellIdx}`}
-                        className="min-h-[105px] sm:min-h-[125px] p-2 bg-slate-50/60 rounded-xl border border-slate-100 opacity-40 select-none flex flex-col justify-start"
+                        className="min-h-[105px] sm:min-h-[125px] p-2 bg-slate-50/60 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800 opacity-40 select-none flex flex-col justify-start"
                       >
-                        <span className="text-[11px] font-semibold text-slate-400">
+                        <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
                           {dayItem.dayNumber}
                         </span>
                       </div>
@@ -592,27 +594,27 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                       key={dayItem.dateKey}
                       className={`min-h-[105px] sm:min-h-[125px] p-2 rounded-xl border transition-all flex flex-col justify-between ${
                         isUserInvolved && hasMeals
-                          ? "bg-orange-50/50 border-orange-300 ring-2 ring-orange-400/60 shadow-xs"
+                          ? "bg-orange-50/50 dark:bg-orange-950/30 border-orange-300 dark:border-orange-800 ring-2 ring-orange-400/60 shadow-xs"
                           : hasMeals
-                            ? "bg-white border-slate-200 shadow-2xs hover:border-slate-300"
-                            : "bg-slate-50/30 border-slate-100"
+                            ? "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700"
+                            : "bg-slate-50/30 dark:bg-slate-900/40 border-slate-100 dark:border-slate-800/60"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span
                           className={`text-xs font-black ${
                             isUserInvolved && hasMeals
-                              ? "text-orange-950 font-black"
+                              ? "text-orange-950 dark:text-orange-200 font-black"
                               : hasMeals
-                                ? "text-slate-800"
-                                : "text-slate-400"
+                                ? "text-slate-800 dark:text-slate-200"
+                                : "text-slate-400 dark:text-slate-500"
                           }`}
                         >
                           {dayItem.dayNumber}
                         </span>
                         {isUserInvolved && hasMeals && (
                           <span
-                            className="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-orange-100 text-orange-950 border border-orange-300"
+                            className="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-950 dark:text-orange-300 border border-orange-300 dark:border-orange-800"
                             title="You are scheduled on this date"
                           >
                             ★ You
@@ -630,7 +632,10 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
 
                             if (isNoMeal) {
                               return (
-                                <div key={sIdx} className="text-[10px] text-slate-400 italic py-1">
+                                <div
+                                  key={sIdx}
+                                  className="text-[10px] text-slate-400 dark:text-slate-500 italic py-1"
+                                >
                                   No Meal
                                 </div>
                               );
@@ -642,8 +647,8 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                                   <span
                                     className={`text-[9px] font-black px-1.5 py-0.2 rounded ${
                                       s.mealType === "BRUNCH"
-                                        ? "bg-amber-100 text-amber-900 border border-amber-200"
-                                        : "bg-sky-100 text-sky-900 border border-sky-200"
+                                        ? "bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+                                        : "bg-sky-100 dark:bg-sky-950/60 text-sky-900 dark:text-sky-300 border border-sky-200 dark:border-sky-800"
                                     }`}
                                   >
                                     {s.mealType === "BRUNCH" ? "Brunch" : "Dinner"}
@@ -651,8 +656,10 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                                 </div>
 
                                 {/* Cooks */}
-                                <div className="leading-tight text-[10px] text-slate-700">
-                                  <span className="font-bold text-slate-500">🍳 </span>
+                                <div className="leading-tight text-[10px] text-slate-700 dark:text-slate-300">
+                                  <span className="font-bold text-slate-500 dark:text-slate-400">
+                                    🍳{" "}
+                                  </span>
                                   {s.cooks.length > 0 ? (
                                     s.cooks.map((c, i) => {
                                       const isMe =
@@ -664,7 +671,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                                           <span
                                             className={
                                               isMe
-                                                ? "font-black text-orange-900 bg-orange-100 px-0.5 rounded"
+                                                ? "font-black text-orange-900 dark:text-orange-300 bg-orange-100 dark:bg-orange-950/60 px-0.5 rounded"
                                                 : ""
                                             }
                                           >
@@ -674,13 +681,17 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                                       );
                                     })
                                   ) : (
-                                    <span className="text-slate-400 italic">None</span>
+                                    <span className="text-slate-400 dark:text-slate-500 italic">
+                                      None
+                                    </span>
                                   )}
                                 </div>
 
                                 {/* Cleaners */}
-                                <div className="leading-tight text-[10px] text-slate-700">
-                                  <span className="font-bold text-slate-500">🧼 </span>
+                                <div className="leading-tight text-[10px] text-slate-700 dark:text-slate-300">
+                                  <span className="font-bold text-slate-500 dark:text-slate-400">
+                                    🧼{" "}
+                                  </span>
                                   {s.cleaners.length > 0 ? (
                                     s.cleaners.map((c, i) => {
                                       const isMe =
@@ -692,7 +703,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                                           <span
                                             className={
                                               isMe
-                                                ? "font-black text-sky-900 bg-sky-100 px-0.5 rounded"
+                                                ? "font-black text-sky-900 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/60 px-0.5 rounded"
                                                 : ""
                                             }
                                           >
@@ -702,7 +713,9 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                                       );
                                     })
                                   ) : (
-                                    <span className="text-slate-400 italic">None</span>
+                                    <span className="text-slate-400 dark:text-slate-500 italic">
+                                      None
+                                    </span>
                                   )}
                                 </div>
                               </div>
@@ -741,40 +754,40 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
           return (
             <div
               key={`${day.dateKey}-${idx}`}
-              className={`bg-white rounded-2xl border p-4 sm:p-5 shadow-xs transition-colors space-y-3 ${
+              className={`bg-white dark:bg-slate-900 rounded-2xl border p-4 sm:p-5 shadow-xs transition-colors space-y-3 ${
                 isUserInvolved
-                  ? "border-orange-400 bg-orange-50/20 ring-1 ring-orange-300"
-                  : "border-slate-200"
+                  ? "border-orange-400 dark:border-orange-600 bg-orange-50/20 dark:bg-orange-950/20 ring-1 ring-orange-300 dark:ring-orange-800"
+                  : "border-slate-200 dark:border-slate-800"
               }`}
             >
-              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm sm:text-base font-black text-slate-900">
+                  <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
                     {day.dateLabel || day.dateKey}
                   </span>
-                  <span className="text-[11px] font-bold text-slate-500">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
                     {day.mealType === "BRUNCH" ? "Community Brunch" : "Community Dinner"}
                   </span>
                 </div>
 
                 {isUserCook && isUserCleaner ? (
-                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-purple-100 text-purple-950 border border-purple-200 shadow-2xs">
+                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shadow-2xs">
                     🍳+🧼 Cook & Clean
                   </span>
                 ) : isUserCook ? (
-                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-orange-100 text-orange-950 border border-orange-200 shadow-2xs">
+                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-950 dark:text-orange-300 border border-orange-200 dark:border-orange-800 shadow-2xs">
                     🍳 Cook Shift
                   </span>
                 ) : isUserCleaner ? (
-                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-sky-100 text-sky-950 border border-sky-200 shadow-2xs">
+                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-sky-100 dark:bg-sky-950/60 text-sky-950 dark:text-sky-300 border border-sky-200 dark:border-sky-800 shadow-2xs">
                     🧼 Clean Shift
                   </span>
                 ) : isUserInvolved ? (
-                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-orange-100 text-orange-950 border border-orange-200 shadow-2xs">
+                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-950 dark:text-orange-300 border border-orange-200 dark:border-orange-800 shadow-2xs">
                     ★ You are on this team
                   </span>
                 ) : isNoMeal ? (
-                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-slate-100 text-slate-600 border border-slate-200">
+                  <span className="text-xs font-black px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
                     No Community Meal
                   </span>
                 ) : null}
@@ -783,25 +796,27 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
               {!isNoMeal ? (
                 <div className="space-y-2 text-xs">
                   <div>
-                    <span className="font-bold text-slate-500 block text-[11px] mb-1">
+                    <span className="font-bold text-slate-500 dark:text-slate-400 block text-[11px] mb-1">
                       🍳 Cooks:
                     </span>
                     {renderNamesWithHighlight(day.cooks, "cook")}
                   </div>
                   <div>
-                    <span className="font-bold text-slate-500 block text-[11px] mb-1">
+                    <span className="font-bold text-slate-500 dark:text-slate-400 block text-[11px] mb-1">
                       🧼 Cleaners:
                     </span>
                     {renderNamesWithHighlight(day.cleaners, "clean")}
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-slate-500 italic">No shifts scheduled for this date.</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                  No shifts scheduled for this date.
+                </p>
               )}
 
               {day.specialNote && (
-                <div className="mt-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
-                  <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="mt-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2">
+                  <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                   <span>{day.specialNote}</span>
                 </div>
               )}
@@ -813,102 +828,79 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-between text-slate-900">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-between text-slate-900 dark:text-slate-100 transition-colors">
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-md bg-emerald-900 text-white p-4 rounded-2xl shadow-2xl border border-emerald-700 flex items-start gap-3 animate-in fade-in slide-in-from-top-4 duration-200">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-          <div className="flex-1 text-xs sm:text-sm font-medium leading-relaxed">
-            {toastMessage}
-          </div>
-          <button
-            type="button"
-            onClick={() => setToastMessage(null)}
-            className="text-white/60 hover:text-white p-1"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
 
       {/* Top Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
-          {/* Left: Brand / Return to Hub Home */}
-          <button
-            type="button"
-            onClick={onBackToHome}
-            title="Return to Hub Home"
-            className="flex items-center space-x-2 sm:space-x-2.5 text-left group cursor-pointer shrink-0 min-w-0"
-          >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform shrink-0">
-              <Utensils className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-sm sm:text-base md:text-lg font-black text-slate-900 tracking-tight group-hover:text-orange-600 transition-colors truncate">
-                <span className="hidden xs:inline">CoHo </span>CookTeam
-                <span className="hidden sm:inline"> App</span>
-              </h1>
-            </div>
-          </button>
-
-          {/* Right: Month Dropdown + Member Chip */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Reusable Month Dropdown */}
-            <div className="relative inline-flex items-center">
-              <Calendar className="w-3.5 h-3.5 text-orange-600 absolute left-2 sm:left-2.5 pointer-events-none" />
-              <select
-                value={monthKey || ""}
-                onChange={(e) => onSelectMonth && onSelectMonth(e.target.value)}
-                aria-label="Select meal month"
-                className="text-xs sm:text-sm font-black text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl pl-7 sm:pl-8 pr-6 sm:pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500/20 cursor-pointer appearance-none transition-colors"
-              >
-                {displayMonths.map((m) => (
-                  <option key={m} value={m}>
-                    {formatMonthDisplay(m)}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-1.5 sm:right-2 pointer-events-none" />
-            </div>
-
-            {/* Member Badge | T name X | */}
-            {selectedMember && !isChangingMember && (
-              <div className="inline-flex items-center gap-1 sm:gap-1.5 bg-orange-50/90 border border-orange-200 rounded-xl pl-1 pr-1.5 py-1 text-xs shadow-2xs min-w-0 shrink-0">
-                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-orange-600 text-white flex items-center justify-center font-black text-[10px] sm:text-xs shrink-0 shadow-2xs">
-                  {selectedMember.charAt(0).toUpperCase()}
-                </div>
-                <span className="font-black text-slate-900 truncate max-w-[80px] sm:max-w-[150px] pl-0.5">
-                  {selectedMember}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleClearMember}
-                  title={`Clear ${selectedMember} (switch resident)`}
-                  aria-label="Switch resident"
-                  className="w-5 h-5 rounded-md hover:bg-orange-200/80 text-orange-800 hover:text-orange-950 flex items-center justify-center transition-colors cursor-pointer shrink-0 ml-0.5"
+      <TopHeader
+        communityName={communityName}
+        onBackToHome={onBackToHome}
+        viewBadge={
+          <span className="px-2.5 py-1 text-xs font-bold rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-950 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
+            Resident Shifts
+          </span>
+        }
+      >
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Reusable Month Dropdown */}
+          <div className="relative inline-flex items-center">
+            <Calendar className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400 absolute left-2 sm:left-2.5 pointer-events-none" />
+            <select
+              value={monthKey || ""}
+              onChange={(e) => onSelectMonth && onSelectMonth(e.target.value)}
+              aria-label="Select meal month"
+              className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-xl pl-7 sm:pl-8 pr-6 sm:pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500/20 cursor-pointer appearance-none transition-colors"
+            >
+              {displayMonths.map((m) => (
+                <option
+                  key={m}
+                  value={m}
+                  className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                 >
-                  <span className="sr-only">Switch</span>
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
+                  {formatMonthDisplay(m)}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 absolute right-1.5 sm:right-2 pointer-events-none" />
           </div>
+
+          {/* Member Badge | T name X | */}
+          {selectedMember && !isChangingMember && (
+            <div className="inline-flex items-center gap-1 sm:gap-1.5 bg-orange-50/90 dark:bg-orange-950/50 border border-orange-200 dark:border-orange-800 rounded-xl pl-1 pr-1.5 py-1 text-xs shadow-2xs min-w-0 shrink-0">
+              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-orange-600 text-white flex items-center justify-center font-black text-[10px] sm:text-xs shrink-0 shadow-2xs">
+                {selectedMember.charAt(0).toUpperCase()}
+              </div>
+              <span className="font-black text-slate-900 dark:text-white truncate max-w-[80px] sm:max-w-[150px] pl-0.5">
+                {selectedMember}
+              </span>
+              <button
+                type="button"
+                onClick={handleClearMember}
+                title={`Clear ${selectedMember} (switch resident)`}
+                aria-label="Switch resident"
+                className="w-5 h-5 rounded-md hover:bg-orange-200/80 dark:hover:bg-orange-900/60 text-orange-800 dark:text-orange-300 hover:text-orange-950 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0 ml-0.5"
+              >
+                <span className="sr-only">Switch</span>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
-      </header>
+      </TopHeader>
 
       {/* Main Content Area */}
-      <main className="max-w-6xl mx-auto px-3 sm:px-6 py-4 flex-1 w-full space-y-4 pb-24">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 flex-1 w-full space-y-4 pb-24">
         {/* Member Search / Selector Card (shown when no member is selected or user tapped Switch) */}
         {(!selectedMember || isChangingMember) && (
           <div className="max-w-2xl mx-auto w-full">
-            <section className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-3">
+            <section className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm sm:text-base font-black text-slate-900">
+                  <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
                     Whose shifts are you looking for?
                   </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Select your name to see your shifts and save them to your calendar.
                   </p>
                 </div>
@@ -916,7 +908,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsChangingMember(false)}
-                    className="text-xs text-slate-500 hover:text-slate-800 font-bold p-1 cursor-pointer"
+                    className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-bold p-1 cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -931,13 +923,13 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                   value={memberSearchQuery}
                   onChange={(e) => setMemberSearchQuery(e.target.value)}
                   placeholder="Type to search your name..."
-                  className="w-full pl-9 pr-4 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-slate-900 font-medium"
+                  className="w-full pl-9 pr-4 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-slate-900 dark:text-white font-medium"
                 />
                 {memberSearchQuery && (
                   <button
                     type="button"
                     onClick={() => setMemberSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -954,14 +946,14 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                     className={`min-h-[40px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                       selectedMember.toLowerCase() === name.toLowerCase()
                         ? "bg-orange-600 text-white shadow-xs"
-                        : "bg-slate-100 hover:bg-orange-50 text-slate-800 hover:text-orange-950 border border-slate-200 hover:border-orange-300"
+                        : "bg-slate-100 dark:bg-slate-800 hover:bg-orange-50 dark:hover:bg-orange-950/40 text-slate-800 dark:text-slate-200 hover:text-orange-950 dark:hover:text-orange-200 border border-slate-200 dark:border-slate-700 hover:border-orange-300 dark:hover:border-orange-800"
                     }`}
                   >
                     {name}
                   </button>
                 ))}
                 {filteredMemberNames.length === 0 && (
-                  <p className="text-xs text-slate-500 py-3 italic">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 py-3 italic">
                     No community member found matching &quot;{memberSearchQuery}&quot;.
                   </p>
                 )}
@@ -974,10 +966,12 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
         {activeTab === "my_shifts" && (
           <div className="space-y-3.5">
             {!selectedMember ? (
-              <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center space-y-3">
                 <Users className="w-10 h-10 text-slate-400 mx-auto" />
-                <h3 className="text-base font-bold text-slate-900">Please select your name</h3>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Please select your name
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
                   Pick your name from the selector above to view your cook and clean assignments for{" "}
                   {monthTitle}.
                 </p>
@@ -989,19 +983,19 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
             ) : (
               <>
                 {/* Compact Shifts Summary Bar + Calendar/List Switcher + Download */}
-                <div className="flex items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200 p-2 sm:p-3 shadow-2xs">
+                <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-2 sm:p-3 shadow-2xs">
                   {/* Left: Shift Counters */}
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-xs sm:text-sm font-extrabold text-slate-900 shrink-0">
+                    <span className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white shrink-0">
                       {memberShifts.length} Shift{memberShifts.length === 1 ? "" : "s"}
                       <span className="hidden md:inline"> Assigned</span>
                     </span>
                     <div className="flex items-center gap-1 text-xs font-bold shrink-0">
-                      <span className="px-1.5 sm:px-2 py-0.5 rounded-lg bg-orange-50 text-orange-800 border border-orange-200 text-[11px] sm:text-xs">
+                      <span className="px-1.5 sm:px-2 py-0.5 rounded-lg bg-orange-50 dark:bg-orange-950/50 text-orange-800 dark:text-orange-300 border border-orange-200 dark:border-orange-800 text-[11px] sm:text-xs">
                         🍳 {cookCount}
                         <span className="hidden md:inline"> Cook</span>
                       </span>
-                      <span className="px-1.5 sm:px-2 py-0.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200 text-[11px] sm:text-xs">
+                      <span className="px-1.5 sm:px-2 py-0.5 rounded-lg bg-sky-50 dark:bg-sky-950/50 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800 text-[11px] sm:text-xs">
                         🧼 {cleanCount}
                         <span className="hidden md:inline"> Clean</span>
                       </span>
@@ -1011,7 +1005,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                   {/* Right: View Switcher + Compact .ics Button */}
                   <div className="flex items-center gap-1.5 shrink-0">
                     {/* View Switcher Controls */}
-                    <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 sm:p-1 rounded-xl border border-slate-200/80">
+                    <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 p-0.5 sm:p-1 rounded-xl border border-slate-200/80 dark:border-slate-700">
                       <button
                         type="button"
                         onClick={() => {
@@ -1022,8 +1016,8 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                         aria-label="Calendar view"
                         className={`p-1.5 sm:px-3 sm:py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer ${
                           displayFormat === "calendar"
-                            ? "bg-white text-orange-950 font-black shadow-xs border border-slate-200"
-                            : "text-slate-600 hover:text-slate-900"
+                            ? "bg-white dark:bg-slate-700 text-orange-950 dark:text-white font-black shadow-xs border border-slate-200 dark:border-slate-600"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                         }`}
                         aria-pressed={displayFormat === "calendar"}
                       >
@@ -1040,8 +1034,8 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                         aria-label="List view"
                         className={`p-1.5 sm:px-3 sm:py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer ${
                           displayFormat === "list"
-                            ? "bg-white text-orange-950 font-black shadow-xs border border-slate-200"
-                            : "text-slate-600 hover:text-slate-900"
+                            ? "bg-white dark:bg-slate-700 text-orange-950 dark:text-white font-black shadow-xs border border-slate-200 dark:border-slate-600"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                         }`}
                         aria-pressed={displayFormat === "list"}
                       >
@@ -1083,8 +1077,8 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
             ) : (
               <>
                 {/* Header + Calendar/List View Toggle Bar */}
-                <div className="flex items-center justify-between gap-2 bg-white rounded-2xl border border-slate-200 p-2 sm:p-3 shadow-2xs">
-                  <div className="text-xs sm:text-sm font-extrabold text-slate-900 truncate min-w-0">
+                <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-2 sm:p-3 shadow-2xs">
+                  <div className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white truncate min-w-0">
                     <span className="hidden md:inline">
                       Showing all {schedule.length} community meals for {monthTitle}
                     </span>
@@ -1097,7 +1091,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                   {/* Right: View Switcher + Compact .ics Button */}
                   <div className="flex items-center gap-1.5 shrink-0">
                     {/* View Switcher Controls */}
-                    <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 sm:p-1 rounded-xl border border-slate-200/80">
+                    <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 p-0.5 sm:p-1 rounded-xl border border-slate-200/80 dark:border-slate-700">
                       <button
                         type="button"
                         onClick={() => {
@@ -1108,8 +1102,8 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                         aria-label="Calendar view"
                         className={`p-1.5 sm:px-3 sm:py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer ${
                           displayFormat === "calendar"
-                            ? "bg-white text-orange-950 font-black shadow-xs border border-slate-200"
-                            : "text-slate-600 hover:text-slate-900"
+                            ? "bg-white dark:bg-slate-700 text-orange-950 dark:text-white font-black shadow-xs border border-slate-200 dark:border-slate-600"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                         }`}
                         aria-pressed={displayFormat === "calendar"}
                       >
@@ -1126,8 +1120,8 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                         aria-label="List view"
                         className={`p-1.5 sm:px-3 sm:py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition-all cursor-pointer ${
                           displayFormat === "list"
-                            ? "bg-white text-orange-950 font-black shadow-xs border border-slate-200"
-                            : "text-slate-600 hover:text-slate-900"
+                            ? "bg-white dark:bg-slate-700 text-orange-950 dark:text-white font-black shadow-xs border border-slate-200 dark:border-slate-600"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                         }`}
                         aria-pressed={displayFormat === "list"}
                       >
@@ -1150,7 +1144,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
                         className={`min-h-[30px] sm:min-h-[36px] px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer ${
                           memberShifts.length > 0
                             ? "bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white shadow-orange-600/20 active:scale-[0.99]"
-                            : "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
+                            : "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed shadow-none"
                         }`}
                       >
                         <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
@@ -1171,12 +1165,12 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
       </main>
 
       {/* Mobile Footer */}
-      <footer className="py-4 text-center text-xs text-slate-400 border-t border-slate-200 bg-white">
+      <footer className="py-4 text-center text-xs text-slate-400 dark:text-slate-500 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
         CookTeamTool &bull; {communityName}
       </footer>
 
       {/* Sticky Bottom Navigation: My Shifts vs Full Schedule */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg px-4 py-2 sm:py-2.5">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-lg px-4 py-2 sm:py-2.5">
         <div className="max-w-md mx-auto flex items-center justify-around gap-2">
           <button
             type="button"
@@ -1184,7 +1178,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
             className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-2 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               activeTab === "my_shifts"
                 ? "bg-orange-600 text-white shadow-xs"
-                : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                : "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
             }`}
           >
             <Users className="w-4 h-4" />
@@ -1196,7 +1190,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
             className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-2 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
               activeTab === "full_schedule"
                 ? "bg-orange-600 text-white shadow-xs"
-                : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                : "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
             }`}
           >
             <Calendar className="w-4 h-4" />

@@ -87,18 +87,18 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
       aria-labelledby="modal-title-members"
       className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4"
     >
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[92vh] sm:max-h-[85vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full max-h-[92vh] sm:max-h-[85vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800">
         {/* Modal Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between shrink-0 bg-white">
+        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white dark:bg-slate-900">
           <div>
             <h3
               id="modal-title-members"
-              className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2"
+              className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2"
             >
-              <Users className="w-5 h-5 text-indigo-600 shrink-0" />
+              <Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
               <span>Community Member Directory</span>
             </h3>
-            <p className="text-xs text-slate-600 mt-0.5">
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
               {members.length} members ({members.filter((m) => m.active).length} active,{" "}
               {members.filter((m) => !m.active).length} dormant)
             </p>
@@ -106,7 +106,7 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
           <button
             onClick={onClose}
             aria-label="Close dialog"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -115,7 +115,7 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
         {/* Unified Scroll Container */}
         <div className="overflow-y-auto flex-1 flex flex-col">
           {/* Action Toolbar */}
-          <div className="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
+          <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 shrink-0">
             <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
@@ -127,7 +127,7 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                 className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer ${
                   showAddMember
                     ? "bg-orange-600 text-white shadow"
-                    : "bg-orange-50 hover:bg-orange-100 text-orange-950 border border-orange-200"
+                    : "bg-orange-50 dark:bg-orange-950/40 hover:bg-orange-100 dark:hover:bg-orange-900/60 text-orange-950 dark:text-orange-200 border border-orange-200 dark:border-orange-800"
                 }`}
               >
                 <UserPlus className="w-4 h-4" />
@@ -144,7 +144,7 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                 className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer ${
                   showBulkImport
                     ? "bg-indigo-700 text-white shadow"
-                    : "bg-indigo-50 hover:bg-indigo-100 text-indigo-950 border border-indigo-200"
+                    : "bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-950 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800"
                 }`}
               >
                 <Users className="w-4 h-4" />
@@ -152,23 +152,23 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
               </button>
             </div>
 
-            <span className="text-xs text-slate-600 font-semibold hidden sm:inline">
+            <span className="text-xs text-slate-600 dark:text-slate-400 font-semibold hidden sm:inline">
               Roster &amp; survey mapping
             </span>
           </div>
 
           {/* Quick Add Single Member Collapsible Drawer */}
           {showAddMember && (
-            <div className="p-4 bg-orange-50/90 border-b border-orange-200 shrink-0 space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-orange-200/60">
-                <h4 className="text-xs sm:text-sm font-bold text-orange-950 flex items-center gap-1.5">
+            <div className="p-4 bg-orange-50/90 dark:bg-orange-950/30 border-b border-orange-200 dark:border-orange-800 shrink-0 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-orange-200/60 dark:border-orange-800/60">
+                <h4 className="text-xs sm:text-sm font-bold text-orange-950 dark:text-orange-200 flex items-center gap-1.5">
                   <UserPlus className="w-4 h-4 text-orange-600" />
                   Add New Community Member
                 </h4>
                 <button
                   type="button"
                   onClick={() => setShowAddMember(false)}
-                  className="min-h-[32px] min-w-[32px] flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-orange-100 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                  className="min-h-[32px] min-w-[32px] flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-orange-100 dark:hover:bg-orange-900/50 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                   aria-label="Hide add member form"
                 >
                   <X className="w-4 h-4" />
@@ -186,7 +186,7 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                   <div>
                     <label
                       htmlFor="quick-add-member-name"
-                      className="block text-xs font-bold text-slate-800 mb-1"
+                      className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1"
                     >
                       Member Name *
                     </label>
@@ -197,13 +197,13 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                       onChange={(e) => setNewMemberName(e.target.value)}
                       placeholder="e.g. Alexandra"
                       required
-                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white font-medium text-slate-900"
+                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 font-medium text-slate-900 dark:text-white"
                     />
                   </div>
                   <div>
                     <label
                       htmlFor="quick-add-member-email"
-                      className="block text-xs font-bold text-slate-800 mb-1"
+                      className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1"
                     >
                       Google Email(s)
                     </label>
@@ -213,13 +213,13 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                       value={newMemberEmail}
                       onChange={(e) => setNewMemberEmail(e.target.value)}
                       placeholder="alexandra@example.com"
-                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white font-medium text-slate-900"
+                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 font-medium text-slate-900 dark:text-white"
                     />
                   </div>
                   <div>
                     <label
                       htmlFor="quick-add-member-aliases"
-                      className="block text-xs font-bold text-slate-800 mb-1"
+                      className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1"
                     >
                       Nicknames / Aliases
                     </label>
@@ -229,7 +229,7 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                       value={newMemberAliases}
                       onChange={(e) => setNewMemberAliases(e.target.value)}
                       placeholder="Alex, Sasha"
-                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white font-medium text-slate-900"
+                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 font-medium text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -238,7 +238,7 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowAddMember(false)}
-                    className="min-h-[38px] px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-orange-100 rounded-xl transition-colors cursor-pointer"
+                    className="min-h-[38px] px-3.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-orange-100 dark:hover:bg-orange-900/50 rounded-xl transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -256,25 +256,25 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
 
           {/* Bulk Import Drawer */}
           {showBulkImport && (
-            <div className="p-4 bg-indigo-50/80 border-b border-indigo-200 space-y-3 shrink-0">
+            <div className="p-4 bg-indigo-50/80 dark:bg-indigo-950/30 border-b border-indigo-200 dark:border-indigo-800 space-y-3 shrink-0">
               <div className="flex items-center justify-between pb-1">
-                <h4 className="text-xs sm:text-sm font-bold text-indigo-950 flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-indigo-700" />
+                <h4 className="text-xs sm:text-sm font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-indigo-700 dark:text-indigo-400" />
                   Import Roster from Google Group (Community Residents)
                 </h4>
                 <button
                   type="button"
                   onClick={() => setShowBulkImport(false)}
-                  className="min-h-[32px] min-w-[32px] flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-indigo-100 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                  className="min-h-[32px] min-w-[32px] flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                   aria-label="Hide bulk import"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <p className="text-xs text-slate-700">
+              <p className="text-xs text-slate-700 dark:text-slate-300">
                 Paste member names, emails, or rows copied directly from Google Groups (
-                <code className="bg-indigo-100 px-1 py-0.5 rounded text-indigo-950 font-bold">
+                <code className="bg-indigo-100 dark:bg-indigo-900/60 px-1 py-0.5 rounded text-indigo-950 dark:text-indigo-200 font-bold">
                   community-residents@googlegroups.com
                 </code>
                 ). Names will be formatted as <strong>First Names</strong>, and duplicates are
@@ -285,7 +285,7 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
               <div className="space-y-1">
                 <label
                   htmlFor="bulk-import-roster-textarea"
-                  className="text-xs font-bold text-slate-800"
+                  className="text-xs font-bold text-slate-800 dark:text-slate-200"
                 >
                   Paste Member Names / Google Group Rows:
                 </label>
@@ -295,24 +295,24 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                   onChange={(e) => setBulkImportText(e.target.value)}
                   placeholder={`Example lines to paste from Google Groups:\nTaylor Tester <taylor@example.com>\nBeth Coordinator <beth@example.com>\nSarah Chen <sarah.c@example.com>\nSarah Miller <sarah.m@example.com>\nMaya Patel`}
                   rows={5}
-                  className="w-full p-3 bg-white border border-indigo-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                  className="w-full p-3 bg-white dark:bg-slate-800 border border-indigo-300 dark:border-indigo-700 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
                 />
               </div>
 
               {parsedBulkMembers.length > 0 && (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-indigo-950">
+                  <div className="flex items-center justify-between text-xs font-bold text-indigo-950 dark:text-indigo-200">
                     <span>✓ Detected {parsedBulkMembers.length} Members:</span>
-                    <span className="text-slate-600 font-semibold">
+                    <span className="text-slate-600 dark:text-slate-400 font-semibold">
                       Auto-formatted (First Name / Initial)
                     </span>
                   </div>
 
-                  <div className="max-h-32 overflow-y-auto p-2 bg-white rounded-xl border border-indigo-200 divide-y divide-slate-100 text-xs">
+                  <div className="max-h-32 overflow-y-auto p-2 bg-white dark:bg-slate-800 rounded-xl border border-indigo-200 dark:border-indigo-700 divide-y divide-slate-100 dark:divide-slate-700 text-xs">
                     {parsedBulkMembers.map((p, idx) => (
                       <div key={idx} className="py-1.5 flex items-center justify-between">
-                        <span className="font-bold text-slate-900">{p.name}</span>
-                        <span className="text-xs text-slate-600 font-mono">
+                        <span className="font-bold text-slate-900 dark:text-white">{p.name}</span>
+                        <span className="text-xs text-slate-600 dark:text-slate-400 font-mono">
                           {p.google_email || "no email"}
                         </span>
                       </div>
@@ -334,7 +334,7 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                       type="button"
                       onClick={() => handleBulkImportSave("merge")}
                       disabled={bulkImportSaving}
-                      className="min-h-[44px] px-4 py-2 bg-white hover:bg-slate-50 text-indigo-900 border border-indigo-300 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
+                      className="min-h-[44px] px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-indigo-900 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
                     >
                       Merge with Existing
                     </button>
@@ -345,15 +345,15 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
           )}
 
           {/* Sticky Filter Tabs & Search Bar */}
-          <div className="sticky top-0 z-10 px-4 sm:px-5 py-2.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs bg-white/95 backdrop-blur-xs shadow-2xs shrink-0">
+          <div className="sticky top-0 z-10 px-4 sm:px-5 py-2.5 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs shadow-2xs shrink-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
                 type="button"
                 onClick={() => setMemberFilter("all")}
                 className={`min-h-[38px] px-3 py-1.5 rounded-xl font-bold transition-colors cursor-pointer ${
                   memberFilter === "all"
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-700 hover:bg-slate-100 border border-slate-200"
+                    ? "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900"
+                    : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700"
                 }`}
               >
                 All ({members.length})
@@ -364,7 +364,7 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                 className={`min-h-[38px] px-3 py-1.5 rounded-xl font-bold transition-colors cursor-pointer ${
                   memberFilter === "active"
                     ? "bg-emerald-700 text-white"
-                    : "text-slate-700 hover:bg-slate-100 border border-slate-200"
+                    : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700"
                 }`}
               >
                 Active ({members.filter((m) => m.active).length})
@@ -374,8 +374,8 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                 onClick={() => setMemberFilter("inactive")}
                 className={`min-h-[38px] px-3 py-1.5 rounded-xl font-bold transition-colors cursor-pointer ${
                   memberFilter === "inactive"
-                    ? "bg-slate-700 text-white"
-                    : "text-slate-700 hover:bg-slate-100 border border-slate-200"
+                    ? "bg-slate-700 dark:bg-slate-600 text-white"
+                    : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700"
                 }`}
               >
                 Inactive ({members.filter((m) => !m.active).length})
@@ -394,14 +394,14 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                 value={memberSearchQuery}
                 onChange={(e) => setMemberSearchQuery(e.target.value)}
                 placeholder="Search members..."
-                className="w-full min-h-[38px] pl-9 pr-8 py-1.5 text-xs border border-slate-300 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-500 text-slate-900 font-medium"
+                className="w-full min-h-[38px] pl-9 pr-8 py-1.5 text-xs border border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 placeholder:text-slate-500 dark:placeholder:text-slate-400 text-slate-900 dark:text-white font-medium"
               />
               {memberSearchQuery && (
                 <button
                   type="button"
                   onClick={() => setMemberSearchQuery("")}
                   aria-label="Clear member search"
-                  className="min-h-[38px] min-w-[32px] flex items-center justify-center absolute right-1 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 text-xs cursor-pointer"
+                  className="min-h-[38px] min-w-[32px] flex items-center justify-center absolute right-1 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 text-xs cursor-pointer"
                 >
                   ✕
                 </button>
@@ -410,7 +410,7 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
           </div>
 
           {/* Member List (Unified Scroll Stream) */}
-          <div className="divide-y divide-slate-100 p-2 sm:p-3 flex-1">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800 p-2 sm:p-3 flex-1">
             {[...members]
               .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
               .filter((m) => {
@@ -438,28 +438,28 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                 return (
                   <div
                     key={m.name}
-                    className="p-3.5 hover:bg-slate-50 rounded-xl transition-colors"
+                    className="p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-xl transition-colors"
                   >
                     {isEditingThis ? (
                       <form
                         onSubmit={handleSaveEditedMember}
-                        className="space-y-3 bg-white p-4 rounded-xl border border-orange-300 shadow-sm"
+                        className="space-y-3 bg-white dark:bg-slate-800 p-4 rounded-xl border border-orange-300 dark:border-orange-700 shadow-sm"
                       >
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                          <h4 className="text-xs font-bold text-orange-950 uppercase tracking-wider">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700">
+                          <h4 className="text-xs font-bold text-orange-950 dark:text-orange-200 uppercase tracking-wider">
                             Edit Member Profile
                           </h4>
                           <button
                             type="button"
                             onClick={() => setEditingMember(null)}
-                            className="text-xs text-slate-500 hover:text-slate-800 font-semibold cursor-pointer"
+                            className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-semibold cursor-pointer"
                           >
                             ✕ Cancel
                           </button>
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                             Full Member Name
                           </label>
                           <input
@@ -469,16 +469,16 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                               setEditingMember({ ...editingMember, name: e.target.value })
                             }
                             required
-                            className="w-full min-h-[38px] px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium text-slate-900 bg-white"
+                            className="w-full min-h-[38px] px-3 py-1.5 text-xs sm:text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-700"
                             placeholder="e.g. Alexandra"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-0.5">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-0.5">
                             Google Account &amp; Alternate Emails
                           </label>
-                          <p className="text-[11px] text-slate-500 mb-1">
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-1">
                             Comma-separated emails. Form submissions from any listed email map to
                             this member.
                           </p>
@@ -488,16 +488,16 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                             onChange={(e) =>
                               setEditingMember({ ...editingMember, emails: e.target.value })
                             }
-                            className="w-full min-h-[38px] px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium text-slate-900 bg-white"
+                            className="w-full min-h-[38px] px-3 py-1.5 text-xs sm:text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-700"
                             placeholder="e.g. alexandra@example.com, alex.personal@example.com"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-0.5">
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-0.5">
                             Nicknames &amp; Aliases
                           </label>
-                          <p className="text-[11px] text-slate-500 mb-1">
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-1">
                             Comma-separated nicknames. Forms submitted with any of these names map
                             to this member.
                           </p>
@@ -507,31 +507,31 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                             onChange={(e) =>
                               setEditingMember({ ...editingMember, aliases: e.target.value })
                             }
-                            className="w-full min-h-[38px] px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium text-slate-900 bg-white"
+                            className="w-full min-h-[38px] px-3 py-1.5 text-xs sm:text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-700"
                             placeholder="e.g. Alex, Sasha"
                           />
                         </div>
 
                         <div className="flex items-center gap-2 pt-1">
-                          <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer">
+                          <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={editingMember.active}
                               onChange={(e) =>
                                 setEditingMember({ ...editingMember, active: e.target.checked })
                               }
-                              className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-slate-300"
+                              className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-slate-300 dark:border-slate-600"
                             />
                             Active Member (Included in monthly completeness audits)
                           </label>
                         </div>
 
-                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
                           <button
                             type="button"
                             onClick={() => setEditingMember(null)}
                             disabled={isSavingMember}
-                            className="min-h-[36px] px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer"
+                            className="min-h-[36px] px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -555,14 +555,14 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-bold text-slate-900">{m.name}</p>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">{m.name}</p>
                             {m.aliases && m.aliases.length > 0 && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-100 text-sky-900 text-[11px] font-bold border border-sky-200">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/60 text-sky-900 dark:text-sky-200 text-[11px] font-bold border border-sky-200 dark:border-sky-800">
                                 🏷️ {m.aliases.join(", ")}
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-slate-600 mt-0.5 truncate">
+                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 truncate">
                             {m.google_email || "No email registered"} • Last active:{" "}
                             {formatLastActiveDisplay(m.last_active_survey)}
                           </p>
@@ -581,7 +581,7 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                               })
                             }
                             aria-label={`Edit ${m.name}`}
-                            className="min-h-[38px] px-3 py-1.5 inline-flex items-center gap-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+                            className="min-h-[38px] px-3 py-1.5 inline-flex items-center gap-1 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-2xs"
                             title="Edit name, emails, or nicknames"
                           >
                             <Pencil className="w-3.5 h-3.5 text-slate-500" />
@@ -597,10 +597,10 @@ export const MemberDirectoryModal: React.FC<MemberDirectoryModalProps> = ({
                             }
                             className={`min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
                               isUpdating
-                                ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-75"
+                                ? "bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-75"
                                 : m.active
-                                  ? "bg-emerald-100 text-emerald-950 hover:bg-emerald-200 border border-emerald-300 cursor-pointer"
-                                  : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 cursor-pointer"
+                                  ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-800 cursor-pointer"
+                                  : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 cursor-pointer"
                             }`}
                           >
                             {isUpdating ? (

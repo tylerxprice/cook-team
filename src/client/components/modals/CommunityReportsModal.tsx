@@ -41,21 +41,21 @@ export const CommunityReportsModal: React.FC<CommunityReportsModalProps> = ({
       aria-labelledby="modal-title-reports"
       className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
     >
-      <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-5xl w-full max-h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800">
         {/* Modal Header */}
-        <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center font-bold border border-orange-200">
+            <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 flex items-center justify-center font-bold border border-orange-200 dark:border-orange-800">
               <BarChart3 className="w-5 h-5" />
             </div>
             <div>
               <h3
                 id="modal-title-reports"
-                className="text-base sm:text-lg font-bold text-slate-900"
+                className="text-base sm:text-lg font-bold text-slate-900 dark:text-white"
               >
-                Community Trends & Volunteer Equity Report
+                Community Trends &amp; Volunteer Equity Report
               </h3>
-              <p className="text-xs text-slate-700 mt-0.5">
+              <p className="text-xs text-slate-700 dark:text-slate-400 mt-0.5">
                 Multi-month historical shift contributions, volunteer balance, and participation
                 equity.
               </p>
@@ -64,43 +64,43 @@ export const CommunityReportsModal: React.FC<CommunityReportsModalProps> = ({
           <button
             onClick={onClose}
             aria-label="Close dialog"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Month Range & Selection Controls */}
-        <div className="p-4 bg-slate-50 border-b border-slate-200 space-y-3">
+        <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-slate-800">Filter Months to Include:</span>
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Filter Months to Include:</span>
               <div className="flex items-center gap-2 text-xs flex-wrap">
                 <button
                   type="button"
                   onClick={() => setSelectedReportMonths([...availableReportMonths])}
-                  className="min-h-[36px] px-3 py-1 rounded-xl bg-white hover:bg-slate-200 text-slate-800 border border-slate-300 font-bold cursor-pointer"
+                  className="min-h-[36px] px-3 py-1 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-bold cursor-pointer"
                 >
                   Select All
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedReportMonths(availableReportMonths.slice(0, 3))}
-                  className="min-h-[36px] px-3 py-1 rounded-xl bg-white hover:bg-slate-200 text-slate-800 border border-slate-300 font-bold cursor-pointer"
+                  className="min-h-[36px] px-3 py-1 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-bold cursor-pointer"
                 >
                   Last 3 Months
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedReportMonths(availableReportMonths.slice(0, 6))}
-                  className="min-h-[36px] px-3 py-1 rounded-xl bg-white hover:bg-slate-200 text-slate-800 border border-slate-300 font-bold cursor-pointer"
+                  className="min-h-[36px] px-3 py-1 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-bold cursor-pointer"
                 >
                   Last 6 Months
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedReportMonths([])}
-                  className="min-h-[36px] px-3 py-1 rounded-xl bg-white hover:bg-slate-200 text-slate-800 border border-slate-300 font-bold cursor-pointer"
+                  className="min-h-[36px] px-3 py-1 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-bold cursor-pointer"
                 >
                   Clear
                 </button>
@@ -135,8 +135,8 @@ export const CommunityReportsModal: React.FC<CommunityReportsModalProps> = ({
                   }}
                   className={`min-h-[40px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                     isSelected
-                      ? "bg-orange-100 text-orange-950 border-orange-400 shadow-2xs"
-                      : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
+                      ? "bg-orange-100 dark:bg-orange-950/60 text-orange-950 dark:text-orange-200 border-orange-400 dark:border-orange-800 shadow-2xs"
+                      : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700"
                   }`}
                 >
                   <span>{isSelected ? "✓" : "○"}</span>
@@ -152,14 +152,14 @@ export const CommunityReportsModal: React.FC<CommunityReportsModalProps> = ({
           {loadingReport && (
             <div className="py-12 text-center space-y-3">
               <RefreshCw className="w-8 h-8 text-orange-600 animate-spin mx-auto" />
-              <p className="text-sm font-bold text-slate-800">
+              <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
                 Scanning schedule tabs and calculating equity...
               </p>
             </div>
           )}
 
           {!loadingReport && !communityReport && (
-            <div className="py-12 text-center space-y-2 text-slate-600">
+            <div className="py-12 text-center space-y-2 text-slate-600 dark:text-slate-400">
               <p className="text-xs sm:text-sm">
                 Select your desired month range above and click <strong>Run Report</strong>.
               </p>
@@ -170,57 +170,57 @@ export const CommunityReportsModal: React.FC<CommunityReportsModalProps> = ({
             <>
               {/* 4 Summary Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="bg-slate-50 rounded-xl border border-slate-300 p-4">
-                  <div className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-300 dark:border-slate-700 p-4">
+                  <div className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Total Meals
                   </div>
-                  <div className="text-2xl font-black text-slate-900 mt-1">
+                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
                     {communityReport.totalMealsServed}
                   </div>
-                  <div className="text-xs text-slate-600 mt-0.5">
+                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                     Across {communityReport.totalMonthsTracked} month(s)
                   </div>
                 </div>
 
-                <div className="bg-orange-50 rounded-xl border border-orange-300 p-4">
-                  <div className="text-xs font-bold text-orange-900 uppercase tracking-wider">
+                <div className="bg-orange-50 dark:bg-orange-950/30 rounded-xl border border-orange-300 dark:border-orange-800 p-4">
+                  <div className="text-xs font-bold text-orange-900 dark:text-orange-300 uppercase tracking-wider">
                     Total Cook Shifts
                   </div>
-                  <div className="text-2xl font-black text-orange-700 mt-1">
+                  <div className="text-2xl font-black text-orange-700 dark:text-orange-400 mt-1">
                     {communityReport.totalCookShifts}
                   </div>
-                  <div className="text-xs text-slate-700 mt-0.5">Dinner &amp; brunch cooks</div>
+                  <div className="text-xs text-slate-700 dark:text-slate-300 mt-0.5">Dinner &amp; brunch cooks</div>
                 </div>
 
-                <div className="bg-sky-50 rounded-xl border border-sky-300 p-4">
-                  <div className="text-xs font-bold text-sky-900 uppercase tracking-wider">
+                <div className="bg-sky-50 dark:bg-sky-950/30 rounded-xl border border-sky-300 dark:border-sky-800 p-4">
+                  <div className="text-xs font-bold text-sky-900 dark:text-sky-300 uppercase tracking-wider">
                     Total Clean Shifts
                   </div>
-                  <div className="text-2xl font-black text-sky-700 mt-1">
+                  <div className="text-2xl font-black text-sky-700 dark:text-sky-400 mt-1">
                     {communityReport.totalCleanShifts}
                   </div>
-                  <div className="text-xs text-slate-700 mt-0.5">Dining &amp; kitchen cleanup</div>
+                  <div className="text-xs text-slate-700 dark:text-slate-300 mt-0.5">Dining &amp; kitchen cleanup</div>
                 </div>
 
-                <div className="bg-emerald-50 rounded-xl border border-emerald-300 p-4">
-                  <div className="text-xs font-bold text-emerald-900 uppercase tracking-wider">
+                <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-300 dark:border-emerald-800 p-4">
+                  <div className="text-xs font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider">
                     Active Volunteers
                   </div>
-                  <div className="text-2xl font-black text-emerald-700 mt-1">
+                  <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-1">
                     {communityReport.uniqueVolunteersCount}
                   </div>
-                  <div className="text-xs text-slate-700 mt-0.5">Participating residents</div>
+                  <div className="text-xs text-slate-700 dark:text-slate-300 mt-0.5">Participating residents</div>
                 </div>
               </div>
 
               {/* Leaderboard Table */}
-              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h4 className="text-sm sm:text-base font-bold text-slate-900">
+                    <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                       Volunteer Participation &amp; Equity Leaderboard
                     </h4>
-                    <p className="text-xs text-slate-600">
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
                       Individual shift quota balance, cooking vs cleaning distribution, and badges.
                     </p>
                   </div>
@@ -237,7 +237,7 @@ export const CommunityReportsModal: React.FC<CommunityReportsModalProps> = ({
                         placeholder="Search resident..."
                         value={reportSearch}
                         onChange={(e) => setReportSearch(e.target.value)}
-                        className="min-h-[44px] pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-slate-900 font-medium"
+                        className="min-h-[44px] pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-slate-900 dark:text-white font-medium"
                       />
                     </div>
 
@@ -249,7 +249,7 @@ export const CommunityReportsModal: React.FC<CommunityReportsModalProps> = ({
                         id="report-sort-selector"
                         value={reportSort}
                         onChange={(e: any) => setReportSort(e.target.value)}
-                        className="min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800"
+                        className="min-h-[44px] px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200"
                       >
                         <option value="shifts">Sort by Total Shifts</option>
                         <option value="cooks">Sort by Cook Shifts</option>
@@ -262,8 +262,8 @@ export const CommunityReportsModal: React.FC<CommunityReportsModalProps> = ({
                 </div>
 
                 {/* Badge Guide & Criteria Legend */}
-                <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-2 text-xs">
-                  <span className="font-bold text-slate-700 mr-1">Badge Legend:</span>
+                <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-bold text-slate-700 dark:text-slate-300 mr-1">Badge Legend:</span>
                   {Object.entries(BADGE_DEFINITIONS).map(([badgeName, meta]) => (
                     <div
                       key={badgeName}
@@ -271,7 +271,7 @@ export const CommunityReportsModal: React.FC<CommunityReportsModalProps> = ({
                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-bold cursor-help ${meta.color}`}
                     >
                       <span>{badgeName}</span>
-                      <span className="text-slate-600 font-normal hidden lg:inline">
+                      <span className="text-slate-600 dark:text-slate-400 font-normal hidden lg:inline">
                         ({meta.desc})
                       </span>
                     </div>
@@ -280,7 +280,7 @@ export const CommunityReportsModal: React.FC<CommunityReportsModalProps> = ({
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-100 text-slate-700 uppercase font-bold border-b border-slate-300">
+                    <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 uppercase font-bold border-b border-slate-300 dark:border-slate-700">
                       <tr>
                         <th scope="col" className="px-3.5 py-3">
                           #
@@ -314,7 +314,7 @@ export const CommunityReportsModal: React.FC<CommunityReportsModalProps> = ({
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {(() => {
                         const filtered = communityReport.memberEquityStats.filter((m) =>
                           reportSearch
@@ -331,9 +331,9 @@ export const CommunityReportsModal: React.FC<CommunityReportsModalProps> = ({
                         });
 
                         return filtered.map((m, idx) => (
-                          <tr key={m.name} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-3.5 py-3 font-bold text-slate-500">{idx + 1}</td>
-                            <td className="px-3.5 py-3 font-bold text-slate-900 text-sm">
+                          <tr key={m.name} className="hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+                            <td className="px-3.5 py-3 font-bold text-slate-500 dark:text-slate-400">{idx + 1}</td>
+                            <td className="px-3.5 py-3 font-bold text-slate-900 dark:text-white text-sm">
                               {m.name}
                             </td>
                             <td className="px-3.5 py-3">
@@ -355,20 +355,20 @@ export const CommunityReportsModal: React.FC<CommunityReportsModalProps> = ({
                                 })}
                               </div>
                             </td>
-                            <td className="px-3.5 py-3 font-semibold text-slate-800">
+                            <td className="px-3.5 py-3 font-semibold text-slate-800 dark:text-slate-200">
                               {m.monthsActive}
                             </td>
-                            <td className="px-3.5 py-3 font-bold text-orange-800">
+                            <td className="px-3.5 py-3 font-bold text-orange-800 dark:text-orange-400">
                               {m.totalCooks}
                             </td>
-                            <td className="px-3.5 py-3 font-bold text-sky-800">{m.totalCleans}</td>
-                            <td className="px-3.5 py-3 font-bold text-purple-800">
+                            <td className="px-3.5 py-3 font-bold text-sky-800 dark:text-sky-400">{m.totalCleans}</td>
+                            <td className="px-3.5 py-3 font-bold text-amber-800 dark:text-amber-400">
                               {m.sameDayShifts}
                             </td>
-                            <td className="px-3.5 py-3 font-black text-slate-900 text-sm">
+                            <td className="px-3.5 py-3 font-black text-slate-900 dark:text-white text-sm">
                               {m.totalShifts}
                             </td>
-                            <td className="px-3.5 py-3 font-semibold text-slate-700">
+                            <td className="px-3.5 py-3 font-semibold text-slate-700 dark:text-slate-300">
                               {m.averageShiftsPerMonth}
                             </td>
                             <td className="px-3.5 py-3">
@@ -376,7 +376,7 @@ export const CommunityReportsModal: React.FC<CommunityReportsModalProps> = ({
                                 {Object.entries(m.monthlyBreakdown).map(([mKey, counts]) => (
                                   <span
                                     key={mKey}
-                                    className="text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded-lg border border-slate-200 font-mono font-bold"
+                                    className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700 font-mono font-bold"
                                     title={`${mKey}: ${counts.cooks} cooks, ${counts.cleans} cleans`}
                                   >
                                     {mKey}: {counts.total}
@@ -396,11 +396,11 @@ export const CommunityReportsModal: React.FC<CommunityReportsModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+        <div className="p-4 bg-slate-50 dark:bg-slate-900/90 border-t border-slate-200 dark:border-slate-800 flex justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[44px] px-6 py-2 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-950 bg-white border border-slate-300 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors"
+            className="min-h-[44px] px-6 py-2 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
           >
             Close
           </button>

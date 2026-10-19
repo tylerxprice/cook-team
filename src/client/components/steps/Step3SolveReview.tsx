@@ -101,47 +101,51 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
   return (
     <div className="space-y-6">
       {/* Unified Step 3 Header & Completeness Bar */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors">
         <div className="flex items-center gap-3.5">
           <div
             className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
               !solverResult
-                ? "bg-orange-50 text-orange-700 border border-orange-200"
+                ? "bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800"
                 : isAllActiveStaffed
-                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                  : "bg-amber-100 text-amber-900 border border-amber-300"
+                  ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                  : "bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
             }`}
           >
             {!solverResult ? (
               <Calendar className="w-5 h-5" />
             ) : isAllActiveStaffed ? (
-              <CheckCircle2 className="w-6 h-6 text-emerald-700" />
+              <CheckCircle2 className="w-6 h-6 text-emerald-700 dark:text-emerald-400" />
             ) : (
-              <AlertTriangle className="w-6 h-6 text-amber-800" />
+              <AlertTriangle className="w-6 h-6 text-amber-800 dark:text-amber-400" />
             )}
           </div>
 
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">{headlineTitle}</h2>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                {headlineTitle}
+              </h2>
               {solverResult && (
                 <span
                   className={`text-xs font-bold px-3 py-1 rounded-full ${
                     isAllActiveStaffed
-                      ? "bg-emerald-100 text-emerald-950 border border-emerald-300"
-                      : "bg-amber-100 text-amber-950 border border-amber-300"
+                      ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800"
+                      : "bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-800"
                   }`}
                 >
                   {staffedActiveMeals.length} / {activeMeals.length} Active Confirmed
                 </span>
               )}
               {cancelledDates.length > 0 && (
-                <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-800 border border-slate-300">
+                <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700">
                   {cancelledDates.length} Dates Cancelled (No Meal)
                 </span>
               )}
             </div>
-            <p className="text-xs sm:text-sm text-slate-600 mt-1">{subtitleText}</p>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">
+              {subtitleText}
+            </p>
           </div>
         </div>
 
@@ -159,13 +163,15 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
 
       {/* Empty State when solverResult has not run yet */}
       {!solverResult && !loading && (
-        <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-4 shadow-sm">
-          <div className="w-14 h-14 rounded-2xl bg-orange-100 text-orange-700 flex items-center justify-center mx-auto shadow-inner">
+        <div className="bg-white dark:bg-slate-900 p-12 rounded-2xl border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-sm">
+          <div className="w-14 h-14 rounded-2xl bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-400 flex items-center justify-center mx-auto shadow-inner">
             <Sparkles className="w-7 h-7" />
           </div>
           <div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900">Ready to Match Teams</h3>
-            <p className="text-xs sm:text-sm text-slate-600 max-w-sm mx-auto mt-1">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+              Ready to Match Teams
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-sm mx-auto mt-1">
               Click the button below to generate optimal, constraint-satisfying cook and clean
               rosters for all monthly meals.
             </p>
@@ -182,14 +188,14 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
 
       {/* Constraint Violations (if any) */}
       {solverResult && solverResult.violations.length > 0 && (
-        <div className="bg-amber-50 border border-amber-300 p-5 rounded-2xl space-y-2">
-          <div className="flex items-center gap-2 text-amber-950 text-xs sm:text-sm font-bold">
-            <AlertTriangle className="w-4 h-4 text-amber-800" />
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 p-5 rounded-2xl space-y-2">
+          <div className="flex items-center gap-2 text-amber-950 dark:text-amber-200 text-xs sm:text-sm font-bold">
+            <AlertTriangle className="w-4 h-4 text-amber-800 dark:text-amber-400" />
             <span>Soft Preference Violations ({solverResult.violations.length})</span>
           </div>
           <div className="space-y-1">
             {solverResult.violations.map((v: ConstraintViolation, i: number) => (
-              <p key={i} className="text-xs text-amber-900 font-medium">
+              <p key={i} className="text-xs text-amber-900 dark:text-amber-300 font-medium">
                 • {v.description}
               </p>
             ))}
@@ -200,7 +206,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
       {/* Visual Schedule Cards */}
       {solverResult && (
         <div className="space-y-4">
-          <h3 className="text-sm sm:text-base font-bold text-slate-900">
+          <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
             Generated Monthly Shift Roster ({solverResult.schedule.length} Dates)
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -230,52 +236,52 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                   key={day.dateKey}
                   className={`rounded-2xl border transition-all flex flex-col justify-between p-5 space-y-4 ${
                     isNoMeal
-                      ? "bg-slate-50/90 border-slate-200 opacity-85"
+                      ? "bg-slate-50/90 dark:bg-slate-800/50 border-slate-200 dark:border-slate-800 opacity-85"
                       : hasCookShortage
-                        ? "bg-rose-50/95 border-rose-300 ring-2 ring-rose-400/40 shadow-md"
+                        ? "bg-rose-50/95 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800 ring-2 ring-rose-400/40 shadow-md"
                         : hasCleanShortage
-                          ? "bg-amber-50/95 border-amber-300 ring-2 ring-amber-400/40 shadow-sm"
-                          : "bg-white border-slate-200 shadow-sm hover:shadow-md"
+                          ? "bg-amber-50/95 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800 ring-2 ring-amber-400/40 shadow-sm"
+                          : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md"
                   }`}
                 >
                   <div>
                     {/* Card Header */}
-                    <div className="flex items-start justify-between pb-3 border-b border-slate-200">
+                    <div className="flex items-start justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm sm:text-base font-bold text-slate-900">
+                          <span className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                             {formatDisplayDateLabel(day.dateLabel)}
                           </span>
                           {isNoMeal ? (
-                            <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-full font-bold border border-slate-300">
+                            <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-full font-bold border border-slate-300 dark:border-slate-700">
                               {isAutoCancelled
                                 ? "⚪ Auto-Cancelled (Volunteer Shortage)"
                                 : "⚪ Meal Cancelled"}
                             </span>
                           ) : hasCookShortage && hasCleanShortage ? (
-                            <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 bg-rose-700 text-white rounded-full font-bold shadow-sm">
+                            <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 bg-rose-700 dark:bg-rose-800 text-white rounded-full font-bold shadow-sm">
                               <AlertTriangle className="w-3.5 h-3.5" /> Short {day.unfilledCooks}C
                               &amp; {day.unfilledCleaners}Cl
                             </span>
                           ) : hasCookShortage ? (
-                            <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 bg-rose-700 text-white rounded-full font-bold shadow-sm">
+                            <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 bg-rose-700 dark:bg-rose-800 text-white rounded-full font-bold shadow-sm">
                               <AlertTriangle className="w-3.5 h-3.5" /> Short {day.unfilledCooks}{" "}
                               Cook{day.unfilledCooks > 1 ? "s" : ""}
                             </span>
                           ) : hasCleanShortage ? (
-                            <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 bg-amber-700 text-white rounded-full font-bold shadow-sm">
+                            <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 bg-amber-700 dark:bg-amber-800 text-white rounded-full font-bold shadow-sm">
                               <AlertTriangle className="w-3.5 h-3.5" /> Needs {day.unfilledCleaners}{" "}
                               Cleaner
                               {day.unfilledCleaners > 1 ? "s" : ""}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 bg-emerald-100 text-emerald-950 rounded-full font-bold border border-emerald-300">
+                            <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-200 rounded-full font-bold border border-emerald-300 dark:border-emerald-800">
                               ✅ Fully Staffed
                             </span>
                           )}
                         </div>
                         {hasGenuineNote && (
-                          <p className="text-xs text-amber-900 font-bold mt-1">
+                          <p className="text-xs text-amber-900 dark:text-amber-400 font-bold mt-1">
                             📌 {day.specialNote}
                           </p>
                         )}
@@ -284,10 +290,10 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                         <span
                           className={`text-xs px-2 py-0.5 rounded-md font-bold uppercase ${
                             isNoMeal
-                              ? "bg-slate-100 text-slate-600 border border-slate-200"
+                              ? "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
                               : day.mealType === "BRUNCH"
-                                ? "bg-amber-100 text-amber-900 border border-amber-300"
-                                : "bg-indigo-100 text-indigo-900 border border-indigo-200"
+                                ? "bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800"
+                                : "bg-indigo-100 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800"
                           }`}
                         >
                           {day.mealType}
@@ -295,7 +301,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                         {!isNoMeal && (
                           <button
                             onClick={() => handleCancelMeal(day.dateKey)}
-                            className="min-h-[36px] text-xs text-slate-600 hover:text-rose-700 px-2 py-1 rounded-lg hover:bg-rose-50 font-bold transition-all cursor-pointer border border-transparent hover:border-rose-200"
+                            className="min-h-[36px] text-xs text-slate-600 dark:text-slate-400 hover:text-rose-700 dark:hover:text-rose-400 px-2 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 font-bold transition-all cursor-pointer border border-transparent hover:border-rose-200 dark:hover:border-rose-800"
                             title="Cancel this community meal date and release volunteers"
                           >
                             Cancel Meal
@@ -313,13 +319,13 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                           return (
                             <>
                               {opp ? (
-                                <div className="bg-amber-50/90 border border-amber-300 rounded-xl p-3 text-xs sm:text-sm text-amber-950 font-medium space-y-1">
+                                <div className="bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl p-3 text-xs sm:text-sm text-amber-950 dark:text-amber-200 font-medium space-y-1">
                                   <p>
                                     💡 <strong>{opp.availableCooks.length} Cooks</strong> &amp;{" "}
                                     <strong>{opp.availableCleaners.length} Cleaners</strong>{" "}
                                     available in survey
                                   </p>
-                                  <p className="text-xs text-amber-900 font-semibold">
+                                  <p className="text-xs text-amber-900 dark:text-amber-300 font-semibold">
                                     Short{" "}
                                     {opp.missingCooksCount > 0
                                       ? `${opp.missingCooksCount} cook${opp.missingCooksCount > 1 ? "s" : ""}`
@@ -334,7 +340,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                                   </p>
                                 </div>
                               ) : (
-                                <p className="text-xs sm:text-sm text-slate-500 font-medium italic">
+                                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium italic">
                                   No volunteers assigned for this date.
                                 </p>
                               )}
@@ -343,7 +349,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                                   <button
                                     type="button"
                                     onClick={() => setSelectedNearCompleteDateKey(day.dateKey)}
-                                    className="min-h-[40px] inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                                    className="min-h-[40px] inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-900/60 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
                                     title="View volunteer candidates to recover this meal"
                                   >
                                     <span>💡 Explore Recovery</span>
@@ -366,19 +372,19 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                       <>
                         {/* Cook Team */}
                         <div
-                          className={`mt-3.5 ${hasCookShortage ? "bg-rose-100/70 border border-rose-300 p-3 rounded-xl" : ""}`}
+                          className={`mt-3.5 ${hasCookShortage ? "bg-rose-100/70 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 p-3 rounded-xl" : ""}`}
                         >
                           <div className="flex items-center justify-between text-xs sm:text-sm mb-1.5">
-                            <span className="font-bold text-orange-950 flex items-center gap-1">
+                            <span className="font-bold text-orange-950 dark:text-orange-300 flex items-center gap-1">
                               🍳 Cooks ({day.cooks.length})
                             </span>
                             {day.isTwoPersonDinnerWilling && (
-                              <span className="text-xs px-2.5 py-0.5 bg-blue-50 text-blue-900 border border-blue-200 rounded-full font-bold">
+                              <span className="text-xs px-2.5 py-0.5 bg-blue-50 dark:bg-blue-950/50 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-full font-bold">
                                 👥 2-Cook Team (Willing)
                               </span>
                             )}
                             {hasCookShortage && (
-                              <span className="text-xs text-rose-800 font-bold">
+                              <span className="text-xs text-rose-800 dark:text-rose-400 font-bold">
                                 ⚠️ {day.unfilledCooks} needed
                               </span>
                             )}
@@ -392,11 +398,11 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                                   setSelectedQuotaMember(name);
                                   setSelectedQuotaFocusDateKey(day.dateKey);
                                 }}
-                                className="min-h-[38px] inline-flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-orange-50 text-orange-950 border border-orange-300 hover:border-orange-400 rounded-xl text-xs sm:text-sm font-bold shadow-2xs transition-all cursor-pointer group"
+                                className="min-h-[38px] inline-flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-orange-50 dark:hover:bg-orange-950/40 text-orange-950 dark:text-orange-200 border border-orange-300 dark:border-orange-800/80 hover:border-orange-400 rounded-xl text-xs sm:text-sm font-bold shadow-2xs transition-all cursor-pointer group"
                                 title={`Click to view ${name}'s availability and shifts`}
                               >
                                 <span>{name}</span>
-                                <Search className="w-3.5 h-3.5 text-orange-600 group-hover:scale-110 transition-transform" />
+                                <Search className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform" />
                               </button>
                             ))}
                             {Array.from({ length: day.unfilledCooks }).map((_, i) => (
@@ -409,10 +415,10 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                                     role: "COOK",
                                   })
                                 }
-                                className="min-h-[38px] px-3 py-1.5 bg-white hover:bg-rose-50 border-2 border-dashed border-rose-400 hover:border-rose-500 text-rose-800 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer group"
+                                className="min-h-[38px] px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-2 border-dashed border-rose-400 dark:border-rose-700 hover:border-rose-500 text-rose-800 dark:text-rose-300 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer group"
                                 title="Click to fill missing cook slot"
                               >
-                                <Plus className="w-4 h-4 text-rose-600 group-hover:scale-110 transition-transform" />
+                                <Plus className="w-4 h-4 text-rose-600 dark:text-rose-400 group-hover:scale-110 transition-transform" />
                                 <span>Fill Missing Cook Slot</span>
                               </button>
                             ))}
@@ -421,14 +427,14 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
 
                         {/* Clean Team */}
                         <div
-                          className={`mt-3.5 ${hasCleanShortage ? "bg-amber-100/70 border border-amber-300 p-3 rounded-xl" : ""}`}
+                          className={`mt-3.5 ${hasCleanShortage ? "bg-amber-100/70 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 p-3 rounded-xl" : ""}`}
                         >
                           <div className="flex items-center justify-between text-xs sm:text-sm mb-1.5">
-                            <span className="font-bold text-sky-950 flex items-center gap-1">
+                            <span className="font-bold text-sky-950 dark:text-sky-300 flex items-center gap-1">
                               🧼 Cleaners ({day.cleaners.length})
                             </span>
                             {hasCleanShortage && (
-                              <span className="text-xs text-amber-900 font-bold">
+                              <span className="text-xs text-amber-900 dark:text-amber-400 font-bold">
                                 ⚠️ {day.unfilledCleaners} needed
                               </span>
                             )}
@@ -442,11 +448,11 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                                   setSelectedQuotaMember(name);
                                   setSelectedQuotaFocusDateKey(day.dateKey);
                                 }}
-                                className="min-h-[38px] inline-flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-sky-50 text-sky-950 border border-sky-300 hover:border-sky-400 rounded-xl text-xs sm:text-sm font-bold shadow-2xs transition-all cursor-pointer group"
+                                className="min-h-[38px] inline-flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/40 text-sky-950 dark:text-sky-200 border border-sky-300 dark:border-sky-800/80 hover:border-sky-400 rounded-xl text-xs sm:text-sm font-bold shadow-2xs transition-all cursor-pointer group"
                                 title={`Click to view ${name}'s availability and shifts`}
                               >
                                 <span>{name}</span>
-                                <Search className="w-3.5 h-3.5 text-sky-600 group-hover:scale-110 transition-transform" />
+                                <Search className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 group-hover:scale-110 transition-transform" />
                               </button>
                             ))}
                             {Array.from({ length: day.unfilledCleaners }).map((_, i) => (
@@ -459,10 +465,10 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                                     role: "CLEAN",
                                   })
                                 }
-                                className="min-h-[38px] px-3 py-1.5 bg-white hover:bg-amber-50 border-2 border-dashed border-amber-400 hover:border-amber-500 text-amber-900 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer group"
+                                className="min-h-[38px] px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950/40 border-2 border-dashed border-amber-400 dark:border-amber-700 hover:border-amber-500 text-amber-900 dark:text-amber-300 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer group"
                                 title="Click to fill missing cleaner slot"
                               >
-                                <Plus className="w-4 h-4 text-amber-700 group-hover:scale-110 transition-transform" />
+                                <Plus className="w-4 h-4 text-amber-700 dark:text-amber-400 group-hover:scale-110 transition-transform" />
                                 <span>Fill Missing Cleaner Slot</span>
                               </button>
                             ))}
@@ -480,13 +486,13 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
 
       {/* Member Shift Quota Balance Table */}
       {solverResult && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 Member Quota &amp; Shift Distribution Summary
               </h3>
-              <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-0.5">
                 Verify that every community member's requested cook quota is fulfilled and shifts
                 are on complete meals.
               </p>
@@ -494,7 +500,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="bg-slate-50 text-slate-700 uppercase font-bold border-b border-slate-200">
+              <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 uppercase font-bold border-b border-slate-200 dark:border-slate-700">
                 <tr>
                   <th scope="col" className="px-4 py-3">
                     Member
@@ -528,7 +534,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {(() => {
                   const allStats: MemberQuotaStat[] = Object.values(solverResult.memberStats);
 
@@ -587,35 +593,35 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                     return (
                       <tr
                         key={stat.name}
-                        className={`hover:bg-slate-50 transition-colors ${isMuted ? "bg-slate-50/50 text-slate-600" : ""}`}
+                        className={`hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors ${isMuted ? "bg-slate-50/50 dark:bg-slate-800/20 text-slate-600 dark:text-slate-400" : ""}`}
                       >
-                        <th scope="row" className="px-4 py-3 font-bold text-slate-900">
+                        <th scope="row" className="px-4 py-3 font-bold text-slate-900 dark:text-white">
                           {stat.name}
                         </th>
-                        <td className="px-4 py-3 font-semibold text-slate-800">
+                        <td className="px-4 py-3 font-semibold text-slate-800 dark:text-slate-200">
                           {stat.availableCookDays}{" "}
-                          <span className="text-slate-500 font-normal text-xs">
+                          <span className="text-slate-500 dark:text-slate-400 font-normal text-xs">
                             / {totalMealCount}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-slate-700 font-semibold">
+                        <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-semibold">
                           {stat.requestedCookQuota}
                         </td>
-                        <td className="px-4 py-3 font-bold text-orange-700">
+                        <td className="px-4 py-3 font-bold text-orange-700 dark:text-orange-400">
                           {stat.assignedCooks}
                         </td>
-                        <td className="px-4 py-3 font-semibold text-slate-800">
+                        <td className="px-4 py-3 font-semibold text-slate-800 dark:text-slate-200">
                           {stat.availableCleanDays}{" "}
-                          <span className="text-slate-500 font-normal text-xs">
+                          <span className="text-slate-500 dark:text-slate-400 font-normal text-xs">
                             / {totalMealCount}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-slate-700 font-semibold">{reqCleans}</td>
-                        <td className="px-4 py-3 font-bold text-sky-700">{stat.assignedCleans}</td>
-                        <td className="px-4 py-3 font-bold text-slate-900">
+                        <td className="px-4 py-3 text-slate-700 dark:text-slate-300 font-semibold">{reqCleans}</td>
+                        <td className="px-4 py-3 font-bold text-sky-700 dark:text-sky-400">{stat.assignedCleans}</td>
+                        <td className="px-4 py-3 font-bold text-slate-900 dark:text-white">
                           {stat.totalAssigned}
                           {hasExplicitMaxCap && (
-                            <span className="text-[11px] text-amber-900 font-semibold block">
+                            <span className="text-[11px] text-amber-900 dark:text-amber-400 font-semibold block">
                               (Cap: {reqMaxTotal})
                             </span>
                           )}
@@ -623,7 +629,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                         <td className="px-4 py-3">
                           {isOversubscribed ? (
                             <div className="space-y-1">
-                              <span className="text-purple-950 bg-purple-100 border border-purple-300 px-2.5 py-0.5 rounded-lg font-bold inline-block text-xs">
+                              <span className="text-amber-950 dark:text-amber-200 bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 px-2.5 py-0.5 rounded-lg font-bold inline-block text-xs">
                                 ⭐ Oversubscribed (
                                 {stat.assignedCooks > stat.requestedCookQuota
                                   ? `${stat.assignedCooks}/${stat.requestedCookQuota} Cooks`
@@ -643,18 +649,18 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                                 )
                               </span>
                               {hasPendingIncomplete && (
-                                <p className="text-xs text-amber-900 font-bold">
+                                <p className="text-xs text-amber-900 dark:text-amber-400 font-bold">
                                   ⚠️ {incompleteAssignedDays.length} shift on incomplete meal
                                 </p>
                               )}
                             </div>
                           ) : notPart ? (
-                            <span className="text-slate-700 bg-slate-100 border border-slate-300 px-2.5 py-0.5 rounded-lg font-semibold inline-block text-xs">
+                            <span className="text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-2.5 py-0.5 rounded-lg font-semibold inline-block text-xs">
                               ⚪ Not Participating
                             </span>
                           ) : isShort ? (
                             <div className="space-y-1">
-                              <span className="text-rose-950 bg-rose-100 border border-rose-300 px-2.5 py-0.5 rounded-lg font-bold inline-block text-xs">
+                              <span className="text-rose-950 dark:text-rose-200 bg-rose-100 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 px-2.5 py-0.5 rounded-lg font-bold inline-block text-xs">
                                 Short (
                                 {isCookShort
                                   ? `${stat.assignedCooks}/${stat.requestedCookQuota} Cooks`
@@ -663,27 +669,27 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                                 {isCleanShort ? `${stat.assignedCleans}/${reqCleans} Cleans` : ""})
                               </span>
                               {hasPendingIncomplete && (
-                                <p className="text-xs text-amber-900 font-bold">
+                                <p className="text-xs text-amber-900 dark:text-amber-400 font-bold">
                                   ⚠️ {incompleteAssignedDays.length} shift on incomplete meal
                                 </p>
                               )}
                             </div>
                           ) : hasPendingIncomplete ? (
                             <div className="space-y-1">
-                              <span className="text-amber-950 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-lg font-bold inline-block text-xs">
+                              <span className="text-amber-950 dark:text-amber-200 bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 px-2.5 py-0.5 rounded-lg font-bold inline-block text-xs">
                                 ⚠️ Pending ({incompleteAssignedDays.length} on Incomplete Meal
                                 {incompleteAssignedDays.length > 1 ? "s" : ""})
                               </span>
-                              <p className="text-xs text-amber-900 font-semibold">
+                              <p className="text-xs text-amber-900 dark:text-amber-400 font-semibold">
                                 Meal missing cleaner/cook team
                               </p>
                             </div>
                           ) : hasExplicitMaxCap && isTotalCapMet ? (
-                            <span className="text-emerald-950 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-lg font-bold inline-block text-xs">
+                            <span className="text-emerald-950 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 px-2.5 py-0.5 rounded-lg font-bold inline-block text-xs">
                               🎯 Cap Met ({stat.totalAssigned}/{reqMaxTotal})
                             </span>
                           ) : (
-                            <span className="text-emerald-950 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-lg font-bold inline-block text-xs">
+                            <span className="text-emerald-950 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 px-2.5 py-0.5 rounded-lg font-bold inline-block text-xs">
                               ✅ Staffed ({stat.assignedCooks}C + {stat.assignedCleans}Cl)
                             </span>
                           )}
@@ -698,7 +704,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                             className={`min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
                               isShort || hasPendingIncomplete
                                 ? "bg-amber-600 hover:bg-amber-700 text-white shadow-sm"
-                                : "bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300"
+                                : "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700"
                             }`}
                           >
                             <Search className="w-3.5 h-3.5" />
@@ -719,27 +725,27 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
 
                       {nonParticipatingList.length > 0 && (
                         <>
-                          <tr className="bg-slate-100/80 border-t border-b border-slate-200">
+                          <tr className="bg-slate-100/80 dark:bg-slate-800/60 border-t border-b border-slate-200 dark:border-slate-700">
                             <td colSpan={10} className="p-0">
                               <button
                                 type="button"
                                 onClick={() =>
                                   setShowNonParticipatingQuota(!showNonParticipatingQuota)
                                 }
-                                className="w-full min-h-[44px] px-4 py-3 flex items-center justify-between text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-200/70 transition-colors cursor-pointer"
+                                className="w-full min-h-[44px] px-4 py-3 flex items-center justify-between text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-200/70 dark:hover:bg-slate-700/60 transition-colors cursor-pointer"
                               >
                                 <div className="flex items-center gap-2">
-                                  <span className="text-slate-600 font-mono text-xs">
+                                  <span className="text-slate-600 dark:text-slate-400 font-mono text-xs">
                                     {showNonParticipatingQuota ? "▼" : "▶"}
                                   </span>
                                   <span>
                                     Non-Participating Members ({nonParticipatingList.length})
                                   </span>
-                                  <span className="text-xs font-normal text-slate-600">
+                                  <span className="text-xs font-normal text-slate-600 dark:text-slate-400">
                                     (0 requested shifts or 0 available dates this month)
                                   </span>
                                 </div>
-                                <span className="text-xs sm:text-sm text-indigo-700 font-bold hover:underline">
+                                <span className="text-xs sm:text-sm text-indigo-700 dark:text-indigo-400 font-bold hover:underline">
                                   {showNonParticipatingQuota
                                     ? "Click to collapse"
                                     : "Click to view members"}
@@ -767,7 +773,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
       <div className="flex justify-between items-center">
         <button
           onClick={() => goToStep(2)}
-          className="min-h-[48px] px-5 py-2.5 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-950 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+          className="min-h-[48px] px-5 py-2.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
         >
           ← Back to Notes &amp; Rules
         </button>

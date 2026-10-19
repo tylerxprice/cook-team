@@ -84,17 +84,17 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
   return (
     <div className="space-y-6">
       {/* Full-width Horizontal Auto-Publish Status Banner */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5 min-w-0">
-          <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-6 h-6 text-emerald-700" />
+          <div className="w-11 h-11 rounded-xl bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-6 h-6 text-emerald-700 dark:text-emerald-400" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 Schedule Published to Google Sheets
               </h3>
-              <span className="text-xs font-mono font-bold text-emerald-950 bg-emerald-100 border border-emerald-300 px-2.5 py-1 rounded-lg">
+              <span className="text-xs font-mono font-bold text-emerald-950 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 px-2.5 py-1 rounded-lg">
                 {exportedResult?.sheetName ||
                   (() => {
                     if (solverResult?.schedule?.length) {
@@ -112,7 +112,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                   })()}
               </span>
             </div>
-            <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-0.5">
               All {solverResult.schedule.length} monthly meal shifts have been automatically
               published to your spreadsheet tab.
             </p>
@@ -148,7 +148,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
           <button
             onClick={() => handleExportSheet(solverResult)}
             disabled={loading}
-            className="min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs sm:text-sm font-bold border border-slate-300 transition-colors cursor-pointer"
+            className="min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs sm:text-sm font-bold border border-slate-300 dark:border-slate-700 transition-colors cursor-pointer"
             title="Re-write spreadsheet tab"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -158,17 +158,17 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
       </div>
 
       {/* Full-width Community Announcement & Gmail Dispatch Card */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-blue-100 text-blue-800 border border-blue-200 flex items-center justify-center shrink-0">
+            <div className="w-11 h-11 rounded-xl bg-blue-100 dark:bg-blue-950/50 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center justify-center shrink-0">
               <Mail className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 Community Announcement &amp; Gmail Dispatch
               </h3>
-              <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-0.5">
                 Compose in Gmail web, create a draft in Gmail, or copy formatted text
               </p>
             </div>
@@ -178,7 +178,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
             <button
               type="button"
               onClick={handleCopyEmail}
-              className="min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold transition-colors cursor-pointer"
+              className="min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-bold transition-colors cursor-pointer"
             >
               <Copy className="w-4 h-4" />
               <span>Copy Text</span>
@@ -204,7 +204,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
               type="button"
               onClick={() => handleSendGmail("draft")}
               disabled={sendingEmail}
-              className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 rounded-xl text-xs sm:text-sm font-bold transition-colors disabled:opacity-50 cursor-pointer"
+              className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-900 dark:text-blue-300 border border-blue-300 dark:border-blue-800 rounded-xl text-xs sm:text-sm font-bold transition-colors disabled:opacity-50 cursor-pointer"
             >
               <FileText className="w-4 h-4" />
               <span>Create Gmail Draft</span>
@@ -216,19 +216,19 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
         {emailDispatchInfo?.alreadySent && (
           <div
             role="alert"
-            className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-fade-in"
+            className="bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-800 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-fade-in"
           >
             <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-              <div className="w-11 h-11 rounded-xl bg-amber-100 border border-amber-300 text-amber-800 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
-                <AlertTriangle className="w-6 h-6 text-amber-700" />
+              <div className="w-11 h-11 rounded-xl bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+                <AlertTriangle className="w-6 h-6 text-amber-700 dark:text-amber-400" />
               </div>
               <div className="min-w-0 space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold uppercase tracking-wider bg-amber-200 text-amber-950 px-2.5 py-0.5 rounded-lg border border-amber-300">
+                  <span className="text-xs font-bold uppercase tracking-wider bg-amber-200 dark:bg-amber-900/60 text-amber-950 dark:text-amber-200 px-2.5 py-0.5 rounded-lg border border-amber-300 dark:border-amber-700">
                     Notice: Announcement Already Sent
                   </span>
                   {emailDispatchInfo.sentAt && (
-                    <span className="text-xs font-semibold text-amber-900">
+                    <span className="text-xs font-semibold text-amber-900 dark:text-amber-300">
                       Sent on{" "}
                       {new Date(emailDispatchInfo.sentAt).toLocaleString("en-US", {
                         month: "short",
@@ -240,12 +240,12 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                     </span>
                   )}
                 </div>
-                <p className="text-xs sm:text-sm text-amber-950 font-medium">
+                <p className="text-xs sm:text-sm text-amber-950 dark:text-amber-200 font-medium">
                   A monthly meal announcement was already emailed to{" "}
                   <strong>{emailDispatchInfo.to || emailTo}</strong>.
                 </p>
                 {emailDispatchInfo.subject && (
-                  <p className="text-xs text-amber-800 italic">
+                  <p className="text-xs text-amber-800 dark:text-amber-400 italic">
                     Subject: "{emailDispatchInfo.subject}"{" "}
                     {emailDispatchInfo.sentBy ? `• Sent by ${emailDispatchInfo.sentBy}` : ""}
                   </p>
@@ -254,8 +254,8 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
             </div>
 
             <div className="shrink-0 flex items-center gap-2 sm:self-center">
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-950 bg-amber-100 px-3 py-1.5 rounded-xl border border-amber-300">
-                <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-950 dark:text-amber-200 bg-amber-100 dark:bg-amber-950/60 px-3 py-1.5 rounded-xl border border-amber-300 dark:border-amber-800">
+                <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
                 <span>Broadcast Logged</span>
               </span>
             </div>
@@ -269,14 +269,16 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
             aria-live="polite"
             className={`p-4 rounded-xl border flex items-center justify-between gap-3 animate-fade-in ${
               emailDeliveryResult.mode === "send"
-                ? "bg-emerald-50 border-emerald-300 text-emerald-950 font-semibold"
-                : "bg-blue-50 border-blue-300 text-blue-950 font-semibold"
+                ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200 font-semibold"
+                : "bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-800 text-blue-950 dark:text-blue-200 font-semibold"
             }`}
           >
             <div className="flex items-center gap-2.5 text-xs sm:text-sm min-w-0">
               <CheckCircle2
                 className={`w-5 h-5 shrink-0 ${
-                  emailDeliveryResult.mode === "send" ? "text-emerald-700" : "text-blue-700"
+                  emailDeliveryResult.mode === "send"
+                    ? "text-emerald-700 dark:text-emerald-400"
+                    : "text-blue-700 dark:text-blue-400"
                 }`}
               />
               <span className="truncate">{emailDeliveryResult.message}</span>
@@ -305,7 +307,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
               <div className="flex items-center justify-between flex-wrap gap-1">
                 <label
                   htmlFor="email-recipients-to-input"
-                  className="text-xs sm:text-sm font-bold text-slate-800"
+                  className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200"
                 >
                   Recipients / Listserv (To:)
                 </label>
@@ -315,8 +317,8 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                     onClick={() => setEmailTo(DEFAULT_ANNOUNCEMENT_TO)}
                     className={`text-xs px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
                       emailTo === DEFAULT_ANNOUNCEMENT_TO
-                        ? "bg-blue-100 text-blue-950 border border-blue-300"
-                        : "text-slate-700 hover:text-blue-900 bg-slate-100 border border-slate-200"
+                        ? "bg-blue-100 dark:bg-blue-950/60 text-blue-950 dark:text-blue-200 border border-blue-300 dark:border-blue-800"
+                        : "text-slate-700 dark:text-slate-300 hover:text-blue-900 dark:hover:text-blue-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                     }`}
                   >
                     Vancouver Cohousing Listserv
@@ -326,8 +328,8 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                     onClick={() => setEmailTo(DEV_TEST_EMAIL)}
                     className={`text-xs px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
                       emailTo === DEV_TEST_EMAIL
-                        ? "bg-amber-100 text-amber-950 border border-amber-300"
-                        : "text-slate-700 hover:text-amber-900 bg-slate-100 border border-slate-200"
+                        ? "bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-800"
+                        : "text-slate-700 dark:text-slate-300 hover:text-amber-900 dark:hover:text-amber-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                     }`}
                   >
                     Dev / Test (Tyler)
@@ -340,7 +342,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                 value={emailTo}
                 onChange={(e) => setEmailTo(e.target.value)}
                 placeholder="e.g. Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>"
-                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white font-medium text-slate-900"
+                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white dark:bg-slate-800 font-medium text-slate-900 dark:text-white"
               />
             </div>
 
@@ -349,7 +351,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
               <div className="flex items-center justify-between flex-wrap gap-1">
                 <label
                   htmlFor="email-recipients-cc-input"
-                  className="text-xs sm:text-sm font-bold text-slate-800"
+                  className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200"
                 >
                   CC Recipients (CC:)
                 </label>
@@ -359,8 +361,8 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                     onClick={() => setEmailCc(DEFAULT_ANNOUNCEMENT_CC)}
                     className={`text-xs px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
                       emailCc === DEFAULT_ANNOUNCEMENT_CC
-                        ? "bg-indigo-100 text-indigo-950 border border-indigo-300"
-                        : "text-slate-700 hover:text-indigo-900 bg-slate-100 border border-slate-200"
+                        ? "bg-indigo-100 dark:bg-indigo-950/60 text-indigo-950 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-800"
+                        : "text-slate-700 dark:text-slate-300 hover:text-indigo-900 dark:hover:text-indigo-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                     }`}
                   >
                     Default CC (Ben, Fabrice, Patricia)
@@ -369,7 +371,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                     <button
                       type="button"
                       onClick={() => setEmailCc("")}
-                      className="text-xs px-2.5 py-1 rounded-lg font-bold text-slate-600 hover:text-rose-700 bg-slate-100 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 transition-colors cursor-pointer"
+                      className="text-xs px-2.5 py-1 rounded-lg font-bold text-slate-600 dark:text-slate-400 hover:text-rose-700 dark:hover:text-rose-400 bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200 dark:border-slate-700 hover:border-rose-200 dark:hover:border-rose-800 transition-colors cursor-pointer"
                     >
                       Clear CC
                     </button>
@@ -382,7 +384,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                 value={emailCc}
                 onChange={(e) => setEmailCc(e.target.value)}
                 placeholder="e.g. Ben Ernst <ben@earnesticecream.com>, Fabrice Retiere <fabrulous@gmail.com>, Patricia Fahrni <pfahrni@shaw.ca>"
-                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white font-medium text-slate-900"
+                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white dark:bg-slate-800 font-medium text-slate-900 dark:text-white"
               />
             </div>
           </div>
@@ -391,7 +393,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
           <div className="space-y-1.5">
             <label
               htmlFor="email-subject-line-input"
-              className="text-xs sm:text-sm font-bold text-slate-800"
+              className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200"
             >
               Subject Line
             </label>
@@ -404,7 +406,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                 setEmailSubject(e.target.value);
               }}
               placeholder="Subject line..."
-              className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white font-bold text-slate-900"
+              className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white dark:bg-slate-800 font-bold text-slate-900 dark:text-white"
             />
           </div>
         </div>
@@ -415,18 +417,18 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
             <div className="flex items-center gap-2.5">
               <label
                 htmlFor="email-body-text-area"
-                className="text-xs sm:text-sm font-bold text-slate-800"
+                className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200"
               >
                 Email Announcement Body
               </label>
-              <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200">
+              <div className="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700">
                 <button
                   type="button"
                   onClick={() => setEmailTab("edit")}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
                     emailTab === "edit"
-                      ? "bg-white text-slate-900 shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
+                      ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
                   <Edit3 className="w-3.5 h-3.5" />
@@ -437,8 +439,8 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                   onClick={() => setEmailTab("preview")}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
                     emailTab === "preview"
-                      ? "bg-white text-blue-700 shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
+                      ? "bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-400 shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
                   <Eye className="w-3.5 h-3.5" />
@@ -449,7 +451,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
             {customEmailBody !== null && (
               <button
                 onClick={() => setCustomEmailBody(null)}
-                className="text-xs text-orange-700 hover:text-orange-900 font-bold hover:underline cursor-pointer"
+                className="text-xs text-orange-700 dark:text-orange-400 hover:text-orange-900 dark:hover:text-orange-300 font-bold hover:underline cursor-pointer"
               >
                 Reset to Default Template
               </button>
@@ -462,12 +464,12 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
               value={generateEmailText()}
               onChange={(e) => setCustomEmailBody(e.target.value)}
               rows={12}
-              className="w-full p-4 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 leading-relaxed resize-y select-all"
+              className="w-full p-4 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-mono text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 leading-relaxed resize-y select-all"
             />
           ) : (
-            <div className="p-5 bg-white border border-slate-300 rounded-xl shadow-inner min-h-[260px] overflow-y-auto">
+            <div className="p-5 bg-white dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-xl shadow-inner min-h-[260px] overflow-y-auto">
               <div
-                className="text-slate-900 leading-relaxed"
+                className="text-slate-900 dark:text-slate-100 leading-relaxed"
                 dangerouslySetInnerHTML={{
                   __html: formatEmailHtmlBody(generateEmailText()),
                 }}
@@ -480,7 +482,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
       <div className="flex justify-start">
         <button
           onClick={() => goToStep(3)}
-          className="min-h-[48px] px-5 py-2.5 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-950 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+          className="min-h-[48px] px-5 py-2.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
         >
           ← Back to Schedule View
         </button>

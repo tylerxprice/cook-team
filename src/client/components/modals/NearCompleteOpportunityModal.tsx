@@ -145,27 +145,27 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
       aria-labelledby="modal-title-meal-recovery"
       className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
     >
-      <div className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full max-h-[90vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800">
         {/* Header */}
-        <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-amber-50/80 via-orange-50/50 to-white">
+        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-amber-50/80 via-orange-50/50 to-white dark:from-amber-950/30 dark:via-orange-950/20 dark:to-slate-900">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-300 text-amber-900 flex items-center justify-center font-bold text-lg shadow-xs">
+            <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 flex items-center justify-center font-bold text-lg shadow-xs">
               💡
             </div>
             <div>
               <h3
                 id="modal-title-meal-recovery"
-                className="text-base sm:text-lg font-bold text-slate-900"
+                className="text-base sm:text-lg font-bold text-slate-900 dark:text-white"
               >
                 Meal Recovery Opportunity
               </h3>
-              <p className="text-xs font-bold text-amber-950 flex items-center gap-2 mt-0.5">
+              <p className="text-xs font-bold text-amber-950 dark:text-amber-200 flex items-center gap-2 mt-0.5">
                 <span>{formatDisplayDateLabel(opp.dateLabel)}</span>
                 <span
                   className={`text-xs px-2.5 py-0.5 rounded-full font-bold uppercase border ${
                     opp.mealType === "BRUNCH"
-                      ? "bg-amber-100 text-amber-900 border-amber-300"
-                      : "bg-indigo-100 text-indigo-900 border-indigo-300"
+                      ? "bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-800"
+                      : "bg-indigo-100 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200 border-indigo-300 dark:border-indigo-800"
                   }`}
                 >
                   {opp.mealType}
@@ -177,7 +177,7 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -186,30 +186,30 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
         {/* Body */}
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
           {/* Compact Capacity & Gap Breakdown Strip */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs shadow-2xs">
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs shadow-2xs">
             <div className="flex items-center gap-1.5">
-              <span className="text-slate-500 font-semibold uppercase text-[11px] tracking-wide">
+              <span className="text-slate-500 dark:text-slate-400 font-semibold uppercase text-[11px] tracking-wide">
                 Required:
               </span>
-              <span className="font-extrabold text-slate-800">
+              <span className="font-extrabold text-slate-800 dark:text-slate-200">
                 {targetCooks} Cooks • {targetCleans} Cleaners
               </span>
             </div>
-            <div className="hidden sm:block text-slate-300 font-bold">•</div>
+            <div className="hidden sm:block text-slate-300 dark:text-slate-600 font-bold">•</div>
             <div className="flex items-center gap-1.5">
-              <span className="text-slate-500 font-semibold uppercase text-[11px] tracking-wide">
+              <span className="text-slate-500 dark:text-slate-400 font-semibold uppercase text-[11px] tracking-wide">
                 Available:
               </span>
-              <span className="font-extrabold text-slate-800">
+              <span className="font-extrabold text-slate-800 dark:text-slate-200">
                 {opp.availableCooks.length} Cooks • {opp.availableCleaners.length} Cleaners
               </span>
             </div>
-            <div className="hidden sm:block text-slate-300 font-bold">•</div>
+            <div className="hidden sm:block text-slate-300 dark:text-slate-600 font-bold">•</div>
             <div className="flex items-center gap-1.5">
-              <span className="text-amber-800 font-semibold uppercase text-[11px] tracking-wide">
+              <span className="text-amber-800 dark:text-amber-400 font-semibold uppercase text-[11px] tracking-wide">
                 Gap:
               </span>
-              <span className="font-extrabold text-amber-950">
+              <span className="font-extrabold text-amber-950 dark:text-amber-200">
                 {opp.missingCooksCount > 0
                   ? `Short ${opp.missingCooksCount} Cook${opp.missingCooksCount > 1 ? "s" : ""}`
                   : "0 cooks needed"}
@@ -226,23 +226,23 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
           {/* Cook Candidates Section */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs sm:text-sm font-bold text-orange-950 uppercase tracking-wider flex items-center gap-1.5">
+              <h4 className="text-xs sm:text-sm font-bold text-orange-950 dark:text-orange-200 uppercase tracking-wider flex items-center gap-1.5">
                 🍳 Select Cooks to Assign ({sortedCookCandidates.length} Available)
               </h4>
               <span
                 className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
                   recoverySelectedCooks.length === targetCooks
-                    ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                    ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800"
                     : recoverySelectedCooks.length > 0
-                      ? "bg-orange-100 text-orange-800 border-orange-300"
-                      : "bg-slate-100 text-slate-700 border-slate-300"
+                      ? "bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-800"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700"
                 }`}
               >
                 {recoverySelectedCooks.length} of {targetCooks} selected
               </span>
             </div>
             {sortedCookCandidates.length > 0 ? (
-              <div className="space-y-2 max-h-52 overflow-y-auto p-2 bg-orange-50/40 border border-orange-200 rounded-xl divide-y divide-orange-100">
+              <div className="space-y-2 max-h-52 overflow-y-auto p-2 bg-orange-50/40 dark:bg-slate-800/40 border border-orange-200 dark:border-orange-900/40 rounded-xl divide-y divide-orange-100 dark:divide-slate-800">
                 {sortedCookCandidates.map((cand) => {
                   const liveCooksAssigned =
                     solverResult.memberStats?.[cand.name]?.assignedCooks ?? cand.assignedCooks ?? 0;
@@ -264,8 +264,8 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                       onClick={() => handleToggleCook(cand.name)}
                       className={`min-h-[48px] pt-2 first:pt-0 p-2.5 rounded-xl cursor-pointer transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs sm:text-sm ${
                         isSelected
-                          ? "bg-orange-50/90 border-2 border-orange-500 shadow-xs ring-1 ring-orange-400 font-semibold"
-                          : "bg-white border border-orange-200 hover:border-orange-300 hover:bg-orange-50/60"
+                          ? "bg-orange-50/90 dark:bg-orange-950/40 border-2 border-orange-500 shadow-xs ring-1 ring-orange-400 font-semibold"
+                          : "bg-white dark:bg-slate-800/80 border border-orange-200 dark:border-slate-700 hover:border-orange-300 dark:hover:border-slate-600 hover:bg-orange-50/60 dark:hover:bg-slate-800"
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
@@ -273,7 +273,7 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                           className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${
                             isSelected
                               ? "bg-orange-600 border-orange-600 text-white shadow-2xs"
-                              : "border-slate-300 bg-white"
+                              : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700"
                           }`}
                         >
                           {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -282,19 +282,19 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                           <div className="flex items-center gap-2">
                             <span
                               className={`font-bold ${
-                                isSelected ? "text-orange-950 font-extrabold" : "text-slate-900"
+                                isSelected ? "text-orange-950 dark:text-orange-200 font-extrabold" : "text-slate-900 dark:text-slate-100"
                               }`}
                             >
                               {cand.name}
                             </span>
                             {isSelected && (
-                              <span className="text-[10px] font-extrabold text-orange-700 bg-orange-100 border border-orange-300 px-2 py-0.5 rounded-full shadow-2xs">
+                              <span className="text-[10px] font-extrabold text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-950/60 border border-orange-300 dark:border-orange-800 px-2 py-0.5 rounded-full shadow-2xs">
                                 ✓ Selected
                               </span>
                             )}
                           </div>
                           {cand.specialInstructions && (
-                            <p className="text-xs text-amber-900 font-medium italic mt-0.5">
+                            <p className="text-xs text-amber-900 dark:text-amber-300 font-medium italic mt-0.5">
                               &quot;{cand.specialInstructions}&quot;
                             </p>
                           )}
@@ -302,11 +302,11 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 pl-7 sm:pl-0">
                         {hasRemainingCookQuota ? (
-                          <span className="text-xs font-bold text-emerald-900 bg-emerald-100 border border-emerald-300 px-2.5 py-1 rounded-lg">
+                          <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 px-2.5 py-1 rounded-lg">
                             ✨ Can Cook ({liveCooksAssigned}/{liveCookQuota} assigned)
                           </span>
                         ) : (
-                          <span className="text-xs font-bold text-orange-950 bg-orange-100/80 border border-orange-300 px-2.5 py-1 rounded-lg">
+                          <span className="text-xs font-bold text-orange-950 dark:text-orange-200 bg-orange-100/80 dark:bg-orange-950/60 border border-orange-300 dark:border-orange-800 px-2.5 py-1 rounded-lg">
                             ⚡ At Quota ({liveCooksAssigned}/{liveCookQuota} assigned)
                           </span>
                         )}
@@ -316,7 +316,7 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                 })}
               </div>
             ) : (
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-600 italic text-center">
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-600 dark:text-slate-400 italic text-center">
                 No members marked cooking availability on this date.
               </div>
             )}
@@ -325,23 +325,23 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
           {/* Clean Candidates Section */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs sm:text-sm font-bold text-sky-950 uppercase tracking-wider flex items-center gap-1.5">
+              <h4 className="text-xs sm:text-sm font-bold text-sky-950 dark:text-sky-200 uppercase tracking-wider flex items-center gap-1.5">
                 🧼 Select Cleaners to Assign ({sortedCleanCandidates.length} Available)
               </h4>
               <span
                 className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
                   recoverySelectedCleaners.length === targetCleans
-                    ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                    ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800"
                     : recoverySelectedCleaners.length > 0
-                      ? "bg-sky-100 text-sky-800 border-sky-300"
-                      : "bg-slate-100 text-slate-700 border-slate-300"
+                      ? "bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-200 border-sky-300 dark:border-sky-800"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700"
                 }`}
               >
                 {recoverySelectedCleaners.length} of {targetCleans} selected
               </span>
             </div>
             {sortedCleanCandidates.length > 0 ? (
-              <div className="space-y-2 max-h-52 overflow-y-auto p-2 bg-sky-50/40 border border-sky-200 rounded-xl divide-y divide-sky-100">
+              <div className="space-y-2 max-h-52 overflow-y-auto p-2 bg-sky-50/40 dark:bg-slate-800/40 border border-sky-200 dark:border-sky-900/40 rounded-xl divide-y divide-sky-100 dark:divide-slate-800">
                 {sortedCleanCandidates.map((cand) => {
                   const liveCleansAssigned =
                     solverResult.memberStats?.[cand.name]?.assignedCleans ??
@@ -365,8 +365,8 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                       onClick={() => handleToggleCleaner(cand.name)}
                       className={`min-h-[48px] pt-2 first:pt-0 p-2.5 rounded-xl cursor-pointer transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs sm:text-sm ${
                         isSelected
-                          ? "bg-sky-50/90 border-2 border-sky-500 shadow-xs ring-1 ring-sky-400 font-semibold"
-                          : "bg-white border border-sky-200 hover:border-sky-300 hover:bg-sky-50/60"
+                          ? "bg-sky-50/90 dark:bg-sky-950/40 border-2 border-sky-500 shadow-xs ring-1 ring-sky-400 font-semibold"
+                          : "bg-white dark:bg-slate-800/80 border border-sky-200 dark:border-slate-700 hover:border-sky-300 dark:hover:border-slate-600 hover:bg-sky-50/60 dark:hover:bg-slate-800"
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
@@ -374,7 +374,7 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                           className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${
                             isSelected
                               ? "bg-sky-600 border-sky-600 text-white shadow-2xs"
-                              : "border-slate-300 bg-white"
+                              : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700"
                           }`}
                         >
                           {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
@@ -383,19 +383,19 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                           <div className="flex items-center gap-2">
                             <span
                               className={`font-bold ${
-                                isSelected ? "text-sky-950 font-extrabold" : "text-slate-900"
+                                isSelected ? "text-sky-950 dark:text-sky-200 font-extrabold" : "text-slate-900 dark:text-slate-100"
                               }`}
                             >
                               {cand.name}
                             </span>
                             {isSelected && (
-                              <span className="text-[10px] font-extrabold text-sky-700 bg-sky-100 border border-sky-300 px-2 py-0.5 rounded-full shadow-2xs">
+                              <span className="text-[10px] font-extrabold text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/60 border border-sky-300 dark:border-sky-800 px-2 py-0.5 rounded-full shadow-2xs">
                                 ✓ Selected
                               </span>
                             )}
                           </div>
                           {cand.specialInstructions && (
-                            <p className="text-xs text-amber-900 font-medium italic mt-0.5">
+                            <p className="text-xs text-amber-900 dark:text-amber-300 font-medium italic mt-0.5">
                               &quot;{cand.specialInstructions}&quot;
                             </p>
                           )}
@@ -403,11 +403,11 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 pl-7 sm:pl-0">
                         {hasRemainingCleanQuota ? (
-                          <span className="text-xs font-bold text-emerald-900 bg-emerald-100 border border-emerald-300 px-2.5 py-1 rounded-lg">
+                          <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 px-2.5 py-1 rounded-lg">
                             ✨ Can Clean ({liveCleansAssigned}/{liveCleanQuota} assigned)
                           </span>
                         ) : (
-                          <span className="text-xs font-bold text-sky-950 bg-sky-100/80 border border-sky-300 px-2.5 py-1 rounded-lg">
+                          <span className="text-xs font-bold text-sky-950 dark:text-sky-200 bg-sky-100/80 dark:bg-sky-950/60 border border-sky-300 dark:border-sky-800 px-2.5 py-1 rounded-lg">
                             ⚡ At Quota ({liveCleansAssigned}/{liveCleanQuota} assigned)
                           </span>
                         )}
@@ -417,7 +417,7 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
                 })}
               </div>
             ) : (
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-600 italic text-center">
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-600 dark:text-slate-400 italic text-center">
                 No members marked cleaning availability on this date.
               </div>
             )}
@@ -425,11 +425,11 @@ export const NearCompleteOpportunityModal: React.FC<NearCompleteOpportunityModal
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+        <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[44px] px-5 py-2.5 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-900 bg-white border border-slate-300 rounded-xl cursor-pointer transition-colors"
+            className="min-h-[44px] px-5 py-2.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl cursor-pointer transition-colors"
           >
             Close
           </button>

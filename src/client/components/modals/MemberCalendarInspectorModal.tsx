@@ -42,33 +42,33 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
       aria-labelledby="modal-title-member-calendar"
       className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
     >
-      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl p-6 space-y-4 max-h-[90vh] flex flex-col border border-slate-200">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full shadow-2xl p-6 space-y-4 max-h-[90vh] flex flex-col border border-slate-200 dark:border-slate-800">
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
           <div>
             <h3
               id="modal-title-member-calendar"
-              className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2"
+              className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2"
             >
               <UserPlus className="w-5 h-5 text-orange-600" />
               Available Dates &amp; Extra Shift Assignment: {selectedQuotaMember}
             </h3>
             {solverResult.memberStats[selectedQuotaMember] && (
-              <p className="text-xs text-slate-700 mt-1">
+              <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
                 Requested Quota:{" "}
-                <strong className="text-slate-900">
+                <strong className="text-slate-900 dark:text-white">
                   {solverResult.memberStats[selectedQuotaMember].requestedCookQuota}
                 </strong>{" "}
                 cooks,{" "}
-                <strong className="text-slate-900">
+                <strong className="text-slate-900 dark:text-white">
                   {solverResult.memberStats[selectedQuotaMember].requestedCleanQuota ?? 1}
                 </strong>{" "}
                 cleans • Currently Assigned:{" "}
-                <strong className="text-slate-900">
+                <strong className="text-slate-900 dark:text-white">
                   {solverResult.memberStats[selectedQuotaMember].assignedCooks}
                 </strong>{" "}
                 cooks,{" "}
-                <strong className="text-slate-900">
+                <strong className="text-slate-900 dark:text-white">
                   {solverResult.memberStats[selectedQuotaMember].assignedCleans}
                 </strong>{" "}
                 cleans ({solverResult.memberStats[selectedQuotaMember].totalAssigned} total shifts)
@@ -76,16 +76,16 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
             )}
             <div className="flex flex-wrap items-center gap-2 mt-2">
               {is2PersonWilling ? (
-                <span className="text-xs px-2.5 py-1 rounded-lg font-bold bg-blue-100 text-blue-950 border border-blue-300">
+                <span className="text-xs px-2.5 py-1 rounded-lg font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-950 dark:text-blue-200 border border-blue-300 dark:border-blue-800">
                   👥 2-Person Cook Team: Willing ({resp?.cookTeamSizePref || "2 for either"})
                 </span>
               ) : (
-                <span className="text-xs px-2.5 py-1 rounded-lg font-semibold bg-slate-100 text-slate-800 border border-slate-200">
+                <span className="text-xs px-2.5 py-1 rounded-lg font-semibold bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-600">
                   🍳 Cook Team Pref: {resp?.cookTeamSizePref || "Dinner = 3, Brunch = 2"}
                 </span>
               )}
               {resp?.canCookCleanSameDay && (
-                <span className="text-xs px-2.5 py-1 rounded-lg font-bold bg-emerald-100 text-emerald-950 border border-emerald-300">
+                <span className="text-xs px-2.5 py-1 rounded-lg font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800">
                   ✓ Same-Day Cook &amp; Clean: Willing
                 </span>
               )}
@@ -94,7 +94,7 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
           <button
             onClick={onClose}
             aria-label="Close dialog"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -102,13 +102,13 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
 
         {/* Special Instructions Context if any */}
         {resp?.specialInstructions && (
-          <div className="bg-amber-50 border border-amber-300 rounded-xl p-3.5 flex items-start gap-2.5">
-            <MessageSquare className="w-4 h-4 text-amber-800 mt-0.5 shrink-0" />
+          <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl p-3.5 flex items-start gap-2.5">
+            <MessageSquare className="w-4 h-4 text-amber-800 dark:text-amber-400 mt-0.5 shrink-0" />
             <div>
-              <span className="text-xs font-bold text-amber-950">
+              <span className="text-xs font-bold text-amber-950 dark:text-amber-200">
                 Survey Request from {selectedQuotaMember}:
               </span>
-              <p className="text-xs text-amber-900 mt-0.5 font-medium italic">
+              <p className="text-xs text-amber-900 dark:text-amber-300 mt-0.5 font-medium italic">
                 &quot;{resp.specialInstructions}&quot;
               </p>
             </div>
@@ -116,7 +116,7 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
         )}
 
         {/* Dates List */}
-        <div className="overflow-y-auto flex-1 divide-y divide-slate-100 pr-1 space-y-2">
+        <div className="overflow-y-auto flex-1 divide-y divide-slate-100 dark:divide-slate-800 pr-1 space-y-2">
           {solverResult.schedule.map((day) => {
             const isFocusedDay = selectedQuotaFocusDateKey === day.dateKey;
             const avail = getMemberAvailabilityForDate(resp, day.dateLabel);
@@ -139,26 +139,26 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
                 id={`quota-modal-day-${day.dateKey}`}
                 className={`p-3.5 rounded-xl border transition-all ${
                   isFocusedDay
-                    ? "ring-2 ring-orange-500 ring-offset-2 bg-amber-50 border-amber-400 shadow-md"
+                    ? "ring-2 ring-orange-500 ring-offset-2 bg-amber-50 dark:bg-amber-950/40 border-amber-400 dark:border-amber-700 shadow-md"
                     : isCook || isClean
-                      ? "bg-orange-50/50 border-orange-300"
+                      ? "bg-orange-50/50 dark:bg-orange-950/30 border-orange-300 dark:border-orange-800"
                       : canCook || canClean
-                        ? "bg-white border-slate-200 hover:border-slate-300"
-                        : "bg-slate-50/50 border-slate-200 opacity-60"
+                        ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+                        : "bg-slate-50/50 dark:bg-slate-800/20 border-slate-200 dark:border-slate-800 opacity-60"
                 }`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   {/* Left: Date info & Current roster */}
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs sm:text-sm font-bold text-slate-900">
+                      <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
                         {formatDisplayDateLabel(day.dateLabel)}
                       </span>
                       <span
                         className={`text-xs px-2 py-0.5 rounded-lg font-bold uppercase border ${
                           day.mealType === "BRUNCH"
-                            ? "bg-amber-100 text-amber-950 border-amber-300"
-                            : "bg-indigo-100 text-indigo-950 border-indigo-300"
+                            ? "bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200 border-amber-300 dark:border-amber-800"
+                            : "bg-indigo-100 dark:bg-indigo-950/60 text-indigo-950 dark:text-indigo-200 border-indigo-300 dark:border-indigo-800"
                         }`}
                       >
                         {day.mealType}
@@ -166,12 +166,12 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
                       <span
                         className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${
                           avail === "AVAILABLE"
-                            ? "bg-emerald-100 text-emerald-950 border-emerald-300"
+                            ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800"
                             : avail === "COOK_ONLY"
-                              ? "bg-orange-100 text-orange-950 border-orange-300"
+                              ? "bg-orange-100 dark:bg-orange-950/60 text-orange-950 dark:text-orange-200 border-orange-300 dark:border-orange-800"
                               : avail === "CLEAN_ONLY"
-                                ? "bg-sky-100 text-sky-950 border-sky-300"
-                                : "bg-slate-100 text-slate-700 border-slate-300"
+                                ? "bg-sky-100 dark:bg-sky-950/60 text-sky-950 dark:text-sky-200 border-sky-300 dark:border-sky-800"
+                                : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600"
                         }`}
                       >
                         Survey: {avail.replace("_", " ")}
@@ -184,15 +184,15 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
                     </div>
 
                     {/* Current Assigned Roster */}
-                    <div className="text-xs text-slate-700 mt-1.5 space-y-0.5">
+                    <div className="text-xs text-slate-700 dark:text-slate-300 mt-1.5 space-y-0.5">
                       <p>
-                        <span className="font-bold text-orange-900">
+                        <span className="font-bold text-orange-900 dark:text-orange-300">
                           🍳 Cooks ({day.cooks.length}):
                         </span>{" "}
                         {day.cooks.join(", ") || "None"}
                       </p>
                       <p>
-                        <span className="font-bold text-sky-900">
+                        <span className="font-bold text-sky-900 dark:text-sky-300">
                           🧼 Cleaners ({day.cleaners.length}):
                         </span>{" "}
                         {day.cleaners.join(", ") || "None"}
@@ -201,12 +201,12 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
 
                     {/* Conflict Warnings */}
                     {cookConflict && (
-                      <p className="text-xs text-rose-800 font-bold mt-1">
+                      <p className="text-xs text-rose-800 dark:text-rose-400 font-bold mt-1">
                         ⚠️ Cook Conflict: {cookConflict}
                       </p>
                     )}
                     {cleanConflict && (
-                      <p className="text-xs text-rose-800 font-bold mt-1">
+                      <p className="text-xs text-rose-800 dark:text-rose-400 font-bold mt-1">
                         ⚠️ Clean Conflict: {cleanConflict}
                       </p>
                     )}
@@ -216,7 +216,7 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
                   <div className="flex items-center gap-2 shrink-0">
                     {isCook ? (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-orange-950 bg-orange-100 border border-orange-300 px-2.5 py-1.5 rounded-xl">
+                        <span className="text-xs font-bold text-orange-950 dark:text-orange-200 bg-orange-100 dark:bg-orange-950/60 border border-orange-300 dark:border-orange-800 px-2.5 py-1.5 rounded-xl">
                           ✅ Assigned Cook
                         </span>
                         <button
@@ -224,7 +224,7 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
                             handleRemoveShift(day.dateKey, selectedQuotaMember, "COOK")
                           }
                           aria-label={`Remove cook shift on ${day.dateLabel}`}
-                          className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-rose-700 rounded-xl hover:bg-rose-50 transition-colors cursor-pointer"
+                          className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-rose-700 dark:hover:text-rose-400 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                           title="Remove cook shift"
                         >
                           <XCircle className="w-5 h-5" />
@@ -243,7 +243,7 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
 
                     {isClean ? (
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-sky-950 bg-sky-100 border border-sky-300 px-2.5 py-1.5 rounded-xl">
+                        <span className="text-xs font-bold text-sky-950 dark:text-sky-200 bg-sky-100 dark:bg-sky-950/60 border border-sky-300 dark:border-sky-800 px-2.5 py-1.5 rounded-xl">
                           ✅ Assigned Cleaner
                         </span>
                         <button
@@ -251,7 +251,7 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
                             handleRemoveShift(day.dateKey, selectedQuotaMember, "CLEAN")
                           }
                           aria-label={`Remove clean shift on ${day.dateLabel}`}
-                          className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-rose-700 rounded-xl hover:bg-rose-50 transition-colors cursor-pointer"
+                          className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-rose-700 dark:hover:text-rose-400 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                           title="Remove clean shift"
                         >
                           <XCircle className="w-5 h-5" />
@@ -275,10 +275,10 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
         </div>
 
         {/* Modal Footer */}
-        <div className="flex justify-end pt-3 border-t border-slate-200">
+        <div className="flex justify-end pt-3 border-t border-slate-200 dark:border-slate-800">
           <button
             onClick={onClose}
-            className="min-h-[44px] px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs cursor-pointer transition-colors"
+            className="min-h-[44px] px-6 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs cursor-pointer transition-colors"
           >
             Done
           </button>

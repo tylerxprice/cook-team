@@ -23,7 +23,6 @@ import {
   Lock,
   ChevronLeft,
   ChevronRight,
-  Utensils,
   CheckCircle,
   AlertTriangle,
   X,
@@ -40,6 +39,8 @@ import {
 } from "../../../server/types";
 import { matchesSurveySheetForMonth } from "../../../server/surveyFormGenerator";
 import { callGas, getPublicWebAppUrl } from "../../utils/gas";
+import { TopHeader } from "../common/TopHeader";
+import { LoadingSpinner } from "../common/LoadingSpinner";
 
 export interface SurveyFormGeneratorViewProps {
   monthKey: string;
@@ -307,57 +308,50 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
   const activeDatesCount = dates.filter((d) => d.included).length;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
       {/* Top Navigation Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <button
-              type="button"
-              onClick={onBackToHome}
-              title="Return to Hub Home"
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20 hover:scale-105 transition-transform shrink-0 cursor-pointer"
-            >
-              <Utensils className="w-5 h-5" />
-            </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                  Survey Form Generator
-                </h1>
-                <span className="px-2 py-0.5 text-[10px] font-black uppercase rounded-full bg-violet-100 text-violet-800 border border-violet-200">
-                  Coordinator Tool
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 hidden sm:block">
-                Prepare meal dates, create Google Forms, or manage beta sign-ups
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onOpenCoordinator}
-              className="min-h-[40px] px-3.5 py-1.5 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
-            >
-              <span>Coordinator Wizard</span>
-            </button>
-          </div>
+      <TopHeader
+        communityName="CoHo"
+        onBackToHome={onBackToHome}
+        viewBadge={
+          <span className="px-2.5 py-1 text-xs font-bold rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-950 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
+            Survey Form Generator
+          </span>
+        }
+      >
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onOpenCoordinator}
+            className="min-h-[40px] px-3.5 py-1.5 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+          >
+            <span>Coordinator Wizard</span>
+          </button>
         </div>
-      </header>
+      </TopHeader>
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full space-y-6">
+        {/* Page Title & Subtitle */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-slate-800">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              Survey Form Generator
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+              Prepare meal dates, create Google Forms, or manage beta sign-ups for community meals
+            </p>
+          </div>
+        </div>
         {/* Top Control Bar: Target Month & Status (ALWAYS VISIBLE) */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-violet-100 border border-violet-200 flex items-center justify-center shrink-0 text-violet-700">
+              <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/60 border border-orange-200 dark:border-orange-800 flex items-center justify-center shrink-0 text-orange-600 dark:text-orange-400">
                 <Calendar className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                   Target Scheduling Month
                 </span>
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -367,7 +361,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                     disabled={loadingDates}
                     aria-label="Previous month"
                     title="Previous month"
-                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+                    className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -382,7 +376,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                         loadDatesPreview(val);
                       }
                     }}
-                    className="min-h-[36px] px-3 py-1 text-sm sm:text-base border border-slate-300 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-bold text-slate-900 cursor-pointer"
+                    className="min-h-[36px] px-3 py-1 text-sm sm:text-base border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 font-bold text-slate-900 dark:text-white cursor-pointer"
                   />
                   <button
                     type="button"
@@ -390,7 +384,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                     disabled={loadingDates}
                     aria-label="Next month"
                     title="Next month"
-                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+                    className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -401,18 +395,18 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
             {/* Status Badges & Action Toggle */}
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               {monthStatus === "OPEN" ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 rounded-full">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 rounded-full">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   Sign-Ups Open
                 </span>
               ) : monthStatus === "CLOSED" ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-purple-900 bg-purple-100 border border-purple-300 rounded-full">
-                  <Lock className="w-3.5 h-3.5 text-purple-700" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-full">
+                  <Lock className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                   Closed (Scheduled)
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-slate-700 bg-slate-100 border border-slate-300 rounded-full">
-                  <Clock className="w-3.5 h-3.5 text-slate-500" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-full">
+                  <Clock className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                   Draft (Not Open)
                 </span>
               )}
@@ -422,10 +416,10 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                 <button
                   type="button"
                   onClick={() => onSetMonthStatus("CLOSED", monthKey)}
-                  className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-purple-900 hover:text-purple-950 bg-purple-50 hover:bg-purple-100 border border-purple-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
                   title="Close sign-ups (teams scheduled)"
                 >
-                  <Lock className="w-3.5 h-3.5 text-purple-700" />
+                  <Lock className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                   <span>Close Sign-Ups</span>
                 </button>
               )}
@@ -434,10 +428,10 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                 <button
                   type="button"
                   onClick={() => onSetMonthStatus("OPEN", monthKey)}
-                  className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300 hover:text-emerald-950 dark:hover:text-emerald-200 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-800 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
                   title="Reopen sign-ups for existing form"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   <span>Reopen Sign-Ups</span>
                 </button>
               )}
@@ -448,10 +442,10 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                   <button
                     type="button"
                     onClick={() => onSetMonthStatus("OPEN", monthKey)}
-                    className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300 hover:text-emerald-950 dark:hover:text-emerald-200 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-800 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
                     title="Open sign-ups for the existing form"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                     <span>Open Sign-Ups</span>
                   </button>
                 )}
@@ -461,41 +455,41 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
 
         {/* LOADING SPINNERS: Replace entire content below month bar while loading */}
         {loadingDates ? (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-16 flex flex-col items-center justify-center text-center space-y-4 min-h-[380px] animate-in fade-in duration-150">
-            <div className="w-16 h-16 rounded-2xl bg-violet-50 text-violet-600 border border-violet-200 flex items-center justify-center shadow-inner">
-              <RefreshCw className="w-8 h-8 animate-spin" />
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-16 flex flex-col items-center justify-center text-center space-y-4 min-h-[380px] animate-in fade-in duration-150">
+            <div className="w-16 h-16 rounded-2xl bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800 flex items-center justify-center shadow-inner">
+              <LoadingSpinner size="lg" color="orange" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-black text-slate-900">
+              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
                 Loading Configuration for {monthKey}...
               </h3>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-md">
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md">
                 Retrieving configured meal dates, calendar day calculations, and Master Sheet
                 settings.
               </p>
             </div>
           </div>
         ) : loadingCreate ? (
-          <div className="bg-white rounded-2xl border-2 border-violet-200 shadow-sm p-12 sm:p-16 flex flex-col items-center justify-center text-center space-y-5 min-h-[420px] animate-in fade-in duration-200">
-            <div className="w-20 h-20 rounded-3xl bg-violet-50 text-violet-700 border-2 border-violet-200 flex items-center justify-center shadow-md shadow-violet-200/50">
-              <RefreshCw className="w-10 h-10 animate-spin text-violet-600" />
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border-2 border-orange-200 dark:border-orange-800 shadow-sm p-12 sm:p-16 flex flex-col items-center justify-center text-center space-y-5 min-h-[420px] animate-in fade-in duration-200">
+            <div className="w-20 h-20 rounded-3xl bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 border-2 border-orange-200 dark:border-orange-800 flex items-center justify-center shadow-md shadow-orange-500/10">
+              <LoadingSpinner size="xl" color="orange" />
             </div>
             <div className="space-y-2 max-w-lg">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-violet-100 text-violet-800">
-                <Sparkles className="w-3.5 h-3.5 text-violet-600" />
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-100 dark:bg-orange-950/60 text-orange-950 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
+                <Sparkles className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
                 <span>Google Workspace Automation</span>
               </div>
-              <h3 className="text-lg sm:text-xl font-black text-slate-900">
+              <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
                 Generating Google Form &amp; Linked Response Sheet...
               </h3>
-              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                 Building your {monthKey} survey questions, formatting grid rows for{" "}
                 {activeDatesCount} meal dates, linking the Google Sheets response workbook, and
                 opening sign-ups.
               </p>
             </div>
-            <div className="flex items-center gap-2 text-xs text-violet-700 font-semibold bg-violet-50 px-4 py-2.5 rounded-xl border border-violet-200">
-              <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+            <div className="flex items-center gap-2 text-xs text-orange-800 dark:text-orange-300 font-semibold bg-orange-50 dark:bg-orange-950/50 px-4 py-2.5 rounded-xl border border-orange-200 dark:border-orange-800">
+              <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
               <span>
                 This takes about 5–10 seconds. You&apos;ll be automatically directed to Beta Web
                 Sign-Ups next!
@@ -505,17 +499,17 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
         ) : (
           <>
             {/* Tab Switcher: Standard Google Form vs Phase 2 Beta Web Sign-Ups */}
-            <div className="flex border-b border-slate-200 bg-slate-100/80 px-4 pt-3 rounded-t-2xl gap-2">
+            <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/80 px-4 pt-3 rounded-t-2xl gap-2">
               <button
                 type="button"
                 onClick={() => setActiveTab("form")}
                 className={`min-h-[42px] px-5 py-2.5 font-bold text-xs sm:text-sm rounded-t-xl border-t border-x transition-all flex items-center gap-2 cursor-pointer ${
                   activeTab === "form"
-                    ? "bg-white border-slate-200 text-violet-900 shadow-xs -mb-[1px]"
-                    : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                    ? "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-orange-950 dark:text-white shadow-xs -mb-[1px]"
+                    : "border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60"
                 }`}
               >
-                <FileSpreadsheet className="w-4 h-4 text-violet-600" />
+                <FileSpreadsheet className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                 <span>Google Form &amp; Meal Dates (Standard)</span>
               </button>
               <button
@@ -531,23 +525,23 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                 }
                 className={`min-h-[42px] px-5 py-2.5 font-bold text-xs sm:text-sm rounded-t-xl border-t border-x transition-all flex items-center gap-2 ${
                   !hasGeneratedForm
-                    ? "border-transparent text-slate-400 bg-slate-100/50 cursor-not-allowed opacity-60"
+                    ? "border-transparent text-slate-400 dark:text-slate-600 bg-slate-100/50 dark:bg-slate-900/50 cursor-not-allowed opacity-60"
                     : activeTab === "beta"
-                      ? "bg-white border-slate-200 text-violet-900 shadow-xs -mb-[1px] cursor-pointer"
-                      : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 cursor-pointer"
+                      ? "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-orange-950 dark:text-white shadow-xs -mb-[1px] cursor-pointer"
+                      : "border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60 cursor-pointer"
                 }`}
               >
                 <Mail
-                  className={`w-4 h-4 ${hasGeneratedForm ? "text-violet-600" : "text-slate-400"}`}
+                  className={`w-4 h-4 ${hasGeneratedForm ? "text-orange-600 dark:text-orange-400" : "text-slate-400 dark:text-slate-600"}`}
                 />
                 <span>Beta Web Sign-Ups (Phase 2)</span>
                 {!hasGeneratedForm ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-slate-200 text-slate-600 rounded-full">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full">
                     <Lock className="w-3 h-3 text-slate-500" />
                     <span>Locked</span>
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 text-[10px] font-black tracking-wider uppercase bg-amber-100 text-amber-800 rounded-full border border-amber-300">
+                  <span className="px-2 py-0.5 text-[10px] font-black tracking-wider uppercase bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 rounded-full border border-amber-300 dark:border-amber-800">
                     Pilot
                   </span>
                 )}
@@ -563,23 +557,23 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                   (!isCurrentMonthFormResult || !formResult?.success) && (
                     <>
                       {!existingSurvey.canOverwrite ? (
-                        <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl flex items-start gap-3.5 shadow-2xs">
-                          <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0 text-amber-800">
-                            <AlertTriangle className="w-5 h-5 text-amber-700" />
+                        <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-800 rounded-2xl flex items-start gap-3.5 shadow-2xs">
+                          <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/60 border border-amber-300 dark:border-amber-700 flex items-center justify-center shrink-0 text-amber-800 dark:text-amber-200">
+                            <AlertTriangle className="w-5 h-5 text-amber-700 dark:text-amber-400" />
                           </div>
-                          <div className="space-y-1 text-xs text-amber-950 flex-1">
+                          <div className="space-y-1 text-xs text-amber-950 dark:text-amber-200 flex-1">
                             <div className="flex items-center justify-between">
-                              <h4 className="text-sm font-bold text-amber-950">
+                              <h4 className="text-sm font-bold text-amber-950 dark:text-amber-100">
                                 Active Survey Exists — Overwriting Disabled (
                                 {existingSurvey.responseCount} Responses Received)
                               </h4>
-                              <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-amber-200 text-amber-900 border border-amber-300">
+                              <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-amber-200 dark:bg-amber-900/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
                                 {existingSurvey.responseCount} responses
                               </span>
                             </div>
-                            <p className="text-amber-800 leading-relaxed">
+                            <p className="text-amber-800 dark:text-amber-300 leading-relaxed">
                               A survey response sheet is already active for this month:{" "}
-                              <strong className="text-amber-950">
+                              <strong className="text-amber-950 dark:text-white">
                                 {existingSurvey.spreadsheetName}
                               </strong>
                               . Because member availability responses have already been received,
@@ -592,7 +586,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                                   href={existingSurvey.spreadsheetUrl}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="inline-flex items-center gap-1.5 font-bold text-amber-900 hover:text-amber-950 underline hover:no-underline"
+                                  className="inline-flex items-center gap-1.5 font-bold text-amber-900 dark:text-amber-300 hover:text-amber-950 dark:hover:text-amber-100 underline hover:no-underline"
                                 >
                                   <span>Open Existing Response Spreadsheet ↗</span>
                                 </a>
@@ -601,16 +595,16 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                           </div>
                         </div>
                       ) : (
-                        <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl flex items-start gap-3 shadow-2xs">
-                          <AlertCircle className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                          <div className="text-xs text-blue-950 flex-1 space-y-0.5">
+                        <div className="p-3.5 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 rounded-2xl flex items-start gap-3 shadow-2xs">
+                          <AlertCircle className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
+                          <div className="text-xs text-sky-950 dark:text-sky-200 flex-1 space-y-0.5">
                             <div className="flex items-center justify-between">
-                              <strong className="font-bold text-blue-900">
+                              <strong className="font-bold text-sky-900 dark:text-sky-300">
                                 Existing Survey Sheet Found ({existingSurvey.responseCount}{" "}
                                 responses)
                               </strong>
                             </div>
-                            <p className="text-blue-800">
+                            <p className="text-sky-800 dark:text-sky-300">
                               Google Drive already contains{" "}
                               <strong>{existingSurvey.spreadsheetName}</strong>. Clicking
                               &quot;Generate Form&quot; will ask for confirmation before
@@ -627,21 +621,21 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                   formResult &&
                   formResult.success &&
                   dismissedFormResultMonthKey !== monthKey && (
-                    <div className="p-5 bg-emerald-50 border-2 border-emerald-300 rounded-2xl space-y-4 shadow-xs animate-in fade-in duration-200">
+                    <div className="p-5 bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-300 dark:border-emerald-800 rounded-2xl space-y-4 shadow-xs animate-in fade-in duration-200">
                       <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-center gap-2 text-emerald-950 font-bold text-sm sm:text-base">
-                          <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
+                        <div className="flex items-center gap-2 text-emerald-950 dark:text-emerald-100 font-bold text-sm sm:text-base">
+                          <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
                           <span>{formResult.message}</span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs font-bold bg-emerald-100 text-emerald-900 px-3 py-1 rounded-full border border-emerald-300">
+                          <span className="text-xs font-bold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 px-3 py-1 rounded-full border border-emerald-300 dark:border-emerald-700">
                             {formResult.totalDates} Dates Included
                           </span>
                           <button
                             type="button"
                             onClick={() => setDismissedFormResultMonthKey(monthKey)}
                             title="Dismiss notification"
-                            className="text-emerald-700 hover:text-emerald-950 p-1 rounded-lg hover:bg-emerald-200/50 transition-colors cursor-pointer"
+                            className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-950 dark:hover:text-emerald-200 p-1 rounded-lg hover:bg-emerald-200/50 dark:hover:bg-emerald-900/50 transition-colors cursor-pointer"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -655,7 +649,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                           onClick={() =>
                             onCopyLink(formResult.formPrefilledUrl || formResult.formPublishedUrl)
                           }
-                          className="min-h-[44px] px-3.5 py-2.5 bg-violet-700 hover:bg-violet-800 text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
+                          className="min-h-[44px] px-3.5 py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
                         >
                           {copiedLink ? (
                             <CheckCircle2 className="w-4 h-4" />
@@ -669,9 +663,9 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                           href={formResult.formPrefilledUrl || formResult.formPublishedUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="min-h-[44px] px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs sm:text-sm font-bold rounded-xl shadow-2xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
+                          className="min-h-[44px] px-3.5 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs sm:text-sm font-bold rounded-xl shadow-2xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
                         >
-                          <ExternalLink className="w-4 h-4 text-slate-600" />
+                          <ExternalLink className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                           <span>View Live Form ↗</span>
                         </a>
 
@@ -679,9 +673,9 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                           href={formResult.formEditUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="min-h-[44px] px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs sm:text-sm font-bold rounded-xl shadow-2xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
+                          className="min-h-[44px] px-3.5 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs sm:text-sm font-bold rounded-xl shadow-2xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
                         >
-                          <Pencil className="w-4 h-4 text-purple-600" />
+                          <Pencil className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                           <span>Edit Google Form ↗</span>
                         </a>
 
@@ -689,22 +683,22 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                           href={formResult.spreadsheetUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="min-h-[44px] px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs sm:text-sm font-bold rounded-xl shadow-2xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
+                          className="min-h-[44px] px-3.5 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs sm:text-sm font-bold rounded-xl shadow-2xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
                         >
-                          <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                          <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                           <span>Response Sheet ↗</span>
                         </a>
                       </div>
 
                       {formResult.folderUrl && (
-                        <div className="text-xs text-slate-600 flex items-center gap-1.5 pt-1">
+                        <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5 pt-1">
                           <Folder className="w-4 h-4 text-slate-500" />
                           <span>Saved inside Google Drive folder:</span>
                           <a
                             href={formResult.folderUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-violet-700 hover:underline font-bold"
+                            className="text-orange-600 dark:text-orange-400 hover:underline font-bold"
                           >
                             Open Drive Folder ↗
                           </a>
@@ -714,17 +708,17 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                   )}
 
                 {/* Interactive Meal Dates Table with Merged Form Title */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden space-y-4 p-5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden space-y-4 p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
                     <div>
-                      <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-violet-600" />
+                      <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                         <span>
                           Configure Meal Dates for Survey Grid ({activeDatesCount} active of{" "}
                           {dates.length})
                         </span>
                       </h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                         Toggle meal dates, adjust meal types (Dinner / Brunch), or specify special
                         event notes.
                       </p>
@@ -732,14 +726,14 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                   </div>
 
                   {dates.length === 0 ? (
-                    <div className="py-12 text-center text-xs sm:text-sm text-slate-500">
+                    <div className="py-12 text-center text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                       No dates found for {monthKey}. Please select a valid month.
                     </div>
                   ) : (
-                    <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                    <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl">
                       <table className="w-full text-left text-xs sm:text-sm border-collapse">
                         <thead>
-                          <tr className="bg-slate-100/90 text-slate-700 font-bold border-b border-slate-200">
+                          <tr className="bg-slate-100/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800">
                             <th scope="col" className="py-3 px-3 w-14 text-center">
                               Include
                             </th>
@@ -761,7 +755,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                             <th scope="col" className="py-3 px-3 w-14 text-center"></th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                           {dates.map((d, idx) => {
                             let previewLabel = d.dateLabel;
                             if (d.specialNote && d.specialNote.trim()) {
@@ -771,7 +765,9 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                               <tr
                                 key={`date-${d.dateKey}-${idx}`}
                                 className={`transition-colors ${
-                                  d.included ? "hover:bg-violet-50/30" : "bg-slate-50/50 opacity-60"
+                                  d.included
+                                    ? "hover:bg-orange-50/20 dark:hover:bg-orange-950/20"
+                                    : "bg-slate-50/50 dark:bg-slate-900/50 opacity-60"
                                 }`}
                               >
                                 <td className="py-2.5 px-3 text-center">
@@ -787,13 +783,13 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                                       );
                                     }}
                                     aria-label={`Include date ${d.dateKey}`}
-                                    className="w-5 h-5 rounded text-violet-600 focus:ring-violet-500 border-slate-300 cursor-pointer"
+                                    className="w-5 h-5 rounded text-orange-600 focus:ring-orange-500 border-slate-300 dark:border-slate-700 cursor-pointer"
                                   />
                                 </td>
-                                <td className="py-2.5 px-3 font-mono font-medium text-slate-800">
+                                <td className="py-2.5 px-3 font-mono font-medium text-slate-800 dark:text-slate-200">
                                   {d.dateKey}
                                 </td>
-                                <td className="py-2.5 px-3 font-semibold text-slate-900">
+                                <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">
                                   {d.dayOfWeek}
                                 </td>
                                 <td className="py-2.5 px-3">
@@ -819,7 +815,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                                         )
                                       );
                                     }}
-                                    className="min-h-[38px] px-2.5 py-1 text-xs border border-slate-300 rounded-lg bg-white font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                    className="min-h-[42px] px-2.5 py-1 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500"
                                   >
                                     <option value="DINNER">Dinner</option>
                                     <option value="BRUNCH">Brunch</option>
@@ -840,11 +836,11 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                                       );
                                     }}
                                     placeholder="e.g. Thanksgiving, Community Meeting"
-                                    className="w-full min-h-[38px] px-2.5 py-1 text-xs border border-slate-300 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 text-slate-900 placeholder:text-slate-400"
+                                    className="w-full min-h-[42px] px-2.5 py-1 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                                   />
                                 </td>
-                                <td className="py-2.5 px-3 text-xs font-medium text-slate-700">
-                                  <span className="px-2.5 py-1 bg-slate-100 rounded-lg border border-slate-200">
+                                <td className="py-2.5 px-3 text-xs font-medium text-slate-700 dark:text-slate-300">
+                                  <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
                                     {previewLabel}
                                   </span>
                                 </td>
@@ -856,7 +852,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                                     }}
                                     aria-label={`Remove meal date ${d.dateKey}`}
                                     title={`Remove date ${d.dateKey}`}
-                                    className="min-h-[38px] min-w-[38px] inline-flex items-center justify-center text-slate-400 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                    className="min-h-[38px] min-w-[38px] inline-flex items-center justify-center text-slate-400 hover:text-rose-700 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
                                   >
                                     <Trash2 className="w-4 h-4" />
                                   </button>
@@ -870,11 +866,11 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                   )}
 
                   {/* Action / Control Buttons: Placed AFTER Date Entry */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                     <button
                       type="button"
                       onClick={onAddCustomDate}
-                      className="min-h-[40px] px-3.5 py-1.5 text-xs sm:text-sm font-bold text-violet-800 hover:text-violet-950 bg-violet-50 hover:bg-violet-100 border border-violet-300 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer self-start sm:self-auto"
+                      className="min-h-[42px] px-3.5 py-1.5 text-xs sm:text-sm font-bold text-orange-800 dark:text-orange-300 hover:text-orange-950 dark:hover:text-white bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/50 dark:hover:bg-orange-900/50 border border-orange-300 dark:border-orange-800 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer self-start sm:self-auto"
                     >
                       <Plus className="w-4 h-4" />
                       <span>Add Custom Date</span>
@@ -887,10 +883,10 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                           type="button"
                           onClick={() => onSaveDraftDates && onSaveDraftDates(monthKey)}
                           disabled={savingDates || activeDatesCount === 0}
-                          className="min-h-[40px] px-4 py-1.5 text-xs sm:text-sm font-bold text-slate-800 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
+                          className="min-h-[42px] px-4 py-1.5 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-50"
                           title="Saves configured meal dates/types/notes to Master Settings without opening sign-ups"
                         >
-                          <CheckCircle className="w-4 h-4 text-slate-600" />
+                          <CheckCircle className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                           <span>{savingDates ? "Saving Draft..." : "Save Draft Dates"}</span>
                         </button>
                       )}
@@ -910,10 +906,10 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                             ? `Generating a new form is blocked because ${existingSurvey.responseCount} responses have already been received.`
                             : undefined
                         }
-                        className={`min-h-[40px] px-5 py-1.5 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-xs hover:shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                        className={`min-h-[42px] px-5 py-1.5 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-xs hover:shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                           isExistingSurveyForCurrentMonth && existingSurvey?.canOverwrite === false
-                            ? "bg-slate-400 text-white cursor-not-allowed"
-                            : "bg-violet-700 hover:bg-violet-800 text-white"
+                            ? "bg-slate-400 dark:bg-slate-700 text-white cursor-not-allowed"
+                            : "bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white"
                         }`}
                       >
                         {loadingCreate ? (
@@ -940,7 +936,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                   </div>
 
                   {/* Persistence information callout */}
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 flex items-center justify-between">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-600 dark:text-slate-400 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Settings className="w-4 h-4 text-slate-400" />
                       <span>
@@ -1000,18 +996,18 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                   )}
 
                 {/* Beta Overview Banner */}
-                <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl flex items-start gap-3.5 shadow-xs">
-                  <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 border border-amber-200">
-                    <Sparkles className="w-5 h-5 text-amber-700" />
+                <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-start gap-3.5 shadow-xs">
+                  <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 flex items-center justify-center shrink-0 border border-amber-200 dark:border-amber-700">
+                    <Sparkles className="w-5 h-5 text-amber-700 dark:text-amber-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-bold text-amber-950 flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-amber-950 dark:text-amber-100 flex items-center gap-2">
                       <span>Direct Web Availability Sign-Up (Beta Pilot)</span>
-                      <span className="text-[10px] uppercase font-black bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">
+                      <span className="text-[10px] uppercase font-black bg-amber-200 dark:bg-amber-900/80 text-amber-900 dark:text-amber-200 px-2 py-0.5 rounded-full">
                         Phase 2
                       </span>
                     </h3>
-                    <p className="text-xs text-amber-900/80 mt-1 leading-relaxed">
+                    <p className="text-xs text-amber-900/80 dark:text-amber-300 mt-1 leading-relaxed">
                       Generate personalized survey links for beta testers to submit meal
                       availability and shift preferences directly in the app. Responses are written
                       directly to the <strong>Web Responses</strong> tab and merged automatically
@@ -1026,25 +1022,27 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                     <div
                       className={`p-4 rounded-2xl border-2 flex items-start justify-between gap-3 shadow-xs animate-in fade-in duration-200 ${
                         betaDispatchResult.success
-                          ? "bg-emerald-50 border-emerald-300 text-emerald-950"
-                          : "bg-rose-50 border-rose-300 text-rose-950"
+                          ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-100"
+                          : "bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-950 dark:text-rose-100"
                       }`}
                     >
                       <div className="flex items-start gap-3 flex-1 min-w-0">
                         {betaDispatchResult.success ? (
-                          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                         ) : (
-                          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                          <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                         )}
                         <div className="flex-1 text-xs sm:text-sm">
                           <div className="font-bold">{betaDispatchResult.message}</div>
                           {betaDispatchResult.details && betaDispatchResult.details.length > 0 && (
-                            <div className="text-xs mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-slate-600">
+                            <div className="text-xs mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-slate-600 dark:text-slate-400">
                               {betaDispatchResult.details.slice(0, 10).map((d, idx) => (
                                 <span
                                   key={idx}
                                   className={`inline-flex items-center gap-1 ${
-                                    d.success ? "text-emerald-800" : "text-rose-700 font-semibold"
+                                    d.success
+                                      ? "text-emerald-800 dark:text-emerald-300"
+                                      : "text-rose-700 dark:text-rose-400 font-semibold"
                                   }`}
                                 >
                                   <span>{d.success ? "✓" : "✗"}</span>
@@ -1053,7 +1051,9 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                                     <span className="text-slate-400 font-normal">({d.email})</span>
                                   )}
                                   {d.error && (
-                                    <span className="text-rose-600 font-normal">: {d.error}</span>
+                                    <span className="text-rose-600 dark:text-rose-400 font-normal">
+                                      : {d.error}
+                                    </span>
                                   )}
                                 </span>
                               ))}
@@ -1070,7 +1070,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                         type="button"
                         onClick={() => setBetaDispatchResult(null)}
                         title="Dismiss notification"
-                        className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-200/50 transition-colors shrink-0 cursor-pointer"
+                        className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors shrink-0 cursor-pointer"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -1083,11 +1083,11 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                   <div className="lg:col-span-7 space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div>
-                        <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                          <Users className="w-4 h-4 text-violet-600" />
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <Users className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                           <span>Beta Pilot Testers ({selectedBetaMembers.size} selected)</span>
                         </h3>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                           Active residents tagged as beta testers in the Master Sheet.
                         </p>
                       </div>
@@ -1101,7 +1101,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                             });
                             setSelectedBetaMembers(s);
                           }}
-                          className="px-2.5 py-1 text-xs font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 rounded-lg transition-colors cursor-pointer"
+                          className="px-2.5 py-1 text-xs font-bold text-orange-800 dark:text-orange-300 bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/50 dark:hover:bg-orange-900/50 border border-orange-200 dark:border-orange-800 rounded-lg transition-colors cursor-pointer"
                         >
                           Tagged Only
                         </button>
@@ -1114,14 +1114,14 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                             });
                             setSelectedBetaMembers(s);
                           }}
-                          className="px-2.5 py-1 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                          className="px-2.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors cursor-pointer"
                         >
                           All Active
                         </button>
                         <button
                           type="button"
                           onClick={() => setSelectedBetaMembers(new Set())}
-                          className="px-2.5 py-1 text-xs font-bold text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                          className="px-2.5 py-1 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg transition-colors cursor-pointer"
                         >
                           Clear
                         </button>
@@ -1136,14 +1136,14 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                         placeholder="Filter members by name..."
                         value={betaSearchFilter}
                         onChange={(e) => setBetaSearchFilter(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                        className="w-full min-h-[42px] pl-9 pr-4 py-2 text-xs sm:text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium text-slate-900 dark:text-white"
                       />
                     </div>
 
                     {/* Members Table */}
-                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs max-h-[460px] overflow-y-auto">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs max-h-[460px] overflow-y-auto">
                       <table className="w-full text-left border-collapse text-xs sm:text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold sticky top-0 z-10">
+                        <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-bold sticky top-0 z-10">
                           <tr>
                             <th className="py-2.5 px-3.5 w-10 text-center">
                               <span className="sr-only">Select</span>
@@ -1153,7 +1153,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                             <th className="py-2.5 px-3 text-right">Personal Link</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                           {members
                             .filter((m) => m.active)
                             .filter((m) =>
@@ -1170,8 +1170,8 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                               return (
                                 <tr
                                   key={m.name}
-                                  className={`hover:bg-slate-50/80 transition-colors ${
-                                    isSelected ? "bg-violet-50/40" : ""
+                                  className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors ${
+                                    isSelected ? "bg-orange-50/30 dark:bg-orange-950/20" : ""
                                   }`}
                                 >
                                   <td className="py-2.5 px-3.5 text-center">
@@ -1184,24 +1184,24 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                                         else next.delete(m.name);
                                         setSelectedBetaMembers(next);
                                       }}
-                                      className="w-4 h-4 text-violet-600 rounded border-slate-300 focus:ring-violet-500 cursor-pointer"
+                                      className="w-4 h-4 text-orange-600 rounded border-slate-300 dark:border-slate-700 focus:ring-orange-500 cursor-pointer"
                                     />
                                   </td>
-                                  <td className="py-2.5 px-3 font-semibold text-slate-900">
+                                  <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">
                                     <div className="flex items-center gap-2">
                                       <span>{m.name}</span>
                                       {m.is_beta_tester && (
-                                        <span className="px-2 py-0.5 text-[10px] font-black uppercase rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                                        <span className="px-2 py-0.5 text-[10px] font-black uppercase rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
                                           Beta Tester
                                         </span>
                                       )}
                                     </div>
                                   </td>
-                                  <td className="py-2.5 px-3 text-slate-600">
+                                  <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">
                                     {hasEmail ? (
                                       <span className="font-mono text-xs">{m.google_email}</span>
                                     ) : (
-                                      <span className="text-amber-600 italic text-xs flex items-center gap-1">
+                                      <span className="text-amber-600 dark:text-amber-400 italic text-xs flex items-center gap-1">
                                         <AlertCircle className="w-3 h-3 shrink-0" />
                                         No email
                                       </span>
@@ -1215,8 +1215,8 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                                         title="Copy personalized survey link"
                                         className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all flex items-center gap-1 cursor-pointer ${
                                           isCopied
-                                            ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                                            ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800"
+                                            : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700"
                                         }`}
                                       >
                                         {isCopied ? (
@@ -1236,7 +1236,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                                         target="_blank"
                                         rel="noreferrer"
                                         title="Preview sign-up page for this member"
-                                        className="p-1.5 text-slate-400 hover:text-violet-700 hover:bg-violet-50 rounded-lg transition-colors cursor-pointer"
+                                        className="p-1.5 text-slate-400 hover:text-orange-700 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 rounded-lg transition-colors cursor-pointer"
                                       >
                                         <ExternalLink className="w-3.5 h-3.5" />
                                       </a>
@@ -1252,14 +1252,14 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
 
                   {/* Right: Email Template Composer & Preview */}
                   <div className="lg:col-span-5 space-y-4">
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-4 shadow-2xs">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-4 shadow-2xs">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                            <Mail className="w-4 h-4 text-violet-600" />
+                          <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <Mail className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                             <span>Email Invitation Template</span>
                           </h3>
-                          <p className="text-xs text-slate-500 mt-0.5">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                             Sent directly from your Google Apps Script account.
                           </p>
                         </div>
@@ -1271,7 +1271,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                             members.filter((m) => selectedBetaMembers.has(m.name) && m.google_email)
                               .length === 0
                           }
-                          className="min-h-[38px] px-4 py-1.5 text-xs font-bold text-white bg-violet-700 hover:bg-violet-800 rounded-xl transition-all shadow-xs disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                          className="min-h-[42px] px-4 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 rounded-xl transition-all shadow-xs disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
                         >
                           {sendingBetaInvites ? (
                             <>
@@ -1297,20 +1297,20 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
 
                       {/* Subject */}
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                           Email Subject Line:
                         </label>
                         <input
                           type="text"
                           value={betaSubject}
                           onChange={(e) => setBetaSubject(e.target.value)}
-                          className="w-full min-h-[40px] px-3.5 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 font-medium text-slate-900"
+                          className="w-full min-h-[42px] px-3.5 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium text-slate-900 dark:text-white"
                         />
                       </div>
 
                       {/* Reply-To */}
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                           Reply-To Address (Coordinator):
                         </label>
                         <input
@@ -1318,24 +1318,26 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                           value={betaReplyTo}
                           onChange={(e) => setBetaReplyTo(e.target.value)}
                           placeholder="coordinator@example.com"
-                          className="w-full min-h-[40px] px-3.5 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 font-medium text-slate-900"
+                          className="w-full min-h-[42px] px-3.5 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium text-slate-900 dark:text-white"
                         />
                       </div>
 
                       {/* Message Body Template */}
                       <div>
                         <div className="flex items-center justify-between mb-1">
-                          <label className="text-xs font-bold text-slate-700">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                             Message Body Template:
                           </label>
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-slate-500 font-medium">Tag:</span>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                              Tag:
+                            </span>
                             {["{{name}}", "{{link}}", "{{month}}"].map((tag) => (
                               <button
                                 key={tag}
                                 type="button"
                                 onClick={() => setBetaBodyTemplate((prev) => `${prev} ${tag} `)}
-                                className="px-1.5 py-0.5 text-[10px] font-mono font-bold bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200 rounded cursor-pointer transition-colors"
+                                className="px-1.5 py-0.5 text-[10px] font-mono font-bold bg-orange-50 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/60 border border-orange-200 dark:border-orange-800 rounded cursor-pointer transition-colors"
                               >
                                 {tag}
                               </button>
@@ -1346,23 +1348,23 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                           rows={6}
                           value={betaBodyTemplate}
                           onChange={(e) => setBetaBodyTemplate(e.target.value)}
-                          className="w-full p-3 text-xs font-mono bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 text-slate-900 leading-relaxed"
+                          className="w-full p-3 text-xs font-mono bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-slate-900 dark:text-white leading-relaxed"
                         />
                       </div>
 
                       {/* Live Preview Card */}
-                      <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-3 space-y-2">
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                      <div className="bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-3 space-y-2">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
                           <span>Email Preview Sample</span>
-                          <span className="text-[11px] font-normal text-slate-500">
+                          <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
                             To: {Array.from(selectedBetaMembers)[0] || "Sample Resident"}
                           </span>
                         </div>
-                        <div className="p-3 bg-white border border-slate-200 rounded-lg text-xs space-y-2 text-slate-800 whitespace-pre-wrap font-sans max-h-[160px] overflow-y-auto">
-                          <div className="font-bold text-slate-900 border-b border-slate-100 pb-1">
+                        <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs space-y-2 text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-sans max-h-[160px] overflow-y-auto">
+                          <div className="font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-1">
                             Subject: {betaSubject}
                           </div>
-                          <div className="text-slate-600 leading-relaxed">
+                          <div className="text-slate-600 dark:text-slate-400 leading-relaxed">
                             {betaBodyTemplate
                               .replace(
                                 /\{\{name\}\}/g,

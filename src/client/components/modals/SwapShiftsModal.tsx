@@ -152,20 +152,20 @@ export const SwapShiftsModal: React.FC<SwapShiftsModalProps> = ({
       aria-labelledby="modal-title-swap"
       className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
     >
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200">
-        <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full max-h-[85vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800">
+        <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center font-bold border border-orange-200">
+            <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 flex items-center justify-center font-bold border border-orange-200 dark:border-orange-800">
               <ArrowLeftRight className="w-5 h-5" />
             </div>
             <div>
-              <h3 id="modal-title-swap" className="text-base sm:text-lg font-bold text-slate-900">
+              <h3 id="modal-title-swap" className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                 Swap Shift for {swapModal.sourceMemberName}
               </h3>
-              <p className="text-xs text-slate-700 mt-0.5">
+              <p className="text-xs text-slate-700 dark:text-slate-400 mt-0.5">
                 Currently assigned as {swapModal.sourceRole === "COOK" ? "🍳 Cook" : "🧼 Cleaner"}{" "}
                 on{" "}
-                <span className="font-bold text-slate-900">
+                <span className="font-bold text-slate-900 dark:text-white">
                   {
                     solverResult.schedule.find((d) => d.dateKey === swapModal.sourceDateKey)
                       ?.dateLabel
@@ -177,14 +177,14 @@ export const SwapShiftsModal: React.FC<SwapShiftsModalProps> = ({
           <button
             onClick={onClose}
             aria-label="Close dialog"
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Filter Search */}
-        <div className="p-3 bg-slate-50 border-b border-slate-200">
+        <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700">
           <div className="relative">
             <label htmlFor="swap-search-filter-input" className="sr-only">
               Filter members or dates to swap with
@@ -196,7 +196,7 @@ export const SwapShiftsModal: React.FC<SwapShiftsModalProps> = ({
               placeholder="Filter candidate members or dates to swap with..."
               value={swapSearchText}
               onChange={(e) => setSwapSearchText(e.target.value)}
-              className="w-full min-h-[44px] pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-slate-900 font-medium placeholder:text-slate-500"
+              className="w-full min-h-[44px] pl-9 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-slate-900 dark:text-white font-medium placeholder:text-slate-500 dark:placeholder:text-slate-400"
             />
           </div>
         </div>
@@ -204,7 +204,7 @@ export const SwapShiftsModal: React.FC<SwapShiftsModalProps> = ({
         {/* Candidate shifts list */}
         <div className="p-5 overflow-y-auto flex-1 space-y-2.5">
           {candidates.length === 0 ? (
-            <div className="py-8 text-center text-slate-600 text-xs sm:text-sm font-medium">
+            <div className="py-8 text-center text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium">
               No matching scheduled members found to swap with.
             </div>
           ) : (
@@ -213,25 +213,25 @@ export const SwapShiftsModal: React.FC<SwapShiftsModalProps> = ({
                 key={`${cand.targetDateKey}-${cand.targetRole}-${cand.targetMemberName}-${idx}`}
                 className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
                   cand.isPerfectMatch
-                    ? "bg-emerald-50 border-emerald-300 hover:bg-emerald-100/70 shadow-2xs"
-                    : "bg-white border-slate-200 hover:bg-slate-50"
+                    ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/50 shadow-2xs"
+                    : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60"
                 }`}
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-xs sm:text-sm text-slate-900">
+                    <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
                       {cand.targetMemberName}
                     </span>
                     <span
                       className={`text-xs font-bold px-2.5 py-0.5 rounded-lg border ${
                         cand.targetRole === "COOK"
-                          ? "bg-orange-100 text-orange-950 border-orange-300"
-                          : "bg-sky-100 text-sky-950 border-sky-300"
+                          ? "bg-orange-100 dark:bg-orange-950/60 text-orange-950 dark:text-orange-200 border-orange-300 dark:border-orange-800"
+                          : "bg-sky-100 dark:bg-sky-950/60 text-sky-950 dark:text-sky-200 border-sky-300 dark:border-sky-800"
                       }`}
                     >
                       {cand.targetRole === "COOK" ? "🍳 Cook" : "🧼 Cleaner"}
                     </span>
-                    <span className="text-xs font-semibold text-slate-700">
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                       {cand.targetDateLabel}
                     </span>
                   </div>
@@ -242,8 +242,8 @@ export const SwapShiftsModal: React.FC<SwapShiftsModalProps> = ({
                         cand.sourceAvailOnTarget === "AVAILABLE" ||
                         (typeof cand.sourceAvailOnTarget === "string" &&
                           cand.sourceAvailOnTarget.includes(swapModal.sourceRole))
-                          ? "text-emerald-800"
-                          : "text-amber-900"
+                          ? "text-emerald-800 dark:text-emerald-300"
+                          : "text-amber-900 dark:text-amber-300"
                       }`}
                     >
                       {swapModal.sourceMemberName} on {cand.targetDateLabel}:{" "}
@@ -255,8 +255,8 @@ export const SwapShiftsModal: React.FC<SwapShiftsModalProps> = ({
                         cand.targetAvailOnSource === "AVAILABLE" ||
                         (typeof cand.targetAvailOnSource === "string" &&
                           cand.targetAvailOnSource.includes(cand.targetRole))
-                          ? "text-emerald-800"
-                          : "text-amber-900"
+                          ? "text-emerald-800 dark:text-emerald-300"
+                          : "text-amber-900 dark:text-amber-300"
                       }`}
                     >
                       {cand.targetMemberName} on {sourceDay?.dateLabel}:{" "}
@@ -291,11 +291,11 @@ export const SwapShiftsModal: React.FC<SwapShiftsModalProps> = ({
           )}
         </div>
 
-        <div className="p-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+        <div className="p-3 bg-slate-50 dark:bg-slate-900/90 border-t border-slate-200 dark:border-slate-800 flex justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[44px] px-5 py-2 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-950 bg-white border border-slate-300 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors"
+            className="min-h-[44px] px-5 py-2 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
           >
             Cancel
           </button>

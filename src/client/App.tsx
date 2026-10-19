@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import {
   Utensils,
   Users,
-  AlertTriangle,
   CheckCircle2,
   Calendar,
   Settings,
@@ -76,6 +75,8 @@ import { PortalLandingView } from "./components/views/PortalLandingView";
 import { ResidentScheduleView } from "./components/views/ResidentScheduleView";
 import { WebSurveySignupView } from "./components/views/WebSurveySignupView";
 import { SurveyFormGeneratorView } from "./components/views/SurveyFormGeneratorView";
+import { TopHeader } from "./components/common/TopHeader";
+import { Toast } from "./components/common/Toast";
 
 export type AppView = "portal" | "coordinator" | "resident" | "survey" | "form-generator";
 
@@ -1437,20 +1438,11 @@ function MainApp() {
   const renderToast = () => {
     if (!notification) return null;
     return (
-      <div
-        role="status"
-        aria-live="polite"
-        className={`fixed top-16 right-6 z-50 px-4 py-3 rounded-xl shadow-lg flex items-center gap-2.5 text-xs sm:text-sm font-bold text-white transition-all transform animate-in fade-in slide-in-from-top-4 ${
-          notification.type === "success" ? "bg-slate-900" : "bg-rose-700"
-        }`}
-      >
-        {notification.type === "success" ? (
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-        ) : (
-          <AlertTriangle className="w-5 h-5 text-amber-300 shrink-0" />
-        )}
-        <span>{notification.msg}</span>
-      </div>
+      <Toast
+        message={notification.msg}
+        type={notification.type === "error" ? "error" : "success"}
+        onClose={() => setNotification(null)}
+      />
     );
   };
 
@@ -3484,201 +3476,192 @@ function MainApp() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors">
       {/* Top Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+      <TopHeader
+        communityName="Coordinator Hub"
+        viewBadge={
+          <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
+            Coordinator
+          </span>
+        }
+        onBackToHome={() => navigateToView("portal")}
+      >
+        {/* Hamburger Menu Navigation */}
+        <div className="relative" id="header-menu-container">
           <button
-            type="button"
-            onClick={() => navigateToView("portal")}
-            title="Return to Hub Home"
-            className="flex items-center space-x-2.5 sm:space-x-3 text-left group cursor-pointer"
+            onClick={() => setShowMainMenu(!showMainMenu)}
+            className={`inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 min-h-[42px] rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer border shadow-2xs ${
+              showMainMenu
+                ? "bg-slate-900 text-white border-slate-900 shadow-md dark:bg-slate-100 dark:text-slate-900 dark:border-slate-100"
+                : "bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-950 border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:hover:text-white dark:border-slate-700"
+            }`}
+            title="Menu Options & Community Tools"
+            aria-label="Open Navigation Menu"
+            aria-expanded={showMainMenu}
+            aria-haspopup="true"
           >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform shrink-0">
-              <Utensils className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight group-hover:text-orange-600 transition-colors">
-                CoHo CookTeam
-              </h1>
-            </div>
+            {showMainMenu ? (
+              <X className="w-5 h-5" />
+            ) : (
+              <Menu className="w-5 h-5 text-slate-800 dark:text-slate-200" />
+            )}
+            <span className="font-bold">Menu</span>
           </button>
 
-          {/* Action Navigation Controls */}
-          <div className="flex items-center gap-2">
-            {/* Hamburger Menu Navigation */}
-            <div className="relative" id="header-menu-container">
-              <button
-                onClick={() => setShowMainMenu(!showMainMenu)}
-                className={`inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer border shadow-2xs ${
-                  showMainMenu
-                    ? "bg-slate-900 text-white border-slate-900 shadow-md"
-                    : "bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-950 border-slate-300"
-                }`}
-                title="Menu Options & Community Tools"
-                aria-label="Open Navigation Menu"
-                aria-expanded={showMainMenu}
-                aria-haspopup="true"
-              >
-                {showMainMenu ? (
-                  <X className="w-5 h-5" />
-                ) : (
-                  <Menu className="w-5 h-5 text-slate-800" />
-                )}
-                <span className="font-bold">Menu</span>
-              </button>
+          {/* Floating Dropdown Menu */}
+          {showMainMenu && (
+            <div
+              role="menu"
+              aria-label="Community Tools Menu"
+              className="absolute right-0 mt-2 w-72 sm:w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+            >
+              <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <p className="text-xs font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                  Community Tools
+                </p>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
+                  {members.filter((m) => m.active).length} Active Members
+                </span>
+              </div>
 
-              {/* Floating Dropdown Menu */}
-              {showMainMenu && (
-                <div
-                  role="menu"
-                  aria-label="Community Tools Menu"
-                  className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+              <div className="py-1">
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setShowMainMenu(false);
+                    handleOpenSurveyFormGenerator();
+                  }}
+                  className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-orange-50 dark:hover:bg-orange-950/30 text-left transition-colors group cursor-pointer"
                 >
-                  <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                    <p className="text-xs font-extrabold text-slate-600 uppercase tracking-wider">
-                      Community Tools
-                    </p>
-                    <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
-                      {members.filter((m) => m.active).length} Active Members
-                    </span>
+                  <div className="w-9 h-9 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <FileText className="w-5 h-5" />
                   </div>
-
-                  <div className="py-1">
-                    <button
-                      role="menuitem"
-                      onClick={() => {
-                        setShowMainMenu(false);
-                        handleOpenSurveyFormGenerator();
-                      }}
-                      className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-violet-50 text-left transition-colors group cursor-pointer"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <FileText className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-violet-950">
-                          Survey Form Generator
-                        </div>
-                        <div className="text-xs text-slate-600">
-                          Google Form &amp; sign-up builder
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      role="menuitem"
-                      onClick={() => {
-                        setShowMainMenu(false);
-                        setShowMealSignupModal(true);
-                        initMealSignupModal();
-                      }}
-                      className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-emerald-50 text-left transition-colors group cursor-pointer"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <ClipboardList className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-emerald-950">
-                          Meal Sign-Up Generator
-                        </div>
-                        <div className="text-xs text-slate-600">
-                          Rose&apos;s workbook publish tool
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      role="menuitem"
-                      onClick={() => {
-                        setShowMainMenu(false);
-                        setShowReportsModal(true);
-                        scanReportMonths();
-                      }}
-                      className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-indigo-50 text-left transition-colors group cursor-pointer"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <BarChart3 className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-indigo-950">
-                          Community Reports
-                        </div>
-                        <div className="text-xs text-slate-600">Multi-month equity & history</div>
-                      </div>
-                    </button>
-
-                    <button
-                      role="menuitem"
-                      onClick={() => {
-                        setShowMainMenu(false);
-                        setShowMemberModal(true);
-                      }}
-                      className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-sky-50 text-left transition-colors group cursor-pointer"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <Users className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-sky-950 flex items-center justify-between">
-                          <span>Member Directory</span>
-                        </div>
-                        <div className="text-xs text-slate-600">
-                          Registry & active resident roster
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      role="menuitem"
-                      onClick={() => {
-                        setShowMainMenu(false);
-                        setShowSettingsModal(true);
-                      }}
-                      className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-amber-50 text-left transition-colors group cursor-pointer"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <Settings className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-amber-950">
-                          Settings & Database
-                        </div>
-                        <div className="text-xs text-slate-600">
-                          Solver policy & Google Drive links
-                        </div>
-                      </div>
-                    </button>
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-orange-950 dark:group-hover:text-orange-300">
+                      Survey Form Generator
+                    </div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400">
+                      Google Form &amp; sign-up builder
+                    </div>
                   </div>
+                </button>
 
-                  <div className="px-4 py-3 mt-1 border-t border-slate-100 bg-slate-50/80 flex items-center justify-between text-xs text-slate-600">
-                    <span className="font-semibold text-slate-600">Environment</span>
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
-                        inGas
-                          ? "bg-emerald-100 text-emerald-950 border border-emerald-300"
-                          : "bg-amber-100 text-amber-950 border border-amber-300"
-                      }`}
-                    >
-                      <span
-                        className={`w-2 h-2 rounded-full ${inGas ? "bg-emerald-600 animate-pulse" : "bg-amber-600"}`}
-                      />
-                      {inGas ? "GAS Host Live" : "Local Mock Mode"}
-                    </span>
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setShowMainMenu(false);
+                    setShowMealSignupModal(true);
+                    initMealSignupModal();
+                  }}
+                  className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-left transition-colors group cursor-pointer"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <ClipboardList className="w-5 h-5" />
                   </div>
-                </div>
-              )}
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-emerald-950 dark:group-hover:text-emerald-300">
+                      Meal Sign-Up Generator
+                    </div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400">
+                      Rose&apos;s workbook publish tool
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setShowMainMenu(false);
+                    setShowReportsModal(true);
+                    scanReportMonths();
+                  }}
+                  className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-left transition-colors group cursor-pointer"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <BarChart3 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-950 dark:group-hover:text-indigo-300">
+                      Community Reports
+                    </div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400">
+                      Multi-month equity & history
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setShowMainMenu(false);
+                    setShowMemberModal(true);
+                  }}
+                  className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-sky-50 dark:hover:bg-sky-950/30 text-left transition-colors group cursor-pointer"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-sky-950 dark:group-hover:text-sky-300 flex items-center justify-between">
+                      <span>Member Directory</span>
+                    </div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400">
+                      Registry & active resident roster
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setShowMainMenu(false);
+                    setShowSettingsModal(true);
+                  }}
+                  className="w-full px-4 py-3 min-h-[44px] flex items-center gap-3 hover:bg-amber-50 dark:hover:bg-amber-950/30 text-left transition-colors group cursor-pointer"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Settings className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-amber-950 dark:group-hover:text-amber-300">
+                      Settings & Database
+                    </div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400">
+                      Solver policy & Google Drive links
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              <div className="px-4 py-3 mt-1 border-t border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/50 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+                <span className="font-semibold text-slate-600 dark:text-slate-400">
+                  Environment
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+                    inGas
+                      ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                      : "bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${inGas ? "bg-emerald-600 animate-pulse" : "bg-amber-600"}`}
+                  />
+                  {inGas ? "GAS Host Live" : "Local Mock Mode"}
+                </span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
-      </header>
+      </TopHeader>
 
       {/* Toast Notification */}
       {renderToast()}
 
       {/* Step Wizard Navigation Bar */}
       <div
-        className="bg-white border-b border-slate-200 shadow-xs"
+        className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-2xs transition-colors"
         role="navigation"
         aria-label="Wizard Steps"
       >
@@ -3700,21 +3683,21 @@ function MainApp() {
                     aria-current={isActive ? "step" : undefined}
                     aria-label={`Step ${item.step}: ${item.title}`}
                     title={`Step ${item.step}: ${item.title}`}
-                    className={`min-h-[40px] sm:min-h-[44px] inline-flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3.5 md:px-4 rounded-xl text-xs sm:text-sm font-bold border transition-all shrink-0 select-none cursor-pointer ${
+                    className={`min-h-[40px] sm:min-h-[42px] inline-flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3.5 md:px-4 rounded-xl text-xs sm:text-sm font-bold border transition-all shrink-0 select-none cursor-pointer ${
                       isActive
                         ? "bg-orange-600 text-white border-orange-600 shadow-sm shadow-orange-600/25"
                         : isDone
-                          ? "bg-emerald-50 text-emerald-900 border-emerald-300 hover:bg-emerald-100"
-                          : "bg-transparent text-slate-600 border-transparent hover:text-slate-950 hover:bg-slate-100"
+                          ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60"
+                          : "bg-transparent text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
                     }`}
                   >
                     <span
                       className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
                         isActive
-                          ? "bg-white text-orange-700 shadow-xs"
+                          ? "bg-white text-orange-700 shadow-2xs"
                           : isDone
                             ? "bg-emerald-700 text-white"
-                            : "bg-slate-200 text-slate-700"
+                            : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
                       }`}
                     >
                       {isDone ? <CheckCircle2 className="w-4 h-4" /> : item.step}
@@ -3727,7 +3710,9 @@ function MainApp() {
                     <ChevronRight
                       aria-hidden="true"
                       className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 transition-colors ${
-                        currentStep > item.step ? "text-emerald-600" : "text-slate-300"
+                        currentStep > item.step
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-slate-300 dark:text-slate-700"
                       }`}
                     />
                   )}
@@ -3739,7 +3724,7 @@ function MainApp() {
           <button
             onClick={() => fetchIntake(sheetInput, undefined, true)}
             disabled={loading}
-            className="min-h-[40px] sm:min-h-[44px] inline-flex items-center gap-2 px-3 sm:px-3.5 text-slate-700 hover:text-slate-950 hover:bg-slate-100 rounded-xl text-xs sm:text-sm font-bold shrink-0 transition-colors border border-slate-200 cursor-pointer disabled:opacity-50"
+            className="min-h-[40px] sm:min-h-[42px] inline-flex items-center gap-2 px-3 sm:px-3.5 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs sm:text-sm font-bold shrink-0 transition-colors border border-slate-200 dark:border-slate-700 cursor-pointer disabled:opacity-50"
             title="Refresh Survey Data"
             aria-label="Refresh survey response data from Google Sheets"
           >
@@ -4068,7 +4053,7 @@ function MainApp() {
         loading={manualSurveySaving}
       />
 
-      <footer className="bg-white border-t border-slate-200 py-3.5 text-center text-xs text-slate-400">
+      <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-3.5 text-center text-xs text-slate-500 dark:text-slate-400 transition-colors">
         Community Cook Team App • Built for Community Meal Coordinators • Google Apps Script & React
       </footer>
     </div>

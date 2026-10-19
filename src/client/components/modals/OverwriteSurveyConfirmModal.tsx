@@ -28,20 +28,20 @@ export const OverwriteSurveyConfirmModal: React.FC<OverwriteSurveyConfirmModalPr
       aria-labelledby="overwrite-survey-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in"
     >
-      <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-scale-up">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 animate-scale-up">
         <div className="flex items-start justify-between gap-3.5">
           <div className="flex items-start gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-300 text-amber-800 flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-6 h-6 text-amber-700" />
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-6 h-6 text-amber-700 dark:text-amber-400" />
             </div>
             <div>
               <h3
                 id="overwrite-survey-modal-title"
-                className="text-base sm:text-lg font-bold text-slate-900"
+                className="text-base sm:text-lg font-bold text-slate-900 dark:text-white"
               >
                 Overwrite Existing Survey?
               </h3>
-              <p className="text-xs sm:text-sm text-slate-600 mt-1">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1">
                 A survey form or response sheet already exists for <strong>{monthKey}</strong>.
               </p>
             </div>
@@ -51,31 +51,31 @@ export const OverwriteSurveyConfirmModal: React.FC<OverwriteSurveyConfirmModalPr
             onClick={onClose}
             disabled={loading}
             aria-label="Close"
-            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+            className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2 text-xs text-slate-700">
-          <div className="flex items-center gap-2 font-semibold text-slate-900">
-            <FileText className="w-4 h-4 text-violet-600" />
+        <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl space-y-2 text-xs text-slate-700 dark:text-slate-300">
+          <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
+            <FileText className="w-4 h-4 text-orange-600" />
             <span className="truncate">
               {existingSurvey.spreadsheetName || `${monthKey} Responses`}
             </span>
           </div>
-          <div className="flex items-center justify-between pt-1 border-t border-slate-200 text-slate-600">
+          <div className="flex items-center justify-between pt-1 border-t border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400">
             <span>Responses recorded:</span>
-            <span className="font-bold text-slate-900">
+            <span className="font-bold text-slate-900 dark:text-white">
               {existingSurvey.responseCount}{" "}
               {existingSurvey.responseCount === 1 ? "response" : "responses"}
             </span>
           </div>
         </div>
 
-        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-950 space-y-1">
+        <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl text-xs text-amber-950 dark:text-amber-200 space-y-1">
           <p className="font-bold">⚠️ Warning</p>
-          <p className="text-amber-800">
+          <p className="text-amber-800 dark:text-amber-300">
             Generating a new Google Form will create a brand-new form and response spreadsheet in
             Google Drive. Any residents using the previous link will need the new link.
           </p>
@@ -86,7 +86,7 @@ export const OverwriteSurveyConfirmModal: React.FC<OverwriteSurveyConfirmModalPr
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="min-h-[44px] px-4 py-2 text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+            className="min-h-[44px] px-4 py-2 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors cursor-pointer"
           >
             Cancel
           </button>
