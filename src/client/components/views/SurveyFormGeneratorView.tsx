@@ -140,6 +140,31 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
     return "";
   }, [formResult, driveSheets, monthKey]);
 
+  // Determine if a Google Form & linked response sheet have been created for this month
+  const hasGeneratedForm = Boolean(
+    existingSurvey?.exists || formResult?.formPublishedUrl || formResult?.spreadsheetUrl
+  );
+
+  // Staged flow: when form creation completes, automatically advance to and focus the Beta Web Sign-Ups tab
+  const prevLoadingCreateRef = React.useRef(loadingCreate);
+  useEffect(() => {
+    if (
+      prevLoadingCreateRef.current &&
+      !loadingCreate &&
+      (formResult?.success || existingSurvey?.exists)
+    ) {
+      setActiveTab("beta");
+    }
+    prevLoadingCreateRef.current = loadingCreate;
+  }, [loadingCreate, formResult, existingSurvey]);
+
+  // If activeTab is on beta but no form exists yet (e.g. user stepped to an unconfigured month), reset to form tab
+  useEffect(() => {
+    if (!hasGeneratedForm && activeTab === "beta") {
+      setActiveTab("form");
+    }
+  }, [hasGeneratedForm, activeTab]);
+
   // Step forward or backward by one month
   const stepMonth = (delta: number) => {
     const parts = monthKey.split("-");
@@ -403,7 +428,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
           </div>
         </div>
 
-        {/* LOADING SPINNER: Replaces entire content below month bar while loading */}
+        {/* LOADING SPINNERS: Replace entire content below month bar while loading */}
         {loadingDates ? (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-16 flex flex-col items-center justify-center text-center space-y-4 min-h-[380px] animate-in fade-in duration-150">
             <div className="w-16 h-16 rounded-2xl bg-violet-50 text-violet-600 border border-violet-200 flex items-center justify-center shadow-inner">
@@ -417,6 +442,33 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                 Retrieving configured meal dates, calendar day calculations, and Master Sheet
                 settings.
               </p>
+            </div>
+          </div>
+        ) : loadingCreate ? (
+          <div className="bg-white rounded-2xl border-2 border-violet-200 shadow-sm p-12 sm:p-16 flex flex-col items-center justify-center text-center space-y-5 min-h-[420px] animate-in fade-in duration-200">
+            <div className="w-20 h-20 rounded-3xl bg-violet-50 text-violet-700 border-2 border-violet-200 flex items-center justify-center shadow-md shadow-violet-200/50">
+              <RefreshCw className="w-10 h-10 animate-spin text-violet-600" />
+            </div>
+            <div className="space-y-2 max-w-lg">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-violet-100 text-violet-800">
+                <Sparkles className="w-3.5 h-3.5 text-violet-600" />
+                <span>Google Workspace Automation</span>
+              </div>
+              <h3 className="text-lg sm:text-xl font-black text-slate-900">
+                Generating Google Form &amp; Linked Response Sheet...
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                Building your {monthKey} survey questions, formatting grid rows for{" "}
+                {activeDatesCount} meal dates, linking the Google Sheets response workbook, and
+                opening sign-ups.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-violet-700 font-semibold bg-violet-50 px-4 py-2.5 rounded-xl border border-violet-200">
+              <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+              <span>
+                This takes about 5–10 seconds. You&apos;ll be automatically directed to Beta Web
+                Sign-Ups next!
+              </span>
             </div>
           </div>
         ) : (
@@ -437,18 +489,37 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab("beta")}
-                className={`min-h-[42px] px-5 py-2.5 font-bold text-xs sm:text-sm rounded-t-xl border-t border-x transition-all flex items-center gap-2 cursor-pointer ${
-                  activeTab === "beta"
-                    ? "bg-white border-slate-200 text-violet-900 shadow-xs -mb-[1px]"
-                    : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
+                onClick={() => {
+                  if (hasGeneratedForm) setActiveTab("beta");
+                }}
+                disabled={!hasGeneratedForm}
+                title={
+                  hasGeneratedForm
+                    ? "Switch to Phase 2 Beta Web Sign-Ups"
+                    : "Stage 2: Available after generating the Google Form & linked sheet"
+                }
+                className={`min-h-[42px] px-5 py-2.5 font-bold text-xs sm:text-sm rounded-t-xl border-t border-x transition-all flex items-center gap-2 ${
+                  !hasGeneratedForm
+                    ? "border-transparent text-slate-400 bg-slate-100/50 cursor-not-allowed opacity-60"
+                    : activeTab === "beta"
+                      ? "bg-white border-slate-200 text-violet-900 shadow-xs -mb-[1px] cursor-pointer"
+                      : "border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 cursor-pointer"
                 }`}
               >
-                <Mail className="w-4 h-4 text-violet-600" />
+                <Mail
+                  className={`w-4 h-4 ${hasGeneratedForm ? "text-violet-600" : "text-slate-400"}`}
+                />
                 <span>Beta Web Sign-Ups (Phase 2)</span>
-                <span className="px-2 py-0.5 text-[10px] font-black tracking-wider uppercase bg-amber-100 text-amber-800 rounded-full border border-amber-300">
-                  Pilot
-                </span>
+                {!hasGeneratedForm ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-slate-200 text-slate-600 rounded-full">
+                    <Lock className="w-3 h-3 text-slate-500" />
+                    <span>Locked</span>
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 text-[10px] font-black tracking-wider uppercase bg-amber-100 text-amber-800 rounded-full border border-amber-300">
+                    Pilot
+                  </span>
+                )}
               </button>
             </div>
 
@@ -836,6 +907,35 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
             {/* TAB 2: Phase 2 Beta Web Sign-Ups */}
             {activeTab === "beta" && (
               <div className="space-y-6">
+                {/* Form Creation Success Callout (Stage 1 Completed) */}
+                {formResult && formResult.success && (
+                  <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-in fade-in duration-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 border border-emerald-300">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                      </div>
+                      <div className="text-xs sm:text-sm text-emerald-950 font-bold">
+                        <div>{formResult.message}</div>
+                        <div className="font-normal text-emerald-800 text-xs mt-0.5">
+                          Google Form and response spreadsheet are ready with{" "}
+                          {formResult.totalDates} dates. You can now invite beta testers below!
+                        </div>
+                      </div>
+                    </div>
+                    {formResult.formPublishedUrl && (
+                      <a
+                        href={formResult.formPrefilledUrl || formResult.formPublishedUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-bold text-emerald-900 bg-white hover:bg-emerald-100 border border-emerald-300 px-3.5 py-1.5 rounded-xl shrink-0 flex items-center gap-1.5 shadow-2xs transition-colors self-start sm:self-auto cursor-pointer"
+                      >
+                        <span>View Form</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                )}
+
                 {/* Beta Overview Banner */}
                 <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl flex items-start gap-3.5 shadow-xs">
                   <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 border border-amber-200">

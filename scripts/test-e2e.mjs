@@ -553,14 +553,38 @@ async function runE2ETest() {
     await page.waitForSelector("text=Configure Meal Dates for Survey Grid");
     console.log("✓ Meal Date table and preview verified!");
 
-    // Test switching to Beta Web Sign-Ups tab
-    console.log("8d-beta. Testing Beta Web Sign-Ups (Phase 2) tab in Survey Form Generator ...");
-    const betaTabBtn = page.locator("button:has-text('Beta Web Sign-Ups')").first();
-    await betaTabBtn.click();
-    await page.waitForSelector("text=Direct Web Availability Sign-Up (Beta Pilot)");
+    // Step forward to December 2026 (a fresh draft cycle without an existing survey form)
+    console.log("Switching to December 2026 to test fresh form generator staging flow...");
+    const nextMonthBtn = page.locator("button[aria-label='Next month']").first();
+    await nextMonthBtn.click(); // step from 2026-10 to 2026-11
+    await page.waitForTimeout(300);
+    await nextMonthBtn.click(); // step from 2026-11 to 2026-12
+    await page.waitForSelector("text=Configure Meal Dates for Survey Grid");
+    await page.waitForTimeout(300);
+
+    // Staged Flow: Assert Beta Web Sign-Ups tab is locked prior to form generation
+    const lockedBetaTab = page.locator("button:has-text('Beta Web Sign-Ups'):has-text('Locked')").first();
+    await lockedBetaTab.waitFor({ state: "visible", timeout: 3000 });
+    console.log("✓ Beta Web Sign-Ups tab is locked prior to form generation!");
+
+    // Execute Form & Response Sheet generation (Stage 1 -> Stage 2)
+    const generateSurveyBtn = page.locator("button:has-text('Generate Form & Open Sign-Ups')").first();
+    await generateSurveyBtn.click();
+    const overwriteConfirmBtn = page.locator("button:has-text('Yes, Overwrite & Create Form')").first();
+    if (await overwriteConfirmBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await overwriteConfirmBtn.click();
+    }
+
+    // Verify big generation spinner is shown
+    await page.waitForSelector("text=Generating Google Form & Linked Response Sheet...", { timeout: 4000 });
+    console.log("✓ Big form generation progress spinner rendered!");
+
+    // Verify completion and automatic focus to Beta Web Sign-Ups tab (Stage 2)
+    console.log("8d-beta. Verifying automatic focus to Beta Web Sign-Ups (Phase 2) tab ...");
+    await page.waitForSelector("text=Direct Web Availability Sign-Up (Beta Pilot)", { timeout: 10000 });
     await page.waitForSelector("text=Beta Pilot Testers");
     await page.waitForSelector("text=Email Invitation Template");
-    console.log("✓ Beta Web Sign-Ups tab loaded with testers table and email template!");
+    console.log("✓ Beta Web Sign-Ups tab automatically focused and unlocked after form generation!");
 
     // Test Copy Link on a tester
     const copyTesterLinkBtn = page.locator("button:has-text('Copy Link')").first();
@@ -583,16 +607,6 @@ async function runE2ETest() {
     await standardTabBtn.click();
     await page.waitForSelector("text=Configure Meal Dates for Survey Grid");
     console.log("✓ Switched back to Google Form (Standard) tab.");
-
-    // Execute Form & Response Sheet generation
-    const generateSurveyBtn = page.locator("button:has-text('Generate Form & Open Sign-Ups')").first();
-    await generateSurveyBtn.click();
-    const overwriteConfirmBtn = page.locator("button:has-text('Yes, Overwrite & Create Form')").first();
-    if (await overwriteConfirmBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
-      await overwriteConfirmBtn.click();
-    }
-    await page.waitForSelector("text=Successfully created Google Form", { timeout: 8000 });
-    console.log("✓ Google Form & Response Sheet generation executed successfully!");
 
     // Return to Step 4 via browser back button
     await page.goBack();
