@@ -1001,9 +1001,14 @@ function MainApp() {
     navigateToView("form-generator", { month: defaultMonth });
   };
 
+  const handleClearSurveyFormResult = useCallback(() => {
+    setSurveyFormResult(null);
+  }, []);
+
   const loadSurveyFormDatesPreview = async (monthKey: string) => {
     setSurveyFormLoadingDates(true);
     setSurveyFormResult(null);
+    setSurveyFormExistingSurvey(null);
     setSurveyFormCopiedLink(false);
     try {
       const res = await callGas<SurveyFormDatesPreviewResult>(
@@ -3400,8 +3405,11 @@ function MainApp() {
           monthKey={surveyFormMonthKey}
           setMonthKey={(mKey) => {
             setSurveyFormMonthKey(mKey);
+            setSurveyFormResult(null);
+            setSurveyFormExistingSurvey(null);
             navigateToView("form-generator", { month: mKey, replace: true });
           }}
+          onClearFormResult={handleClearSurveyFormResult}
           loadDatesPreview={loadSurveyFormDatesPreview}
           formTitle={surveyFormTitle}
           setFormTitle={setSurveyFormTitle}

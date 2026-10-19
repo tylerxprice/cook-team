@@ -38,6 +38,7 @@ import {
   MonthStatus,
   ExistingSurveyInfo,
 } from "../../../server/types";
+import { matchesSurveySheetForMonth } from "../../../server/surveyFormGenerator";
 import { callGas, getPublicWebAppUrl } from "../../utils/gas";
 
 export interface SurveyFormGeneratorViewProps {
@@ -72,12 +73,14 @@ export interface SurveyFormGeneratorViewProps {
   onOpenCoordinator: () => void;
   onOpenSchedule?: () => void;
   onToast?: (message: string, type?: "success" | "error") => void;
+  onClearFormResult?: () => void;
 }
 
 export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = ({
   monthKey,
   setMonthKey,
   loadDatesPreview,
+  onClearFormResult,
   formTitle: _formTitle = "",
   setFormTitle: _setFormTitle,
   folderId: _folderId,
@@ -127,23 +130,58 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
   const [betaDispatchResult, setBetaDispatchResult] = useState<SendBetaInvitesResult | null>(null);
   const [betaSearchFilter, setBetaSearchFilter] = useState<string>("");
 
+  // Check if existingSurvey strictly belongs to the currently viewed monthKey
+  const isExistingSurveyForCurrentMonth = Boolean(
+    existingSurvey?.exists &&
+    (!existingSurvey.spreadsheetName ||
+      matchesSurveySheetForMonth(existingSurvey.spreadsheetName, monthKey))
+  );
+
+  const [dismissedFormResultMonthKey, setDismissedFormResultMonthKey] = useState<string | null>(
+    null
+  );
+
+  // Check if formResult strictly belongs to the currently viewed monthKey
+  const isCurrentMonthFormResult = Boolean(
+    formResult &&
+    formResult.success &&
+    (formResult.monthKey === monthKey ||
+      (!formResult.monthKey &&
+        Boolean(
+          (formResult.formTitle &&
+            formResult.formTitle.includes(`${monthKey.slice(2, 4)}-${monthKey.slice(5, 7)}`)) ||
+          (formResult.message &&
+            formResult.message.includes(`${monthKey.slice(2, 4)}-${monthKey.slice(5, 7)}`))
+        )))
+  );
+
   // Safely resolve the response spreadsheet ID specifically for THIS target monthKey
   const activeSpreadsheetId = React.useMemo(() => {
-    if (formResult?.spreadsheetId) return formResult.spreadsheetId;
+    if (isCurrentMonthFormResult && formResult?.spreadsheetId) {
+      return formResult.spreadsheetId;
+    }
+    if (isExistingSurveyForCurrentMonth && existingSurvey?.spreadsheetId) {
+      return existingSurvey.spreadsheetId;
+    }
     if (driveSheets && driveSheets.length > 0 && /^\d{4}[-_]\d{2}$/.test(monthKey)) {
-      const yyMm = monthKey.length >= 7 ? monthKey.slice(2) : "";
-      const match = driveSheets.find((s) => {
-        const n = (s.name || "").toLowerCase();
-        return n.includes(monthKey.toLowerCase()) || (yyMm && n.includes(yyMm));
-      });
+      const match = driveSheets.find((s) => matchesSurveySheetForMonth(s.name, monthKey));
       if (match) return match.id;
     }
     return "";
-  }, [formResult, driveSheets, monthKey]);
+  }, [
+    isCurrentMonthFormResult,
+    formResult,
+    isExistingSurveyForCurrentMonth,
+    existingSurvey,
+    driveSheets,
+    monthKey,
+  ]);
 
-  // Determine if a Google Form & linked response sheet have been created for this month
+  // Determine if a Google Form & linked response sheet have been created for THIS month
   const hasGeneratedForm = Boolean(
-    existingSurvey?.exists || formResult?.formPublishedUrl || formResult?.spreadsheetUrl
+    isExistingSurveyForCurrentMonth ||
+    (isCurrentMonthFormResult &&
+      Boolean(formResult?.formPublishedUrl || formResult?.spreadsheetUrl))
   );
 
   // Staged flow: when form creation completes, automatically advance to and focus the Beta Web Sign-Ups tab
@@ -152,12 +190,12 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
     if (
       prevLoadingCreateRef.current &&
       !loadingCreate &&
-      (formResult?.success || existingSurvey?.exists)
+      (isCurrentMonthFormResult || isExistingSurveyForCurrentMonth)
     ) {
       setActiveTab("beta");
     }
     prevLoadingCreateRef.current = loadingCreate;
-  }, [loadingCreate, formResult, existingSurvey]);
+  }, [loadingCreate, isCurrentMonthFormResult, isExistingSurveyForCurrentMonth]);
 
   // If activeTab is on beta but no form exists yet (e.g. user stepped to an unconfigured month), reset to form tab
   useEffect(() => {
@@ -176,6 +214,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
     const newMonth = String(date.getUTCMonth() + 1).padStart(2, "0");
     const newKey = `${newYear}-${newMonth}`;
     setMonthKey(newKey);
+    onClearFormResult?.();
     loadDatesPreview(newKey);
   };
 
@@ -184,7 +223,9 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
     setBetaSubject(`[Community Meals] ${monthKey} Meal Team Sign-Up (Beta)`);
     setBetaDispatchResult(null);
     setCopiedLinkMember(null);
-  }, [monthKey]);
+    setDismissedFormResultMonthKey(null);
+    onClearFormResult?.();
+  }, [monthKey, onClearFormResult]);
 
   // Clear previous dispatch alert whenever form creation begins
   useEffect(() => {
@@ -337,6 +378,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                       const val = e.target.value;
                       if (val) {
                         setMonthKey(val);
+                        onClearFormResult?.();
                         loadDatesPreview(val);
                       }
                     }}
@@ -375,8 +417,8 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                 </span>
               )}
 
-              {/* Toggles ONLY make sense when a Google Form & response spreadsheet actually exist! */}
-              {Boolean(existingSurvey?.exists) && onSetMonthStatus && monthStatus === "OPEN" && (
+              {/* Toggles ONLY make sense when a Google Form & response spreadsheet actually exist for THIS month! */}
+              {isExistingSurveyForCurrentMonth && onSetMonthStatus && monthStatus === "OPEN" && (
                 <button
                   type="button"
                   onClick={() => onSetMonthStatus("CLOSED", monthKey)}
@@ -388,7 +430,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                 </button>
               )}
 
-              {Boolean(existingSurvey?.exists) && onSetMonthStatus && monthStatus === "CLOSED" && (
+              {isExistingSurveyForCurrentMonth && onSetMonthStatus && monthStatus === "CLOSED" && (
                 <button
                   type="button"
                   onClick={() => onSetMonthStatus("OPEN", monthKey)}
@@ -400,7 +442,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                 </button>
               )}
 
-              {Boolean(existingSurvey?.exists) &&
+              {isExistingSurveyForCurrentMonth &&
                 onSetMonthStatus &&
                 monthStatus === "NOT_OPEN" && (
                   <button
@@ -516,143 +558,160 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
             {activeTab === "form" && (
               <div className="space-y-6">
                 {/* Existing Survey Warning or Notice */}
-                {existingSurvey?.exists && (!formResult || !formResult.success) && (
-                  <>
-                    {!existingSurvey.canOverwrite ? (
-                      <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl flex items-start gap-3.5 shadow-2xs">
-                        <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0 text-amber-800">
-                          <AlertTriangle className="w-5 h-5 text-amber-700" />
-                        </div>
-                        <div className="space-y-1 text-xs text-amber-950 flex-1">
-                          <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-bold text-amber-950">
-                              Active Survey Exists — Overwriting Disabled (
-                              {existingSurvey.responseCount} Responses Received)
-                            </h4>
-                            <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-amber-200 text-amber-900 border border-amber-300">
-                              {existingSurvey.responseCount} responses
-                            </span>
+                {isExistingSurveyForCurrentMonth &&
+                  existingSurvey?.exists &&
+                  (!isCurrentMonthFormResult || !formResult?.success) && (
+                    <>
+                      {!existingSurvey.canOverwrite ? (
+                        <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl flex items-start gap-3.5 shadow-2xs">
+                          <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0 text-amber-800">
+                            <AlertTriangle className="w-5 h-5 text-amber-700" />
                           </div>
-                          <p className="text-amber-800 leading-relaxed">
-                            A survey response sheet is already active for this month:{" "}
-                            <strong className="text-amber-950">
-                              {existingSurvey.spreadsheetName}
-                            </strong>
-                            . Because member availability responses have already been received,
-                            generating a new Google Form is disabled to prevent losing existing
-                            submissions.
-                          </p>
-                          {existingSurvey.spreadsheetUrl && (
-                            <div className="pt-1.5">
-                              <a
-                                href={existingSurvey.spreadsheetUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1.5 font-bold text-amber-900 hover:text-amber-950 underline hover:no-underline"
-                              >
-                                <span>Open Existing Response Spreadsheet ↗</span>
-                              </a>
+                          <div className="space-y-1 text-xs text-amber-950 flex-1">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-bold text-amber-950">
+                                Active Survey Exists — Overwriting Disabled (
+                                {existingSurvey.responseCount} Responses Received)
+                              </h4>
+                              <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-amber-200 text-amber-900 border border-amber-300">
+                                {existingSurvey.responseCount} responses
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl flex items-start gap-3 shadow-2xs">
-                        <AlertCircle className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                        <div className="text-xs text-blue-950 flex-1 space-y-0.5">
-                          <div className="flex items-center justify-between">
-                            <strong className="font-bold text-blue-900">
-                              Existing Survey Sheet Found ({existingSurvey.responseCount} responses)
-                            </strong>
+                            <p className="text-amber-800 leading-relaxed">
+                              A survey response sheet is already active for this month:{" "}
+                              <strong className="text-amber-950">
+                                {existingSurvey.spreadsheetName}
+                              </strong>
+                              . Because member availability responses have already been received,
+                              generating a new Google Form is disabled to prevent losing existing
+                              submissions.
+                            </p>
+                            {existingSurvey.spreadsheetUrl && (
+                              <div className="pt-1.5">
+                                <a
+                                  href={existingSurvey.spreadsheetUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1.5 font-bold text-amber-900 hover:text-amber-950 underline hover:no-underline"
+                                >
+                                  <span>Open Existing Response Spreadsheet ↗</span>
+                                </a>
+                              </div>
+                            )}
                           </div>
-                          <p className="text-blue-800">
-                            Google Drive already contains{" "}
-                            <strong>{existingSurvey.spreadsheetName}</strong>. Clicking
-                            &quot;Generate Form&quot; will ask for confirmation before overwriting.
-                          </p>
                         </div>
-                      </div>
-                    )}
-                  </>
-                )}
+                      ) : (
+                        <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl flex items-start gap-3 shadow-2xs">
+                          <AlertCircle className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                          <div className="text-xs text-blue-950 flex-1 space-y-0.5">
+                            <div className="flex items-center justify-between">
+                              <strong className="font-bold text-blue-900">
+                                Existing Survey Sheet Found ({existingSurvey.responseCount}{" "}
+                                responses)
+                              </strong>
+                            </div>
+                            <p className="text-blue-800">
+                              Google Drive already contains{" "}
+                              <strong>{existingSurvey.spreadsheetName}</strong>. Clicking
+                              &quot;Generate Form&quot; will ask for confirmation before
+                              overwriting.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
 
                 {/* Success Result Banner */}
-                {formResult && formResult.success && (
-                  <div className="p-5 bg-emerald-50 border-2 border-emerald-300 rounded-2xl space-y-4 shadow-xs animate-in fade-in duration-200">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-center gap-2 text-emerald-950 font-bold text-sm sm:text-base">
-                        <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
-                        <span>{formResult.message}</span>
+                {isCurrentMonthFormResult &&
+                  formResult &&
+                  formResult.success &&
+                  dismissedFormResultMonthKey !== monthKey && (
+                    <div className="p-5 bg-emerald-50 border-2 border-emerald-300 rounded-2xl space-y-4 shadow-xs animate-in fade-in duration-200">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-center gap-2 text-emerald-950 font-bold text-sm sm:text-base">
+                          <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
+                          <span>{formResult.message}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs font-bold bg-emerald-100 text-emerald-900 px-3 py-1 rounded-full border border-emerald-300">
+                            {formResult.totalDates} Dates Included
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setDismissedFormResultMonthKey(monthKey)}
+                            title="Dismiss notification"
+                            className="text-emerald-700 hover:text-emerald-950 p-1 rounded-lg hover:bg-emerald-200/50 transition-colors cursor-pointer"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                      <span className="text-xs font-bold bg-emerald-100 text-emerald-900 px-3 py-1 rounded-full border border-emerald-300 shrink-0">
-                        {formResult.totalDates} Dates Included
-                      </span>
-                    </div>
 
-                    {/* Quick Action Links */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onCopyLink(formResult.formPrefilledUrl || formResult.formPublishedUrl)
-                        }
-                        className="min-h-[44px] px-3.5 py-2.5 bg-violet-700 hover:bg-violet-800 text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        {copiedLink ? (
-                          <CheckCircle2 className="w-4 h-4" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                        <span>{copiedLink ? "Link Copied!" : "Copy Form Link (Prefilled)"}</span>
-                      </button>
+                      {/* Quick Action Links */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onCopyLink(formResult.formPrefilledUrl || formResult.formPublishedUrl)
+                          }
+                          className="min-h-[44px] px-3.5 py-2.5 bg-violet-700 hover:bg-violet-800 text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          {copiedLink ? (
+                            <CheckCircle2 className="w-4 h-4" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                          <span>{copiedLink ? "Link Copied!" : "Copy Form Link (Prefilled)"}</span>
+                        </button>
 
-                      <a
-                        href={formResult.formPrefilledUrl || formResult.formPublishedUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="min-h-[44px] px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs sm:text-sm font-bold rounded-xl shadow-2xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        <ExternalLink className="w-4 h-4 text-slate-600" />
-                        <span>View Live Form ↗</span>
-                      </a>
-
-                      <a
-                        href={formResult.formEditUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="min-h-[44px] px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs sm:text-sm font-bold rounded-xl shadow-2xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        <Pencil className="w-4 h-4 text-purple-600" />
-                        <span>Edit Google Form ↗</span>
-                      </a>
-
-                      <a
-                        href={formResult.spreadsheetUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="min-h-[44px] px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs sm:text-sm font-bold rounded-xl shadow-2xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                        <span>Response Sheet ↗</span>
-                      </a>
-                    </div>
-
-                    {formResult.folderUrl && (
-                      <div className="text-xs text-slate-600 flex items-center gap-1.5 pt-1">
-                        <Folder className="w-4 h-4 text-slate-500" />
-                        <span>Saved inside Google Drive folder:</span>
                         <a
-                          href={formResult.folderUrl}
+                          href={formResult.formPrefilledUrl || formResult.formPublishedUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-violet-700 hover:underline font-bold"
+                          className="min-h-[44px] px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs sm:text-sm font-bold rounded-xl shadow-2xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
                         >
-                          Open Drive Folder ↗
+                          <ExternalLink className="w-4 h-4 text-slate-600" />
+                          <span>View Live Form ↗</span>
+                        </a>
+
+                        <a
+                          href={formResult.formEditUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="min-h-[44px] px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs sm:text-sm font-bold rounded-xl shadow-2xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <Pencil className="w-4 h-4 text-purple-600" />
+                          <span>Edit Google Form ↗</span>
+                        </a>
+
+                        <a
+                          href={formResult.spreadsheetUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="min-h-[44px] px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs sm:text-sm font-bold rounded-xl shadow-2xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                          <span>Response Sheet ↗</span>
                         </a>
                       </div>
-                    )}
-                  </div>
-                )}
+
+                      {formResult.folderUrl && (
+                        <div className="text-xs text-slate-600 flex items-center gap-1.5 pt-1">
+                          <Folder className="w-4 h-4 text-slate-500" />
+                          <span>Saved inside Google Drive folder:</span>
+                          <a
+                            href={formResult.folderUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-violet-700 hover:underline font-bold"
+                          >
+                            Open Drive Folder ↗
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                 {/* Interactive Meal Dates Table with Merged Form Title */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden space-y-4 p-5">
@@ -843,15 +902,16 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                         disabled={
                           loadingCreate ||
                           activeDatesCount === 0 ||
-                          existingSurvey?.canOverwrite === false
+                          (isExistingSurveyForCurrentMonth &&
+                            existingSurvey?.canOverwrite === false)
                         }
                         title={
-                          existingSurvey?.canOverwrite === false
+                          isExistingSurveyForCurrentMonth && existingSurvey?.canOverwrite === false
                             ? `Generating a new form is blocked because ${existingSurvey.responseCount} responses have already been received.`
                             : undefined
                         }
                         className={`min-h-[40px] px-5 py-1.5 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-xs hover:shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                          existingSurvey?.canOverwrite === false
+                          isExistingSurveyForCurrentMonth && existingSurvey?.canOverwrite === false
                             ? "bg-slate-400 text-white cursor-not-allowed"
                             : "bg-violet-700 hover:bg-violet-800 text-white"
                         }`}
@@ -861,7 +921,8 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                             <RefreshCw className="w-4 h-4 animate-spin" />
                             <span>Creating Form &amp; Sheet...</span>
                           </>
-                        ) : existingSurvey?.canOverwrite === false ? (
+                        ) : isExistingSurveyForCurrentMonth &&
+                          existingSurvey?.canOverwrite === false ? (
                           <>
                             <Lock className="w-4 h-4" />
                             <span>
@@ -897,9 +958,10 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
             {activeTab === "beta" && (
               <div className="space-y-6">
                 {/* Form Creation Success Callout (Stage 1 Completed) */}
-                {formResult &&
+                {isCurrentMonthFormResult &&
+                  formResult &&
                   formResult.success &&
-                  (!formResult.monthKey || formResult.monthKey === monthKey) && (
+                  dismissedFormResultMonthKey !== monthKey && (
                     <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-in fade-in duration-200">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 border border-emerald-300">
@@ -913,17 +975,27 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                           </div>
                         </div>
                       </div>
-                      {formResult.formPublishedUrl && (
-                        <a
-                          href={formResult.formPrefilledUrl || formResult.formPublishedUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs font-bold text-emerald-900 bg-white hover:bg-emerald-100 border border-emerald-300 px-3.5 py-1.5 rounded-xl shrink-0 flex items-center gap-1.5 shadow-2xs transition-colors self-start sm:self-auto cursor-pointer"
+                      <div className="flex items-center gap-2 self-start sm:self-auto">
+                        {formResult.formPublishedUrl && (
+                          <a
+                            href={formResult.formPrefilledUrl || formResult.formPublishedUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs font-bold text-emerald-900 bg-white hover:bg-emerald-100 border border-emerald-300 px-3.5 py-1.5 rounded-xl shrink-0 flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                          >
+                            <span>View Form</span>
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setDismissedFormResultMonthKey(monthKey)}
+                          title="Dismiss notification"
+                          className="text-emerald-700 hover:text-emerald-950 p-1.5 rounded-lg hover:bg-emerald-200/50 transition-colors cursor-pointer"
                         >
-                          <span>View Form</span>
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                      )}
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   )}
 
