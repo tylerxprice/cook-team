@@ -43,10 +43,10 @@ export interface SurveyFormGeneratorViewProps {
   monthKey: string;
   setMonthKey: (val: string) => void;
   loadDatesPreview: (mKey: string) => void;
-  formTitle: string;
-  setFormTitle: (val: string) => void;
-  folderId: string;
-  setFolderId: (val: string) => void;
+  formTitle?: string;
+  setFormTitle?: (val: string) => void;
+  folderId?: string;
+  setFolderId?: (val: string) => void;
   dates: SurveyFormDateConfig[];
   setDates: React.Dispatch<React.SetStateAction<SurveyFormDateConfig[]>>;
   loadingDates: boolean;
@@ -77,8 +77,8 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
   monthKey,
   setMonthKey,
   loadDatesPreview,
-  formTitle,
-  setFormTitle,
+  formTitle: _formTitle = "",
+  setFormTitle: _setFormTitle,
   folderId: _folderId,
   setFolderId: _setFolderId,
   dates,
@@ -569,29 +569,10 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                         </span>
                       </h3>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Set the Google Form title, toggle meal dates, adjust meal types (Dinner /
-                        Brunch), or specify special event notes.
+                        Toggle meal dates, adjust meal types (Dinner / Brunch), or specify special
+                        event notes.
                       </p>
                     </div>
-                  </div>
-
-                  {/* Merged Google Form Title Input */}
-                  <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center gap-3">
-                    <label
-                      htmlFor="survey-form-title"
-                      className="text-xs font-bold text-slate-700 sm:w-36 shrink-0 flex items-center gap-1.5"
-                    >
-                      <FileText className="w-4 h-4 text-violet-600" />
-                      <span>Google Form Title</span>
-                    </label>
-                    <input
-                      id="survey-form-title"
-                      type="text"
-                      value={formTitle}
-                      onChange={(e) => setFormTitle(e.target.value)}
-                      placeholder="e.g. 26-11 Nov Meal Team Sign-Up"
-                      className="flex-1 min-h-[40px] px-3.5 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-violet-500 font-semibold text-slate-900"
-                    />
                   </div>
 
                   {dates.length === 0 ? (
