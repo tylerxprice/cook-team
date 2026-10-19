@@ -380,6 +380,7 @@ export function executeCreateSurveyForm(payload: CreateSurveyFormPayload): Creat
 
     return {
       success: true,
+      monthKey,
       formId: form.getId(),
       formTitle: title,
       formEditUrl,

@@ -226,6 +226,7 @@ export interface SendBetaInvitesResult {
   failedCount: number;
   message: string;
   details?: Array<{ name: string; email: string; success: boolean; error?: string }>;
+  monthKey?: string;
 }
 
 export interface WebSurveyResponsePayload {
@@ -373,6 +374,7 @@ export interface CreateSurveyFormPayload {
 
 export interface CreateSurveyFormResult {
   success: boolean;
+  monthKey?: string;
   formId: string;
   formTitle: string;
   formEditUrl: string;

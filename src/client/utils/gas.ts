@@ -536,6 +536,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
           email: r.email,
           success: true,
         })),
+        monthKey: payload.monthKey,
       } as unknown as T;
     }
 
@@ -1240,6 +1241,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
       };
       return {
         success: true,
+        monthKey,
         formId: "mock-form-id-12345",
         formTitle: title,
         formEditUrl: `https://docs.google.com/forms/d/mock-form-id-12345/edit`,

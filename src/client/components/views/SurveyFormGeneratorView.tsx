@@ -26,6 +26,7 @@ import {
   Utensils,
   CheckCircle,
   AlertTriangle,
+  X,
 } from "lucide-react";
 import {
   MealType,
@@ -178,10 +179,19 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
     loadDatesPreview(newKey);
   };
 
-  // Sync default subject when month changes
+  // Sync default subject and clear month-specific dispatch/link states when month changes
   useEffect(() => {
     setBetaSubject(`[Community Meals] ${monthKey} Meal Team Sign-Up (Beta)`);
+    setBetaDispatchResult(null);
+    setCopiedLinkMember(null);
   }, [monthKey]);
+
+  // Clear previous dispatch alert whenever form creation begins
+  useEffect(() => {
+    if (loadingCreate) {
+      setBetaDispatchResult(null);
+    }
+  }, [loadingCreate]);
 
   // Sync default replyTo when coordinatorEmail changes
   useEffect(() => {
@@ -239,13 +249,14 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
 
     try {
       const res = await callGas<SendBetaInvitesResult>("sendBetaSurveyInvitations", payload);
-      setBetaDispatchResult(res);
+      setBetaDispatchResult({ ...res, monthKey });
     } catch (err: any) {
       setBetaDispatchResult({
         success: false,
         dispatchedCount: 0,
         failedCount: testersToSend.length,
         message: err.message || "Failed to dispatch beta invitation emails.",
+        monthKey,
       });
     } finally {
       setSendingBetaInvites(false);
@@ -366,49 +377,27 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
 
               {/* Toggles ONLY make sense when a Google Form & response spreadsheet actually exist! */}
               {Boolean(existingSurvey?.exists) && onSetMonthStatus && monthStatus === "OPEN" && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => onSetMonthStatus("CLOSED", monthKey)}
-                    className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-purple-900 hover:text-purple-950 bg-purple-50 hover:bg-purple-100 border border-purple-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                    title="Close sign-ups (teams scheduled)"
-                  >
-                    <Lock className="w-3.5 h-3.5 text-purple-700" />
-                    <span>Close Sign-Ups</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onSetMonthStatus("NOT_OPEN", monthKey)}
-                    className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                    title="Return sign-ups to draft mode"
-                  >
-                    <Clock className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Set to Draft</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => onSetMonthStatus("CLOSED", monthKey)}
+                  className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-purple-900 hover:text-purple-950 bg-purple-50 hover:bg-purple-100 border border-purple-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Close sign-ups (teams scheduled)"
+                >
+                  <Lock className="w-3.5 h-3.5 text-purple-700" />
+                  <span>Close Sign-Ups</span>
+                </button>
               )}
 
               {Boolean(existingSurvey?.exists) && onSetMonthStatus && monthStatus === "CLOSED" && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => onSetMonthStatus("NOT_OPEN", monthKey)}
-                    className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                    title="Reset status to draft (not scheduled / not open)"
-                  >
-                    <Clock className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Set to Draft</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onSetMonthStatus("OPEN", monthKey)}
-                    className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                    title="Reopen sign-ups for existing form"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Reopen Sign-Ups</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => onSetMonthStatus("OPEN", monthKey)}
+                  className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Reopen sign-ups for existing form"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Reopen Sign-Ups</span>
+                </button>
               )}
 
               {Boolean(existingSurvey?.exists) &&
@@ -908,33 +897,35 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
             {activeTab === "beta" && (
               <div className="space-y-6">
                 {/* Form Creation Success Callout (Stage 1 Completed) */}
-                {formResult && formResult.success && (
-                  <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-in fade-in duration-200">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 border border-emerald-300">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                      </div>
-                      <div className="text-xs sm:text-sm text-emerald-950 font-bold">
-                        <div>{formResult.message}</div>
-                        <div className="font-normal text-emerald-800 text-xs mt-0.5">
-                          Google Form and response spreadsheet are ready with{" "}
-                          {formResult.totalDates} dates. You can now invite beta testers below!
+                {formResult &&
+                  formResult.success &&
+                  (!formResult.monthKey || formResult.monthKey === monthKey) && (
+                    <div className="p-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-in fade-in duration-200">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 border border-emerald-300">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                        </div>
+                        <div className="text-xs sm:text-sm text-emerald-950 font-bold">
+                          <div>{formResult.message}</div>
+                          <div className="font-normal text-emerald-800 text-xs mt-0.5">
+                            Google Form and response spreadsheet are ready with{" "}
+                            {formResult.totalDates} dates. You can now invite beta testers below!
+                          </div>
                         </div>
                       </div>
+                      {formResult.formPublishedUrl && (
+                        <a
+                          href={formResult.formPrefilledUrl || formResult.formPublishedUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-bold text-emerald-900 bg-white hover:bg-emerald-100 border border-emerald-300 px-3.5 py-1.5 rounded-xl shrink-0 flex items-center gap-1.5 shadow-2xs transition-colors self-start sm:self-auto cursor-pointer"
+                        >
+                          <span>View Form</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      )}
                     </div>
-                    {formResult.formPublishedUrl && (
-                      <a
-                        href={formResult.formPrefilledUrl || formResult.formPublishedUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs font-bold text-emerald-900 bg-white hover:bg-emerald-100 border border-emerald-300 px-3.5 py-1.5 rounded-xl shrink-0 flex items-center gap-1.5 shadow-2xs transition-colors self-start sm:self-auto cursor-pointer"
-                      >
-                        <span>View Form</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                    )}
-                  </div>
-                )}
+                  )}
 
                 {/* Beta Overview Banner */}
                 <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl flex items-start gap-3.5 shadow-xs">
@@ -958,50 +949,61 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                 </div>
 
                 {/* Dispatch Alert Banner */}
-                {betaDispatchResult && (
-                  <div
-                    className={`p-4 rounded-2xl border-2 flex items-start gap-3 shadow-xs animate-in fade-in duration-200 ${
-                      betaDispatchResult.success
-                        ? "bg-emerald-50 border-emerald-300 text-emerald-950"
-                        : "bg-rose-50 border-rose-300 text-rose-950"
-                    }`}
-                  >
-                    {betaDispatchResult.success ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                    ) : (
-                      <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-                    )}
-                    <div className="flex-1 text-xs sm:text-sm">
-                      <div className="font-bold">{betaDispatchResult.message}</div>
-                      {betaDispatchResult.details && betaDispatchResult.details.length > 0 && (
-                        <div className="text-xs mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-slate-600">
-                          {betaDispatchResult.details.slice(0, 10).map((d, idx) => (
-                            <span
-                              key={idx}
-                              className={`inline-flex items-center gap-1 ${
-                                d.success ? "text-emerald-800" : "text-rose-700 font-semibold"
-                              }`}
-                            >
-                              <span>{d.success ? "✓" : "✗"}</span>
-                              <span>{d.name}</span>
-                              {d.email && (
-                                <span className="text-slate-400 font-normal">({d.email})</span>
+                {betaDispatchResult &&
+                  (!betaDispatchResult.monthKey || betaDispatchResult.monthKey === monthKey) && (
+                    <div
+                      className={`p-4 rounded-2xl border-2 flex items-start justify-between gap-3 shadow-xs animate-in fade-in duration-200 ${
+                        betaDispatchResult.success
+                          ? "bg-emerald-50 border-emerald-300 text-emerald-950"
+                          : "bg-rose-50 border-rose-300 text-rose-950"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        {betaDispatchResult.success ? (
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                        ) : (
+                          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                        )}
+                        <div className="flex-1 text-xs sm:text-sm">
+                          <div className="font-bold">{betaDispatchResult.message}</div>
+                          {betaDispatchResult.details && betaDispatchResult.details.length > 0 && (
+                            <div className="text-xs mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-slate-600">
+                              {betaDispatchResult.details.slice(0, 10).map((d, idx) => (
+                                <span
+                                  key={idx}
+                                  className={`inline-flex items-center gap-1 ${
+                                    d.success ? "text-emerald-800" : "text-rose-700 font-semibold"
+                                  }`}
+                                >
+                                  <span>{d.success ? "✓" : "✗"}</span>
+                                  <span>{d.name}</span>
+                                  {d.email && (
+                                    <span className="text-slate-400 font-normal">({d.email})</span>
+                                  )}
+                                  {d.error && (
+                                    <span className="text-rose-600 font-normal">: {d.error}</span>
+                                  )}
+                                </span>
+                              ))}
+                              {betaDispatchResult.details.length > 10 && (
+                                <span className="text-slate-500 font-medium">
+                                  (+{betaDispatchResult.details.length - 10} more)
+                                </span>
                               )}
-                              {d.error && (
-                                <span className="text-rose-600 font-normal">: {d.error}</span>
-                              )}
-                            </span>
-                          ))}
-                          {betaDispatchResult.details.length > 10 && (
-                            <span className="text-slate-500 font-medium">
-                              (+{betaDispatchResult.details.length - 10} more)
-                            </span>
+                            </div>
                           )}
                         </div>
-                      )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setBetaDispatchResult(null)}
+                        title="Dismiss notification"
+                        className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-200/50 transition-colors shrink-0 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 {/* Grid: Left = Beta Testers Roster, Right = Email Template */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

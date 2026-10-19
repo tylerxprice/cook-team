@@ -1672,6 +1672,7 @@ function sendBetaSurveyInvitations(payload: SendBetaInvitesPayload): SendBetaInv
     failedCount: failed,
     message: `Successfully dispatched ${dispatched} beta invitation email(s)${failed > 0 ? ` (${failed} failed)` : ""}.`,
     details,
+    monthKey,
   };
 }
 

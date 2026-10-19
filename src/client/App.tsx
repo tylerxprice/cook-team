@@ -1003,6 +1003,8 @@ function MainApp() {
 
   const loadSurveyFormDatesPreview = async (monthKey: string) => {
     setSurveyFormLoadingDates(true);
+    setSurveyFormResult(null);
+    setSurveyFormCopiedLink(false);
     try {
       const res = await callGas<SurveyFormDatesPreviewResult>(
         "getSurveyFormDatesPreview",
@@ -1152,6 +1154,7 @@ function MainApp() {
     }
 
     setSurveyFormLoadingCreate(true);
+    setSurveyFormResult(null);
     try {
       const res = await callGas<CreateSurveyFormResult>("createMonthlySurveyForm", {
         monthKey: targetMonth,
