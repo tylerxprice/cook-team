@@ -252,4 +252,14 @@ describe("Matchmaker Solver - REQUIRE_ONE_OF_TEAM Mentor Whitelist", () => {
     );
     assert.strictEqual(result.violations.length, 0, "No violations should be present");
   });
+
+  it("Handles multiple comma-separated mentors and parses whitelist pool correctly", () => {
+    const whitelistString = "Frannie, Ben, Nancy, Miriam, Olive, Rose, Tyler";
+    const parsed = whitelistString
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    assert.strictEqual(parsed.length, 7);
+    assert.deepStrictEqual(parsed, ["Frannie", "Ben", "Nancy", "Miriam", "Olive", "Rose", "Tyler"]);
+  });
 });

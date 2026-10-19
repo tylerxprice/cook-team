@@ -2471,7 +2471,13 @@ function MainApp() {
       }
       map.get(keyA)!.rules.push(rule);
 
-      if (rule.person_b) {
+      // Person B is only a separate individual member for 1-to-1 pairwise rules
+      // (not for whitelist pools like REQUIRE_ONE_OF_TEAM or single-person rules like PREF_SAME_DAY)
+      if (
+        rule.person_b &&
+        rule.rule_type !== "REQUIRE_ONE_OF_TEAM" &&
+        rule.rule_type !== "PREF_SAME_DAY"
+      ) {
         const keyB = rule.person_b.toLowerCase();
         if (!map.has(keyB)) {
           const resp = intakeData.responses.find((r) => r.name.toLowerCase() === keyB);
