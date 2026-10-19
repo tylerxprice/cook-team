@@ -989,10 +989,20 @@ function saveMasterSettings(
   const sData = settingsSheet.getDataRange().getValues();
   const keyRowMap: Record<string, number> = {};
   for (let i = 1; i < sData.length; i++) {
-    const rawK = String(sData[i][0] || "")
-      .trim()
-      .toLowerCase();
+    const originalCellKey = String(sData[i][0] || "").trim();
+    const rawK = originalCellKey.toLowerCase();
     const k = rawK.replace(/[\s-_]+/g, "_");
+
+    // Automatically normalize legacy underscored month keys (e.g. month_status_2026_11 -> month_status_2026-11)
+    const monthKeyMatch = rawK.match(/^(month_(?:status|dates))_(\d{4})_(\d{2})$/);
+    if (monthKeyMatch) {
+      const canonicalKey = `${monthKeyMatch[1]}_${monthKeyMatch[2]}-${monthKeyMatch[3]}`;
+      if (originalCellKey !== canonicalKey) {
+        settingsSheet.getRange(i + 1, 1).setValue(canonicalKey);
+      }
+      keyRowMap[canonicalKey] = i + 1;
+    }
+
     if (rawK) keyRowMap[rawK] = i + 1; // 1-indexed sheet row (e.g. month_status_2026-11)
     if (k) keyRowMap[k] = i + 1; // e.g. month_status_2026_11
   }
@@ -1075,6 +1085,7 @@ function saveMasterSettings(
     const valStr = typeof rawVal === "object" ? JSON.stringify(rawVal) : String(rawVal);
     const rowNum = keyRowMap[sheetKey] || keyRowMap[altSheetKey];
     if (rowNum) {
+      settingsSheet.getRange(rowNum, 1).setValue(sheetKey);
       settingsSheet.getRange(rowNum, 2).setValue(valStr);
     } else {
       let desc = "Application configuration setting";
@@ -3931,8 +3942,28 @@ function getSurveyFormDatesPreview(monthKey: string): SurveyFormDatesPreviewResu
   const config = getMonthConfig(cleanMonth);
   const existingSurvey = checkExistingSurveyForMonth(cleanMonth);
 
+  // If no survey response spreadsheet exists, and this month is not a published completed schedule,
+  // the month's effective status for the Survey Form Generator cannot be OPEN or CLOSED.
+  // It is inherently NOT_OPEN (Draft) until a form and sheet are generated.
+  let effectiveStatus: MonthStatus = config.status;
+  if (!existingSurvey.exists) {
+    const isHistorical =
+      DEFAULT_COMPLETED_MONTHS.includes(cleanMonth) ||
+      (() => {
+        try {
+          const tabs = getAvailableScheduleTabs();
+          return tabs.includes(cleanMonth) || tabs.includes(`Schedule_${cleanMonth}`);
+        } catch {
+          return false;
+        }
+      })();
+    if (!isHistorical) {
+      effectiveStatus = "NOT_OPEN";
+    }
+  }
+
   // If OPEN, ensure open_months setting in Master Registry stays synchronized
-  if (config.status === "OPEN") {
+  if (effectiveStatus === "OPEN") {
     try {
       syncOpenMonthsSetting();
     } catch (e) {
@@ -3946,7 +3977,7 @@ function getSurveyFormDatesPreview(monthKey: string): SurveyFormDatesPreviewResu
       monthKey: cleanMonth,
       defaultTitle: config.defaultTitle || deriveFormTitle(cleanMonth),
       dates: config.dates,
-      status: config.status,
+      status: effectiveStatus,
       openedAt: config.openedAt,
       closedAt: config.closedAt,
       isConfigured: true,
@@ -3960,7 +3991,7 @@ function getSurveyFormDatesPreview(monthKey: string): SurveyFormDatesPreviewResu
     monthKey: cleanMonth,
     defaultTitle: deriveFormTitle(cleanMonth),
     dates: draftDates,
-    status: config.status, // "NOT_OPEN" or "CLOSED"
+    status: effectiveStatus, // "NOT_OPEN" or "CLOSED"
     openedAt: config.openedAt,
     closedAt: config.closedAt,
     isConfigured: false,

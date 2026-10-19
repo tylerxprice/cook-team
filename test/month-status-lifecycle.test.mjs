@@ -146,3 +146,18 @@ test("Month Status Lifecycle - Saving draft dates preserves or sets status to NO
   assert.equal(configs[monthKey].closedAt, undefined);
   assert.equal(configs[monthKey].dates.length, 1);
 });
+
+test("Month Status Lifecycle - Canonicalizes month_status_YYYY_MM and month_dates_YYYY_MM keys to hyphenated YYYY-MM", () => {
+  const normalizeKey = (raw) => {
+    const m = raw
+      .toLowerCase()
+      .trim()
+      .match(/^(month_(?:status|dates))_(\d{4})[-_](\d{2})$/);
+    return m ? `${m[1]}_${m[2]}-${m[3]}` : raw;
+  };
+
+  assert.equal(normalizeKey("month_status_2026_11"), "month_status_2026-11");
+  assert.equal(normalizeKey("month_dates_2026_11"), "month_dates_2026-11");
+  assert.equal(normalizeKey("month_status_2026-12"), "month_status_2026-12");
+  assert.equal(normalizeKey("month_dates_2026-12"), "month_dates_2026-12");
+});

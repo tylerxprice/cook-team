@@ -1191,12 +1191,22 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
                 canOverwrite: true,
               };
 
+      let effectiveStatus: MonthStatus = cfg ? cfg.status : "NOT_OPEN";
+      if (
+        !existingSurvey.exists &&
+        monthKey !== "2026-10" &&
+        monthKey !== "2026-09" &&
+        monthKey !== "2026-08"
+      ) {
+        effectiveStatus = "NOT_OPEN";
+      }
+
       if (cfg && cfg.isConfigured && cfg.dates && cfg.dates.length > 0) {
         return {
           monthKey,
           defaultTitle: cfg.defaultTitle || deriveFormTitle(monthKey),
           dates: cfg.dates,
-          status: cfg.status,
+          status: effectiveStatus,
           openedAt: cfg.openedAt,
           closedAt: cfg.closedAt,
           isConfigured: true,
@@ -1207,7 +1217,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         monthKey,
         defaultTitle: deriveFormTitle(monthKey),
         dates: generateMonthlySurveyDates(monthKey),
-        status: cfg ? cfg.status : "NOT_OPEN",
+        status: effectiveStatus,
         openedAt: cfg?.openedAt,
         closedAt: cfg?.closedAt,
         isConfigured: false,

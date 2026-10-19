@@ -339,7 +339,8 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                 </span>
               )}
 
-              {onSetMonthStatus && monthStatus === "OPEN" && (
+              {/* Toggles ONLY make sense when a Google Form & response spreadsheet actually exist! */}
+              {Boolean(existingSurvey?.exists) && onSetMonthStatus && monthStatus === "OPEN" && (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <button
                     type="button"
@@ -362,7 +363,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                 </div>
               )}
 
-              {onSetMonthStatus && monthStatus === "CLOSED" && (
+              {Boolean(existingSurvey?.exists) && onSetMonthStatus && monthStatus === "CLOSED" && (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <button
                     type="button"
@@ -377,7 +378,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                     type="button"
                     onClick={() => onSetMonthStatus("OPEN", monthKey)}
                     className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                    title="Reopen sign-ups"
+                    title="Reopen sign-ups for existing form"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Reopen Sign-Ups</span>
@@ -385,17 +386,19 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                 </div>
               )}
 
-              {onSetMonthStatus && monthStatus === "NOT_OPEN" && (
-                <button
-                  type="button"
-                  onClick={() => onSetMonthStatus("OPEN", monthKey)}
-                  className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  title="Open sign-ups for resident submissions"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Open Sign-Ups</span>
-                </button>
-              )}
+              {Boolean(existingSurvey?.exists) &&
+                onSetMonthStatus &&
+                monthStatus === "NOT_OPEN" && (
+                  <button
+                    type="button"
+                    onClick={() => onSetMonthStatus("OPEN", monthKey)}
+                    className="min-h-[38px] px-3.5 py-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Open sign-ups for the existing form"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Open Sign-Ups</span>
+                  </button>
+                )}
             </div>
           </div>
         </div>
