@@ -50,7 +50,17 @@ export const FillMissingSlotModal: React.FC<FillMissingSlotModalProps> = ({
 
       const assignedCount = isCookRole ? stat?.assignedCooks || 0 : stat?.assignedCleans || 0;
       const quota = isCookRole ? stat?.requestedCookQuota || 1 : (stat?.requestedCleanQuota ?? 1);
-      const isOversubscribed = assignedCount >= quota;
+
+      const reqMaxTotal =
+        typeof stat?.requestedMaxTotalShifts === "number" && stat.requestedMaxTotalShifts > 0
+          ? stat.requestedMaxTotalShifts
+          : typeof resp.maxTotalShifts === "number" && resp.maxTotalShifts > 0
+            ? resp.maxTotalShifts
+            : (stat?.requestedCookQuota || 1) + (stat?.requestedCleanQuota ?? 1);
+      const totalAssigned = stat?.totalAssigned || 0;
+      const isTotalCapMet = totalAssigned >= reqMaxTotal;
+      const isRoleCapMet = assignedCount >= quota;
+      const isOversubscribed = isRoleCapMet || isTotalCapMet;
 
       return {
         resp,
@@ -62,6 +72,10 @@ export const FillMissingSlotModal: React.FC<FillMissingSlotModalProps> = ({
         conflict,
         assignedCount,
         quota,
+        reqMaxTotal,
+        totalAssigned,
+        isTotalCapMet,
+        isRoleCapMet,
         isOversubscribed,
       };
     })
@@ -132,6 +146,10 @@ export const FillMissingSlotModal: React.FC<FillMissingSlotModalProps> = ({
               conflict,
               assignedCount,
               quota,
+              reqMaxTotal,
+              totalAssigned,
+              isTotalCapMet,
+              isRoleCapMet,
               isOversubscribed,
             } = item;
             const alreadyAssignedOnRole = isCookRole ? isAlreadyCook : isAlreadyClean;
@@ -179,27 +197,39 @@ export const FillMissingSlotModal: React.FC<FillMissingSlotModalProps> = ({
                         ))}
                       {isOversubscribed ? (
                         <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-800">
-                          ⚠️ Oversubscribes ({assignedCount}/{quota} shifts)
+                          {isTotalCapMet && !isRoleCapMet
+                            ? `⚠️ At Max Total (${totalAssigned}/${reqMaxTotal} total shifts)`
+                            : `⚠️ Oversubscribes (${assignedCount}/${quota} shifts • ${totalAssigned}/${reqMaxTotal} total)`}
                         </span>
                       ) : (
                         <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-blue-50 dark:bg-blue-950/50 text-blue-900 dark:text-blue-200 border border-blue-200 dark:border-blue-800">
-                          Has Quota ({assignedCount}/{quota})
+                          Has Quota ({assignedCount}/${quota}
+                          {reqMaxTotal <
+                            (stat?.requestedCookQuota || 1) + (stat?.requestedCleanQuota ?? 1) &&
+                            ` • ${totalAssigned}/${reqMaxTotal} total`}
+                          )
                         </span>
                       )}
                     </div>
 
-                    <div className="text-xs text-slate-700 dark:text-slate-300 mt-1.5 flex items-center gap-3">
+                    <div className="text-xs text-slate-700 dark:text-slate-300 mt-1.5 flex flex-wrap items-center gap-3">
                       <span>
                         Total shifts:{" "}
                         <strong className="text-slate-900 dark:text-white">{stat?.totalAssigned || 0}</strong>
+                        {reqMaxTotal <
+                          (stat?.requestedCookQuota || 1) + (stat?.requestedCleanQuota ?? 1) && (
+                          <span className="text-slate-500 font-semibold"> / {reqMaxTotal} max</span>
+                        )}
                       </span>
                       <span>
                         Cooks:{" "}
                         <strong className="text-slate-900 dark:text-white">{stat?.assignedCooks || 0}</strong>
+                        <span className="text-slate-500 font-semibold"> / {stat?.requestedCookQuota || 1}</span>
                       </span>
                       <span>
                         Cleans:{" "}
                         <strong className="text-slate-900 dark:text-white">{stat?.assignedCleans || 0}</strong>
+                        <span className="text-slate-500 font-semibold"> / {stat?.requestedCleanQuota ?? 1}</span>
                       </span>
                       {resp.canCookCleanSameDay && (
                         <span className="text-emerald-800 dark:text-emerald-400 font-bold">✓ Same-day willing</span>

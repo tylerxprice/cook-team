@@ -948,15 +948,28 @@ export function solveCookAndCleanSchedule(
 
         if (roles.length > 0) {
           const stats = bestResult.memberStats[resp.name];
+          const reqCook = resp.cookQuota ?? 1;
+          const reqClean = resp.cleanQuota ?? 1;
+          const reqMaxTotal =
+            typeof stats?.requestedMaxTotalShifts === "number" && stats.requestedMaxTotalShifts > 0
+              ? stats.requestedMaxTotalShifts
+              : typeof resp.maxTotalShifts === "number" && resp.maxTotalShifts > 0
+                ? resp.maxTotalShifts
+                : reqCook + reqClean;
+
           candidatesToAsk.push({
             name: resp.name,
             availableRoles: roles,
             currentAssignedShifts: stats?.totalAssigned || 0,
-            requestedQuota: (resp.cookQuota ?? 1) + (resp.cleanQuota ?? 1),
+            requestedQuota: reqMaxTotal,
             assignedCooks: stats?.assignedCooks || 0,
-            requestedCookQuota: resp.cookQuota ?? 1,
+            requestedCookQuota: reqCook,
             assignedCleans: stats?.assignedCleans || 0,
-            requestedCleanQuota: resp.cleanQuota ?? 1,
+            requestedCleanQuota: reqClean,
+            maxTotalShifts: reqMaxTotal,
+            requestedMaxTotalShifts: reqMaxTotal,
+            canCookCleanSameDay: resp.canCookCleanSameDay,
+            cookTeamSizePref: resp.cookTeamSizePref,
             specialInstructions: resp.specialInstructions,
           });
         }
@@ -964,19 +977,35 @@ export function solveCookAndCleanSchedule(
 
       // If there are volunteers available on this date, surface it as a near-complete candidate
       if (availCooks.length > 0 || availCleans.length > 0) {
-        // Count available members who still have unused quota in the schedule
+        // Count available members who still have unused quota in the schedule (both role quota and combined max cap)
         const cooksWithRemainingQuota = availCooks.filter((name) => {
           const stats = bestResult.memberStats[name];
           const resp = responses.find((r) => r.name === name);
           const quota = resp ? resp.cookQuota : 1;
-          return (stats?.assignedCooks || 0) < quota;
+          const reqClean = resp?.cleanQuota ?? 1;
+          const maxTotal =
+            typeof stats?.requestedMaxTotalShifts === "number" && stats.requestedMaxTotalShifts > 0
+              ? stats.requestedMaxTotalShifts
+              : typeof resp?.maxTotalShifts === "number" && resp.maxTotalShifts > 0
+                ? resp.maxTotalShifts
+                : quota + reqClean;
+          const totalAssigned = stats?.totalAssigned ?? 0;
+          return (stats?.assignedCooks || 0) < quota && totalAssigned < maxTotal;
         });
 
         const cleansWithRemainingQuota = availCleans.filter((name) => {
           const stats = bestResult.memberStats[name];
           const resp = responses.find((r) => r.name === name);
           const quota = resp ? resp.cleanQuota : 1;
-          return (stats?.assignedCleans || 0) < quota;
+          const reqCook = resp?.cookQuota ?? 1;
+          const maxTotal =
+            typeof stats?.requestedMaxTotalShifts === "number" && stats.requestedMaxTotalShifts > 0
+              ? stats.requestedMaxTotalShifts
+              : typeof resp?.maxTotalShifts === "number" && resp.maxTotalShifts > 0
+                ? resp.maxTotalShifts
+                : reqCook + quota;
+          const totalAssigned = stats?.totalAssigned ?? 0;
+          return (stats?.assignedCleans || 0) < quota && totalAssigned < maxTotal;
         });
 
         // Exact shortage needed to staff this meal (considering who has remaining quota vs at limit)

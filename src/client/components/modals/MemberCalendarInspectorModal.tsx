@@ -53,27 +53,49 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
               <UserPlus className="w-5 h-5 text-orange-600" />
               Available Dates &amp; Extra Shift Assignment: {selectedQuotaMember}
             </h3>
-            {solverResult.memberStats[selectedQuotaMember] && (
-              <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
-                Requested Quota:{" "}
-                <strong className="text-slate-900 dark:text-white">
-                  {solverResult.memberStats[selectedQuotaMember].requestedCookQuota}
-                </strong>{" "}
-                cooks,{" "}
-                <strong className="text-slate-900 dark:text-white">
-                  {solverResult.memberStats[selectedQuotaMember].requestedCleanQuota ?? 1}
-                </strong>{" "}
-                cleans • Currently Assigned:{" "}
-                <strong className="text-slate-900 dark:text-white">
-                  {solverResult.memberStats[selectedQuotaMember].assignedCooks}
-                </strong>{" "}
-                cooks,{" "}
-                <strong className="text-slate-900 dark:text-white">
-                  {solverResult.memberStats[selectedQuotaMember].assignedCleans}
-                </strong>{" "}
-                cleans ({solverResult.memberStats[selectedQuotaMember].totalAssigned} total shifts)
-              </p>
-            )}
+            {solverResult.memberStats[selectedQuotaMember] && (() => {
+              const stat = solverResult.memberStats[selectedQuotaMember];
+              const reqCleans = stat.requestedCleanQuota ?? 1;
+              const reqMaxTotal =
+                typeof stat.requestedMaxTotalShifts === "number" && stat.requestedMaxTotalShifts > 0
+                  ? stat.requestedMaxTotalShifts
+                  : typeof resp?.maxTotalShifts === "number" && resp.maxTotalShifts > 0
+                    ? resp.maxTotalShifts
+                    : stat.requestedCookQuota + reqCleans;
+              const hasExplicitMax = reqMaxTotal < stat.requestedCookQuota + reqCleans;
+              return (
+                <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
+                  Requested Quota:{" "}
+                  <strong className="text-slate-900 dark:text-white">
+                    {stat.requestedCookQuota}
+                  </strong>{" "}
+                  cooks,{" "}
+                  <strong className="text-slate-900 dark:text-white">
+                    {reqCleans}
+                  </strong>{" "}
+                  cleans
+                  {hasExplicitMax && (
+                    <>
+                      {" "}
+                      (
+                      <strong className="text-slate-900 dark:text-white">
+                        Max {reqMaxTotal}
+                      </strong>{" "}
+                      total shifts)
+                    </>
+                  )}
+                  {" "}• Currently Assigned:{" "}
+                  <strong className="text-slate-900 dark:text-white">
+                    {stat.assignedCooks}
+                  </strong>{" "}
+                  cooks,{" "}
+                  <strong className="text-slate-900 dark:text-white">
+                    {stat.assignedCleans}
+                  </strong>{" "}
+                  cleans ({stat.totalAssigned} / {reqMaxTotal} total shifts)
+                </p>
+              );
+            })()}
             <div className="flex flex-wrap items-center gap-2 mt-2">
               {is2PersonWilling ? (
                 <span className="text-xs px-2.5 py-1 rounded-lg font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-950 dark:text-blue-200 border border-blue-300 dark:border-blue-800">

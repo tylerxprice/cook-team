@@ -4078,6 +4078,7 @@ function MainApp() {
         selectedNearCompleteDateKey={selectedNearCompleteDateKey}
         onClose={() => setSelectedNearCompleteDateKey(null)}
         solverResult={solverResult}
+        intakeData={intakeData}
         recoverySelectedCooks={recoverySelectedCooks}
         setRecoverySelectedCooks={setRecoverySelectedCooks}
         recoverySelectedCleaners={recoverySelectedCleaners}

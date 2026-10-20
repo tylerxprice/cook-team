@@ -149,6 +149,10 @@ export interface CandidateVolunteer {
   requestedCookQuota?: number;
   assignedCleans?: number;
   requestedCleanQuota?: number;
+  maxTotalShifts?: number;
+  requestedMaxTotalShifts?: number;
+  canCookCleanSameDay?: boolean;
+  cookTeamSizePref?: string;
   specialInstructions?: string;
 }
 

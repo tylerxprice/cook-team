@@ -10,6 +10,7 @@ import {
 } from "../src/server/scheduleParser.ts";
 import { parseDateHeader } from "../src/server/parser.ts";
 import { computeCommunityReportSummary } from "../src/server/reports.ts";
+import { computeMemberCapacity } from "../src/client/components/modals/NearCompleteOpportunityModal.tsx";
 
 test("Schedule Parser - Multi-Column Layout (Cook 1..4, Clean 1..4)", () => {
   const grid = [
@@ -727,6 +728,136 @@ test("Matchmaker Solver - Near-Complete Meal Opportunities", () => {
   assert.deepEqual(opp.availableCleaners, ["Helper A", "Helper B"]);
   assert.ok(opp.suggestedOutreachText.includes("Oct 8 (Thu)"));
   assert.ok(opp.candidateVolunteersToAsk.length >= 2);
+});
+
+test("Matchmaker Solver - Near-Complete Meal Opportunities respects combined maxTotalShifts cap", () => {
+  const mealDates = [
+    {
+      dateKey: "2026-10-01",
+      dateLabel: "Oct 1 (Thu)",
+      mealType: "DINNER",
+      targetCookCount: 3,
+      targetCleanCount: 3,
+    },
+    {
+      dateKey: "2026-10-04",
+      dateLabel: "Oct 4 (Sun, Brunch)",
+      mealType: "BRUNCH",
+      targetCookCount: 2,
+      targetCleanCount: 2,
+    },
+    {
+      dateKey: "2026-10-08",
+      dateLabel: "Oct 8 (Thu)",
+      mealType: "DINNER",
+      targetCookCount: 3,
+      targetCleanCount: 3,
+    },
+  ];
+
+  const responses = [
+    { name: "Cook 1", cookQuota: 1, cleanQuota: 0, availability: { "Oct 1 (Thu)": "COOK_ONLY" } },
+    { name: "Cook 2", cookQuota: 1, cleanQuota: 0, availability: { "Oct 1 (Thu)": "COOK_ONLY" } },
+    { name: "Clean 1", cookQuota: 0, cleanQuota: 1, availability: { "Oct 1 (Thu)": "CLEAN_ONLY" } },
+    { name: "Clean 2", cookQuota: 0, cleanQuota: 1, availability: { "Oct 1 (Thu)": "CLEAN_ONLY" } },
+    { name: "Clean 3", cookQuota: 0, cleanQuota: 1, availability: { "Oct 1 (Thu)": "CLEAN_ONLY" } },
+    { name: "Cook 3", cookQuota: 1, cleanQuota: 0, availability: { "Oct 4 (Sun, Brunch)": "COOK_ONLY" } },
+    { name: "Cook 4", cookQuota: 1, cleanQuota: 0, availability: { "Oct 4 (Sun, Brunch)": "COOK_ONLY" } },
+    { name: "Clean 4", cookQuota: 0, cleanQuota: 1, availability: { "Oct 4 (Sun, Brunch)": "CLEAN_ONLY" } },
+  ];
+
+  // Capped Member: cookQuota 1, cleanQuota 2, maxTotalShifts 2
+  // Needed as 3rd cook on Oct 1, and 2nd clean on Oct 4.
+  // Also available on Oct 8 (deficit date)
+  responses.push({
+    name: "Capped Helper",
+    cookQuota: 1,
+    cleanQuota: 2,
+    maxTotalShifts: 2,
+    availability: {
+      "Oct 1 (Thu)": "COOK_ONLY",
+      "Oct 4 (Sun, Brunch)": "CLEAN_ONLY",
+      "Oct 8 (Thu)": "AVAILABLE",
+    },
+  });
+
+  const result = solveCookAndCleanSchedule(mealDates, responses, [], {
+    cookPolicy: "ADAPTIVE_3_OR_2",
+    autoCancelDeficitDates: true,
+  });
+
+  assert.ok(result.nearCompleteOpportunities);
+  const opp = result.nearCompleteOpportunities.find((o) => o.dateLabel === "Oct 8 (Thu)");
+  assert.ok(opp);
+
+  const cand = opp.candidateVolunteersToAsk.find((c) => c.name === "Capped Helper");
+  assert.ok(cand, "Capped Helper should be listed as a candidate to ask");
+  assert.equal(cand.maxTotalShifts, 2);
+  assert.equal(cand.requestedMaxTotalShifts, 2);
+  assert.equal(cand.currentAssignedShifts, 2, "Should be assigned 2 shifts across Oct 1 & Oct 4");
+});
+
+test("computeMemberCapacity - Blocks 'Can Clean' and flags At Max Total when member has reached combined shift limit", () => {
+  const cand = {
+    name: "Brenda Friend",
+    availableRoles: ["CLEAN"],
+    currentAssignedShifts: 2,
+    requestedQuota: 2,
+    assignedCooks: 1,
+    requestedCookQuota: 1,
+    assignedCleans: 1,
+    requestedCleanQuota: 2,
+    maxTotalShifts: 2,
+    requestedMaxTotalShifts: 2,
+  };
+
+  const solverResult = {
+    memberStats: {
+      "Brenda Friend": {
+        name: "Brenda Friend",
+        requestedCookQuota: 1,
+        requestedCleanQuota: 2,
+        requestedMaxTotalShifts: 2,
+        availableCookDays: 5,
+        availableCleanDays: 5,
+        assignedCooks: 1,
+        assignedCleans: 1,
+        totalAssigned: 2,
+      },
+    },
+  };
+
+  const cap = computeMemberCapacity(cand, solverResult, null);
+
+  assert.equal(cap.totalAssigned, 2);
+  assert.equal(cap.maxTotal, 2);
+  assert.equal(cap.assignedCleans, 1);
+  assert.equal(cap.cleanQuota, 2);
+  assert.equal(cap.isTotalCapMet, true, "Combined shift cap of 2 is met");
+  assert.equal(cap.isCleanCapMet, false, "Clean quota by itself (1 of 2) is not full");
+  assert.equal(cap.canClean, false, "Member cannot clean because combined max shifts is reached!");
+  assert.equal(cap.hasExplicitMaxCap, true);
+
+  // Case 2: Only 1 shift assigned so far (1/2 cleans, 1/2 total shifts)
+  const solverResultPartial = {
+    memberStats: {
+      "Brenda Friend": {
+        name: "Brenda Friend",
+        requestedCookQuota: 1,
+        requestedCleanQuota: 2,
+        requestedMaxTotalShifts: 2,
+        availableCookDays: 5,
+        availableCleanDays: 5,
+        assignedCooks: 0,
+        assignedCleans: 1,
+        totalAssigned: 1,
+      },
+    },
+  };
+
+  const capPartial = computeMemberCapacity(cand, solverResultPartial, null);
+  assert.equal(capPartial.isTotalCapMet, false);
+  assert.equal(capPartial.canClean, true, "Member can safely clean when totalAssigned (1) < maxTotal (2)");
 });
 
 test("Community Reports - Multi-Month Equity & Stats Aggregator", () => {

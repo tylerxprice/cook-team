@@ -19,7 +19,7 @@ export const AddCustomDateModal: React.FC<AddCustomDateModalProps> = ({
   existingDates,
 }) => {
   // Parse monthKey (e.g. "2026-11")
-  const { year, monthNum, daysInMonth, minDate, maxDate, monthTitle } = useMemo(() => {
+  const { year, monthNum, daysInMonth, monthTitle } = useMemo(() => {
     const m = (monthKey || "").match(/^(\d{4})[-_](\d{1,2})$/);
     const yr = m ? parseInt(m[1], 10) : new Date().getFullYear();
     const mo = m ? parseInt(m[2], 10) : new Date().getMonth() + 1;
