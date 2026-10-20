@@ -1845,11 +1845,21 @@ function loadExistingScheduleFromSheet(
     // 4. Try any tab whose first rows have "Cook" and "Clean" header columns or Sign-Up Workbook layout
     if (!targetTab) {
       for (const s of allSheets) {
+        const sName = s.getName().trim().toLowerCase();
+        // NEVER consider survey/form response sheets or master registries as schedule tabs!
+        if (/responses|survey|intake|form\s*responses|master|roster|rules|notes/i.test(sName)) {
+          continue;
+        }
         if (s.getLastRow() >= 2 && s.getLastColumn() >= 2) {
           try {
             const topRows = s
               .getRange(1, 1, Math.min(s.getLastRow(), 8), Math.min(s.getLastColumn(), 15))
               .getValues();
+            const isFormResponse = topRows.some((r) =>
+              r.some((c) => String(c || "").trim().toLowerCase() === "timestamp")
+            );
+            if (isFormResponse) continue;
+
             let hasCook = false;
             let hasClean = false;
             for (const r of topRows) {
@@ -1893,7 +1903,20 @@ function loadExistingScheduleFromSheet(
         }
         const parsedSched = parseScheduleGridData(data, responses);
         if (parsedSched.success && parsedSched.schedule.length > 0) {
-          return parsedSched;
+          // If targetMonthKey is requested, ensure the schedule matches targetMonthKey
+          if (targetMonthKey) {
+            const first = parsedSched.schedule[0];
+            const parsed = parseDateFromLabelOrKey(first.dateLabel, first.dateKey);
+            const schedMonth =
+              parsed && !isNaN(parsed.getTime())
+                ? `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`
+                : (first.dateKey || "").slice(0, 7);
+            if (schedMonth === targetMonthKey) {
+              return parsedSched;
+            }
+          } else {
+            return parsedSched;
+          }
         }
       }
     }
@@ -1911,14 +1934,17 @@ function loadExistingScheduleFromSheet(
       if (formData.length > 1) {
         const parsedSurvey = parseSurveySheetData(formData, []);
         if (parsedSurvey.mealDates.length > 0 && parsedSurvey.responses.length > 0) {
-          const solved = solveCookAndCleanSchedule(
-            parsedSurvey.mealDates,
-            parsedSurvey.responses,
-            [],
-            { cookPolicy: "ADAPTIVE_3_OR_2" }
-          );
-          if (solved.schedule.length > 0) {
-            return solved;
+          const surveyMonthKey = parsedSurvey.mealDates[0]?.dateKey?.slice(0, 7);
+          if (!targetMonthKey || (surveyMonthKey && surveyMonthKey === targetMonthKey)) {
+            const solved = solveCookAndCleanSchedule(
+              parsedSurvey.mealDates,
+              parsedSurvey.responses,
+              [],
+              { cookPolicy: "ADAPTIVE_3_OR_2" }
+            );
+            if (solved.schedule.length > 0) {
+              return solved;
+            }
           }
         }
       }
@@ -2229,6 +2255,42 @@ function getPublicSchedule(monthKey?: string, spreadsheetIdOrUrl?: string): Publ
       loaded = loadExistingScheduleFromSheet(sheetId, tabName, targetMonthKey);
     } catch (loadErr) {
       console.warn(`Could not load schedule from sheet ${sheetId}:`, loadErr);
+    }
+
+    // Verify whether loaded schedule actually matches targetMonthKey
+    let loadedMatchesMonth = false;
+    if (loaded && loaded.success && loaded.schedule.length > 0) {
+      if (targetMonthKey) {
+        const first = loaded.schedule[0];
+        const parsed = parseDateFromLabelOrKey(first.dateLabel, first.dateKey);
+        const schedMonth =
+          parsed && !isNaN(parsed.getTime())
+            ? `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`
+            : (first.dateKey || "").slice(0, 7);
+        if (schedMonth === targetMonthKey) {
+          loadedMatchesMonth = true;
+        }
+      } else {
+        loadedMatchesMonth = true;
+      }
+    }
+
+    // If initial sheet failed, returned empty, or didn't match targetMonthKey, search Drive for targetMonthKey!
+    if (!loadedMatchesMonth) {
+      loaded = null;
+      try {
+        const sheets = listAvailableDriveSheets();
+        const matched = findSpreadsheetForMonth(sheets, targetMonthKey);
+        if (matched && matched.id !== sheetId) {
+          const driveLoaded = loadExistingScheduleFromSheet(matched.id, tabName, targetMonthKey);
+          if (driveLoaded && driveLoaded.success && driveLoaded.schedule.length > 0) {
+            loaded = driveLoaded;
+            sheetId = matched.id;
+          }
+        }
+      } catch (driveErr) {
+        console.warn(`Could not find or load spreadsheet for month ${targetMonthKey}:`, driveErr);
+      }
     }
 
     // If initial sheet failed or returned empty schedule, fallback to signupWorkbookId

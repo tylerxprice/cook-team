@@ -25,7 +25,8 @@ export interface ResidentScheduleViewProps {
   monthKey?: string;
   availableMonths?: string[];
   communityName?: string;
-  onSelectMonth?: (monthKey: string) => void;
+  onSelectMonth?: (monthKey: string, memberName?: string) => void;
+  onSelectMember?: (memberName: string) => void;
   onBackToHome: () => void;
   onOpenCoordinator?: () => void;
   initialMemberName?: string;
@@ -83,6 +84,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
   availableMonths,
   communityName = "Vancouver Cohousing",
   onSelectMonth,
+  onSelectMember,
   onBackToHome,
   initialMemberName,
   isLoading = false,
@@ -161,6 +163,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
   const handleSelectMember = (name: string) => {
     setSelectedMember(name);
     setIsChangingMember(false);
+    onSelectMember?.(name);
     try {
       localStorage.setItem(STORAGE_KEY, name);
     } catch {
@@ -199,6 +202,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
   const handleClearMember = () => {
     setSelectedMember("");
     setIsChangingMember(true);
+    onSelectMember?.("");
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {
@@ -848,7 +852,7 @@ export const ResidentScheduleView: React.FC<ResidentScheduleViewProps> = ({
             <Calendar className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400 absolute left-2 sm:left-2.5 pointer-events-none" />
             <select
               value={monthKey || ""}
-              onChange={(e) => onSelectMonth && onSelectMonth(e.target.value)}
+              onChange={(e) => onSelectMonth && onSelectMonth(e.target.value, selectedMember)}
               aria-label="Select meal month"
               className="text-xs sm:text-sm font-black text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-xl pl-7 sm:pl-8 pr-6 sm:pr-7 py-1.5 focus:outline-none focus:ring-2 focus:ring-orange-500/20 cursor-pointer appearance-none transition-colors"
             >

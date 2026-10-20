@@ -9,6 +9,7 @@ import {
   Member,
   ExceptionRule,
   MealDate,
+  DaySchedule,
   SurveyResponse,
   SolverOptions,
   ScheduleOutput,
@@ -788,12 +789,22 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         (monthKey || "").trim() ||
         (availableMonths.includes(currentMonthKey) ? currentMonthKey : availableMonths[0]);
 
-      const sched = (await callGas<ScheduleOutput>(
-        "loadExistingScheduleFromSheet",
-        customSheetId || "mock-sheet"
-      )) || {
-        schedule: [],
-      };
+      let schedule: DaySchedule[] = [];
+      if (targetMonthKey === "2026-10") {
+        const sched = (await callGas<ScheduleOutput>(
+          "loadExistingScheduleFromSheet",
+          customSheetId || "mock-sheet"
+        )) || {
+          schedule: [],
+        };
+        schedule = sched.schedule || [];
+      } else {
+        const baseline = getBaselineHistoricalSchedules();
+        const match = baseline.find((b) => b.monthKey === targetMonthKey);
+        if (match) {
+          schedule = match.schedule || [];
+        }
+      }
 
       const monthNames = [
         "January",
@@ -816,7 +827,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
 
       const res: PublicScheduleResult = {
         success: true,
-        schedule: sched.schedule || [],
+        schedule,
         monthKey: targetMonthKey,
         monthTitle,
         communityName: mockMasterSettings.communityName || "Vancouver Cohousing",

@@ -125,7 +125,7 @@ export function isValidMemberName(name?: string): boolean {
   const n = name.trim();
   if (n.length < 2 || n.length > 30) return false;
   if (
-    /^(meal prep|schedule for|handcrafted|no community|need cooks|need cleaners|no cooks|no cleaners|status|dinner|brunch|sun\b|mon\b|tue\b|wed\b|thur?\b|fri\b|sat\b|total|sum|count|average)/i.test(
+    /^(meal prep|schedule for|handcrafted|no community|need cooks|need cleaners|no cooks|no cleaners|status|dinner|brunch|sun\b|mon\b|tue\b|wed\b|thur?\b|fri\b|sat\b|total|sum|count|average|timestamp|available|not available|cook only|clean only|yes\b|no\b|\d+\s*(regardless|on dinner|for dinner|person)|regardless of meal type)/i.test(
       n
     )
   ) {
@@ -497,6 +497,27 @@ export function parseScheduleGridData(data: any[][], responses?: SurveyResponse[
     };
   }
 
+  // Guard: If this is a Google Form responses / intake survey sheet, it cannot be parsed as a schedule grid.
+  const row0 = (data[0] || []).map((c) => String(c || "").trim().toLowerCase());
+  const row1 = (data[1] || []).map((c) => String(c || "").trim().toLowerCase());
+  const hasTimestamp =
+    row0.slice(0, 3).some((c) => c === "timestamp" || c.includes("timestamp")) ||
+    row1.slice(0, 3).some((c) => c === "timestamp" || c.includes("timestamp"));
+  const hasSurveyQuestions = row0.some((c) =>
+    /how many meals|willing to cook|can you cook and clean|special instructions|intake response/i.test(c)
+  );
+  if (hasTimestamp || hasSurveyQuestions) {
+    return {
+      success: false,
+      schedule: [],
+      memberStats: {},
+      violations: [],
+      unfilledSlotsCount: 0,
+      solveTimeMs: 0,
+      cookPolicy: "ADAPTIVE_3_OR_2",
+    };
+  }
+
   // 1. Inspect rows 0 to 5 to determine column indices dynamically
   let headerRowIdx = -1;
   let cookColIndices: number[] = [];
@@ -566,16 +587,14 @@ export function parseScheduleGridData(data: any[][], responses?: SurveyResponse[
 
       if (/\bDAY\b/i.test(rowHeader) && !rowHeader.includes("DEADLINE")) {
         signupDayRow = r;
-      } else if (rowHeader.includes("DATE")) {
+      } else if (/\bDATE\b/i.test(rowHeader)) {
         signupDateRow = r;
-      } else if (rowHeader.includes("MEAL MAKER") || rowHeader.includes("COOK")) {
+      } else if (/\b(MEAL MAKERS?|COOKS?|COOK TEAM)\b/i.test(rowHeader)) {
         signupCookRow = r;
-      } else if (rowHeader.includes("CLEANER") || rowHeader.includes("CLEAN")) {
+      } else if (/\b(CLEANERS?|CLEAN|CLEAN TEAM)\b/i.test(rowHeader)) {
         signupCleanRow = r;
       } else if (
-        rowHeader.includes("MEAL NAME") ||
-        rowHeader.includes("MENU") ||
-        rowHeader.includes("NOTE")
+        /\b(MEAL NAME|MENU|SPECIAL NOTE|NOTES)\b/i.test(rowHeader)
       ) {
         signupNoteRow = r;
       }
@@ -591,6 +610,11 @@ export function parseScheduleGridData(data: any[][], responses?: SurveyResponse[
         const rawDay = signupDayRow >= 0 ? String(data[signupDayRow]?.[c] || "").trim() : "";
         if (!rawDate && !rawDay) continue;
 
+        // Skip cells that are survey responses, not dates
+        if (/^(not available|available|cook only|clean only|yes|no)$/i.test(rawDate)) {
+          continue;
+        }
+
         const hasDateOrDay =
           /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{1,2}[/-]\d{1,2}|\d{1,2})\b/i.test(
             rawDate
@@ -601,6 +625,9 @@ export function parseScheduleGridData(data: any[][], responses?: SurveyResponse[
         const mealType: MealType = isBrunch ? "BRUNCH" : "DINNER";
         const dateLabel = formatScheduleDateLabel(rawDate, mealType) || `${rawDate} (${rawDay})`;
         const dateObj = parseDateFromLabelOrKey(dateLabel, rawDate);
+        if (!dateObj && !/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{1,2}[/-]\d{1,2})\b/i.test(dateLabel)) {
+          continue;
+        }
         const dateKey = dateObj
           ? dateObj.toISOString().slice(0, 10)
           : `DATE-${c < 10 ? `0${c}` : c}`;
@@ -666,7 +693,13 @@ export function parseScheduleGridData(data: any[][], responses?: SurveyResponse[
         });
       }
 
-      if (schedule.length > 0) {
+      const hasBogusLabels =
+        schedule.length === 0 ||
+        schedule.every((d) =>
+          /^(not available|available|cook only|clean only|date-\d+)$/i.test(d.dateLabel)
+        );
+
+      if (schedule.length > 0 && !hasBogusLabels) {
         const memberStats =
           responses && responses.length > 0
             ? computeMemberQuotaStats(schedule, responses)
@@ -694,6 +727,9 @@ export function parseScheduleGridData(data: any[][], responses?: SurveyResponse[
     if (!row || !row[dateColIdx]) continue;
 
     const rawVal = row[dateColIdx];
+    if (/^(not available|available|cook only|clean only|yes|no)$/i.test(String(rawVal).trim())) {
+      continue;
+    }
     const rawMealType =
       mealTypeColIdx >= 0
         ? String(row[mealTypeColIdx] || "")
@@ -704,6 +740,9 @@ export function parseScheduleGridData(data: any[][], responses?: SurveyResponse[
     const mealType: MealType = isBrunch ? "BRUNCH" : "DINNER";
     const dateLabel = formatScheduleDateLabel(rawVal, mealType);
     const dateObj = parseDateFromLabelOrKey(dateLabel, String(rawVal));
+    if (!dateObj && !/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{1,2}[/-]\d{1,2})\b/i.test(dateLabel)) {
+      continue;
+    }
     const dateKey = dateObj ? dateObj.toISOString().slice(0, 10) : `DATE-${r < 10 ? `0${r}` : r}`;
     const specialNote =
       specialNoteColIdx >= 0 && row[specialNoteColIdx]
@@ -774,6 +813,24 @@ export function parseScheduleGridData(data: any[][], responses?: SurveyResponse[
       unfilledCooks,
       unfilledCleaners,
     });
+  }
+
+  const hasBogusLabels =
+    schedule.length === 0 ||
+    schedule.every((d) =>
+      /^(not available|available|cook only|clean only|date-\d+)$/i.test(d.dateLabel)
+    );
+
+  if (schedule.length === 0 || hasBogusLabels) {
+    return {
+      success: false,
+      schedule: [],
+      memberStats: {},
+      violations: [],
+      unfilledSlotsCount: 0,
+      solveTimeMs: 0,
+      cookPolicy: "ADAPTIVE_3_OR_2",
+    };
   }
 
   // Calculate member stats with actual survey responses if available

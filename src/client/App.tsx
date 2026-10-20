@@ -443,7 +443,10 @@ function MainApp() {
         setLoadingPublicSchedule(true);
         const params = getAppUrlParams();
         const monthParam = targetMonth || params.get("month") || publicMonthKey;
-        const sheetParam = params.get("sheet") || sheetInput || undefined;
+        const sheetParam =
+          appView === "resident"
+            ? params.get("sheet") || undefined
+            : params.get("sheet") || sheetInput || undefined;
         const res = await callGas<PublicScheduleResult>(
           "getPublicSchedule",
           monthParam,
@@ -535,8 +538,17 @@ function MainApp() {
     }
   }, []);
 
-  const handleSelectPublicMonth = (newMonthKey: string) => {
+  const handleSelectPublicMonth = (newMonthKey: string, memberName?: string) => {
     setPublicMonthKey(newMonthKey);
+    const effectiveMember =
+      memberName ||
+      urlMemberName ||
+      (typeof window !== "undefined"
+        ? localStorage.getItem("cookteam_resident_name") || ""
+        : "");
+    if (effectiveMember) {
+      setUrlMemberName(effectiveMember);
+    }
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       for (const sp of SYSTEM_QUERY_PARAMS) {
@@ -544,8 +556,9 @@ function MainApp() {
       }
       url.searchParams.set("view", "schedule");
       url.searchParams.set("month", newMonthKey);
-      if (urlMemberName) {
-        url.searchParams.set("name", urlMemberName);
+      url.searchParams.delete("sheet");
+      if (effectiveMember) {
+        url.searchParams.set("name", effectiveMember);
       } else {
         url.searchParams.delete("name");
         url.searchParams.delete("m");
@@ -553,7 +566,7 @@ function MainApp() {
       }
       url.hash = "";
       window.history.pushState(
-        { view: "resident", month: newMonthKey, name: urlMemberName },
+        { view: "resident", month: newMonthKey, name: effectiveMember },
         "",
         url.toString()
       );
@@ -564,9 +577,9 @@ function MainApp() {
           view: "schedule",
           month: newMonthKey,
         };
-        if (urlMemberName) gasParams.name = urlMemberName;
+        if (effectiveMember) gasParams.name = effectiveMember;
         (window as any).google.script.history.push(
-          { view: "resident", month: newMonthKey, name: urlMemberName },
+          { view: "resident", month: newMonthKey, name: effectiveMember },
           gasParams,
           ""
         );
@@ -3380,6 +3393,7 @@ function MainApp() {
           availableMonths={publicAvailableMonths}
           communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
           onSelectMonth={handleSelectPublicMonth}
+          onSelectMember={(name) => setUrlMemberName(name)}
           initialMemberName={initialName}
           isLoading={loadingPublicSchedule}
           onBackToHome={() => navigateToView("portal")}

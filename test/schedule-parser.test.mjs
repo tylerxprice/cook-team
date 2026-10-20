@@ -4,6 +4,7 @@ import {
   formatScheduleDateLabel,
   getMemberAvailabilityForDate,
   isWillingTwoPersonDinner,
+  isValidMemberName,
   parseDateFromLabelOrKey,
   parseScheduleGridData,
 } from "../src/server/scheduleParser.ts";
@@ -1118,4 +1119,56 @@ test("Survey Parser - Robust Name Column Detection when Question Header is a Mem
   assert.equal(parsedEmptyMembers.responses.length, 2);
   assert.equal(parsedEmptyMembers.responses[0].name, "Tyler");
   assert.equal(parsedEmptyMembers.responses[1].name, "Rose Price");
+});
+
+test("Schedule Parser - Rejects Google Form responses sheet and survey options", () => {
+  const formResponsesGrid = [
+    [
+      "Timestamp",
+      "Email Address",
+      "Name",
+      "How many meals can you cook this month?",
+      "How many meals can you clean this month?",
+      "Are you willing to cook for 2 regardless of meal type?",
+      "Can you cook and clean on the same day?",
+      "Sunday Oct 4, 2026 - Dinner",
+      "Wednesday Oct 7, 2026 - Dinner",
+    ],
+    [
+      "2026-09-15 10:00:00",
+      "brenda@example.com",
+      "Brenda",
+      "2",
+      "1",
+      "2 regardless of meal type",
+      "Yes",
+      "Available",
+      "Not Available",
+    ],
+    [
+      "2026-09-15 11:00:00",
+      "rose@example.com",
+      "Rose",
+      "1",
+      "2",
+      "Dinner = 3, Brunch = 2",
+      "No",
+      "Cook only",
+      "Available",
+    ],
+  ];
+
+  const parsed = parseScheduleGridData(formResponsesGrid);
+  assert.equal(parsed.success, false);
+  assert.equal(parsed.schedule.length, 0);
+
+  // Validate isValidMemberName blocks survey choices and responses
+  assert.equal(isValidMemberName("Brenda"), true);
+  assert.equal(isValidMemberName("Rose"), true);
+  assert.equal(isValidMemberName("2 regardless of meal type"), false);
+  assert.equal(isValidMemberName("Available"), false);
+  assert.equal(isValidMemberName("Not Available"), false);
+  assert.equal(isValidMemberName("Cook only"), false);
+  assert.equal(isValidMemberName("Clean only"), false);
+  assert.equal(isValidMemberName("Timestamp"), false);
 });
