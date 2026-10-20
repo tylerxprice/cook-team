@@ -49,6 +49,7 @@ import {
 } from "../server/scheduleParser";
 import { deriveMonthTabName } from "../server/signupWorkbook";
 import { extractEmails, extractAliases } from "../server/parser";
+import { formatSurveyDateLabel } from "../server/surveyFormGenerator";
 
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 
@@ -1221,16 +1222,51 @@ function MainApp() {
     setTimeout(() => setSurveyFormCopiedLink(false), 3000);
   };
 
-  const handleAddCustomSurveyDate = () => {
-    const nextIdx = surveyFormDates.length + 1;
+  const handleAddCustomSurveyDate = (customDate?: SurveyFormDateConfig) => {
+    if (customDate) {
+      setSurveyFormDates((prev) => {
+        const existingIdx = prev.findIndex((d) => d.dateKey === customDate.dateKey);
+        let next: SurveyFormDateConfig[];
+        if (existingIdx >= 0) {
+          next = prev.map((d, i) => (i === existingIdx ? customDate : d));
+        } else {
+          next = [...prev, customDate];
+        }
+        next.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+        return next;
+      });
+      return;
+    }
+
+    // Fallback: Pick next unused day in monthKey, compute exact day of week and label
+    const m = surveyFormMonthKey.match(/^(\d{4})[-_](\d{1,2})$/);
+    if (!m) return;
+    const year = parseInt(m[1], 10);
+    const month = parseInt(m[2], 10);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const existing = new Set(surveyFormDates.map((d) => d.dateKey));
+    let chosenDay = 1;
+    for (let day = 1; day <= daysInMonth; day++) {
+      const key = `${surveyFormMonthKey}-${String(day).padStart(2, "0")}`;
+      if (!existing.has(key)) {
+        chosenDay = day;
+        break;
+      }
+    }
+    const dateKey = `${surveyFormMonthKey}-${String(chosenDay).padStart(2, "0")}`;
+    const { dayOfWeek, dateLabel } = formatSurveyDateLabel(dateKey, "DINNER");
     const newDate: SurveyFormDateConfig = {
-      dateKey: `${surveyFormMonthKey}-15`,
-      dateLabel: `Custom Date ${nextIdx}`,
-      dayOfWeek: "Other",
+      dateKey,
+      dateLabel,
+      dayOfWeek,
       mealType: "DINNER",
       included: true,
     };
-    setSurveyFormDates((prev) => [...prev, newDate]);
+    setSurveyFormDates((prev) => {
+      const next = [...prev, newDate];
+      next.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+      return next;
+    });
   };
 
   const handleOpenManualSurveyModal = (memberName?: string) => {

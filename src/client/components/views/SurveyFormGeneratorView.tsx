@@ -37,10 +37,15 @@ import {
   MonthStatus,
   ExistingSurveyInfo,
 } from "../../../server/types";
-import { matchesSurveySheetForMonth } from "../../../server/surveyFormGenerator";
+import {
+  matchesSurveySheetForMonth,
+  formatSurveyDateLabel,
+  buildFormGridRowLabel,
+} from "../../../server/surveyFormGenerator";
 import { callGas, getPublicWebAppUrl } from "../../utils/gas";
 import { TopHeader } from "../common/TopHeader";
 import { LoadingSpinner } from "../common/LoadingSpinner";
+import { AddCustomDateModal } from "../modals/AddCustomDateModal";
 
 export interface SurveyFormGeneratorViewProps {
   monthKey: string;
@@ -57,7 +62,7 @@ export interface SurveyFormGeneratorViewProps {
   formResult: CreateSurveyFormResult | null;
   copiedLink: boolean;
   onCopyLink: (url: string) => void;
-  onAddCustomDate: () => void;
+  onAddCustomDate?: (customDate?: SurveyFormDateConfig) => void;
   onExecuteCreateForm: (targetMonthKey?: string) => void;
   members?: Member[];
   coordinatorEmail?: string;
@@ -130,6 +135,28 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
   const [sendingBetaInvites, setSendingBetaInvites] = useState<boolean>(false);
   const [betaDispatchResult, setBetaDispatchResult] = useState<SendBetaInvitesResult | null>(null);
   const [betaSearchFilter, setBetaSearchFilter] = useState<string>("");
+
+  const [showAddDateModal, setShowAddDateModal] = useState<boolean>(false);
+
+  const handleAddDateFromModal = (newDate: SurveyFormDateConfig) => {
+    setDates((prev) => {
+      const existingIdx = prev.findIndex((d) => d.dateKey === newDate.dateKey);
+      let next: SurveyFormDateConfig[];
+      if (existingIdx >= 0) {
+        next = prev.map((d, i) => (i === existingIdx ? newDate : d));
+      } else {
+        next = [...prev, newDate];
+      }
+      next.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+      return next;
+    });
+    if (onAddCustomDate) {
+      onAddCustomDate(newDate);
+    }
+    if (_onToast) {
+      _onToast(`Added ${newDate.dateLabel} to survey dates`, "success");
+    }
+  };
 
   // Check if existingSurvey strictly belongs to the currently viewed monthKey
   const isExistingSurveyForCurrentMonth = Boolean(
@@ -786,8 +813,31 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                                     className="w-5 h-5 rounded text-orange-600 focus:ring-orange-500 border-slate-300 dark:border-slate-700 cursor-pointer"
                                   />
                                 </td>
-                                <td className="py-2.5 px-3 font-mono font-medium text-slate-800 dark:text-slate-200">
-                                  {d.dateKey}
+                                <td className="py-2.5 px-3">
+                                  <input
+                                    type="date"
+                                    value={d.dateKey}
+                                    disabled={!d.included}
+                                    min={`${monthKey}-01`}
+                                    max={`${monthKey}-${String(new Date(parseInt(monthKey.slice(0, 4), 10), parseInt(monthKey.slice(5, 7), 10), 0).getDate()).padStart(2, "0")}`}
+                                    aria-label={`Date for row ${idx + 1}`}
+                                    onChange={(e) => {
+                                      const newKey = e.target.value;
+                                      if (!newKey) return;
+                                      const { dayOfWeek, dateLabel } = formatSurveyDateLabel(
+                                        newKey,
+                                        d.mealType
+                                      );
+                                      setDates((prev) =>
+                                        prev.map((item, i) =>
+                                          i === idx
+                                            ? { ...item, dateKey: newKey, dayOfWeek, dateLabel }
+                                            : item
+                                        )
+                                      );
+                                    }}
+                                    className="min-h-[42px] px-2.5 py-1 text-xs font-mono font-medium border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer disabled:opacity-50"
+                                  />
                                 </td>
                                 <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white">
                                   {d.dayOfWeek}
@@ -799,23 +849,19 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                                     aria-label={`Meal type for ${d.dateKey}`}
                                     onChange={(e) => {
                                       const mType = e.target.value as MealType;
-                                      const shortName = d.dateLabel.split(" ")[0] || "Nov";
-                                      const dayNum = d.dateKey.split("-")[2] || "1";
-                                      let newLabel = d.dateLabel;
-                                      if (d.dayOfWeek === "Sunday") {
-                                        newLabel = `${shortName} ${parseInt(dayNum, 10)} (${
-                                          mType === "BRUNCH" ? "Sun, Brunch" : "Sun, Dinner"
-                                        })`;
-                                      }
+                                      const { dayOfWeek, dateLabel } = formatSurveyDateLabel(
+                                        d.dateKey,
+                                        mType
+                                      );
                                       setDates((prev) =>
                                         prev.map((item, i) =>
                                           i === idx
-                                            ? { ...item, mealType: mType, dateLabel: newLabel }
+                                            ? { ...item, mealType: mType, dayOfWeek, dateLabel }
                                             : item
                                         )
                                       );
                                     }}
-                                    className="min-h-[42px] px-2.5 py-1 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    className="min-h-[42px] px-2.5 py-1 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
                                   >
                                     <option value="DINNER">Dinner</option>
                                     <option value="BRUNCH">Brunch</option>
@@ -840,8 +886,8 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                                   />
                                 </td>
                                 <td className="py-2.5 px-3 text-xs font-medium text-slate-700 dark:text-slate-300">
-                                  <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                                    {previewLabel}
+                                  <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 font-semibold">
+                                    {buildFormGridRowLabel(d)}
                                   </span>
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
@@ -869,8 +915,8 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                     <button
                       type="button"
-                      onClick={onAddCustomDate}
-                      className="min-h-[42px] px-3.5 py-1.5 text-xs sm:text-sm font-bold text-orange-800 dark:text-orange-300 hover:text-orange-950 dark:hover:text-white bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/50 dark:hover:bg-orange-900/50 border border-orange-300 dark:border-orange-800 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer self-start sm:self-auto"
+                      onClick={() => setShowAddDateModal(true)}
+                      className="min-h-[42px] px-3.5 py-1.5 text-xs sm:text-sm font-bold text-orange-800 dark:text-orange-300 hover:text-orange-950 dark:hover:text-white bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/50 dark:hover:bg-orange-900/50 border border-orange-300 dark:border-orange-800 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer self-start sm:self-auto shadow-2xs"
                     >
                       <Plus className="w-4 h-4" />
                       <span>Add Custom Date</span>
@@ -1386,6 +1432,15 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
           </>
         )}
       </main>
+
+      {/* Modal: Add Custom Meal Date */}
+      <AddCustomDateModal
+        show={showAddDateModal}
+        onClose={() => setShowAddDateModal(false)}
+        onAddDate={handleAddDateFromModal}
+        monthKey={monthKey}
+        existingDates={dates}
+      />
     </div>
   );
 };

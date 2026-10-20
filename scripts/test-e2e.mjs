@@ -562,6 +562,23 @@ async function runE2ETest() {
     await page.waitForSelector("text=Configure Meal Dates for Survey Grid");
     await page.waitForTimeout(300);
 
+    // Test Add Custom Date Modal
+    console.log("   Testing Add Custom Date modal in Survey Form Generator...");
+    const addCustomDateBtn = page.locator("button:has-text('Add Custom Date')").first();
+    await addCustomDateBtn.click();
+    await page.waitForSelector("text=Add Custom Meal Date");
+    console.log("✓ Add Custom Date Modal opened!");
+    const currentMonthVal = await page.locator("input[type='month']").inputValue();
+    const testDateKey = `${currentMonthVal}-25`;
+    await page.locator("#custom-meal-date-input").fill(testDateKey);
+    await page.locator(".fixed button:has-text('Brunch')").click();
+    await page.locator("#custom-meal-note-input").fill("Community Brunch");
+    const submitCustomDateBtn = page.locator(".fixed button:has-text('Add Meal Date'), .fixed button:has-text('Update Meal Date')").first();
+    await submitCustomDateBtn.click();
+    await page.waitForSelector("text=Add Custom Meal Date", { state: "detached" });
+    await page.waitForSelector("text=Community Brunch");
+    console.log("✓ Custom date added and verified in survey table!");
+
     // Staged Flow: Assert Beta Web Sign-Ups tab is locked prior to form generation
     const lockedBetaTab = page.locator("button:has-text('Beta Web Sign-Ups'):has-text('Locked')").first();
     await lockedBetaTab.waitFor({ state: "visible", timeout: 3000 });

@@ -12,7 +12,7 @@ import {
   CreateSurveyFormResult,
 } from "./types";
 
-const MONTH_NAMES = [
+export const MONTH_NAMES = [
   "Jan",
   "Feb",
   "Mar",
@@ -156,6 +156,50 @@ export function generateMonthlySurveyDates(monthKey: string): SurveyFormDateConf
   }
 
   return dates;
+}
+
+/**
+ * Formats standard date label and computes exact day of week for any dateKey (YYYY-MM-DD).
+ * e.g. "2026-11-20", "DINNER" -> { dayOfWeek: "Friday", dateLabel: "Nov 20 (Fri)" }
+ * e.g. "2026-11-01", "BRUNCH" -> { dayOfWeek: "Sunday", dateLabel: "Nov 1 (Sun, Brunch)" }
+ * e.g. "2026-11-08", "DINNER" -> { dayOfWeek: "Sunday", dateLabel: "Nov 8 (Sun, Dinner)" }
+ * e.g. "2026-11-21", "BRUNCH" -> { dayOfWeek: "Saturday", dateLabel: "Nov 21 (Sat, Brunch)" }
+ */
+export function formatSurveyDateLabel(
+  dateKey: string,
+  mealType: MealType
+): { dayOfWeek: string; dateLabel: string } {
+  const parts = dateKey.split("-");
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const d = new Date(year, month, day);
+
+  const dayNames = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  const shortDays = ["Sun", "Mon", "Tue", "Wed", "Thur", "Fri", "Sat"];
+
+  const dayOfWeek = dayNames[d.getDay()] || "Other";
+  const shortDay = shortDays[d.getDay()] || "Day";
+  const monthShort = MONTH_NAMES[month] || "Month";
+
+  let dateLabel = "";
+  if (dayOfWeek === "Sunday") {
+    dateLabel = `${monthShort} ${day} (${mealType === "BRUNCH" ? "Sun, Brunch" : "Sun, Dinner"})`;
+  } else if (dayOfWeek === "Saturday") {
+    dateLabel = `${monthShort} ${day} (${mealType === "BRUNCH" ? "Sat, Brunch" : "Sat, Dinner"})`;
+  } else {
+    dateLabel = `${monthShort} ${day} (${shortDay}${mealType === "BRUNCH" ? ", Brunch" : ""})`;
+  }
+
+  return { dayOfWeek, dateLabel };
 }
 
 /**

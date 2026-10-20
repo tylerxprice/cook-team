@@ -5,6 +5,7 @@ import {
   deriveFormTitle,
   buildFormGridRowLabel,
   matchesSurveySheetForMonth,
+  formatSurveyDateLabel,
 } from "../src/server/surveyFormGenerator.ts";
 
 test("Survey Form Generator - Form Title Derivation", () => {
@@ -146,4 +147,52 @@ test("Survey Form Generator - matchesSurveySheetForMonth strictly matches target
   // Non-survey sheets must never match
   assert.equal(matchesSurveySheetForMonth(masterSheet, "2026-12"), false);
   assert.equal(matchesSurveySheetForMonth(masterSheet, "2026-01"), false);
+});
+
+test("Survey Form Generator - formatSurveyDateLabel accurately formats custom dates and days of week", () => {
+  // Friday Dinner
+  const friDinner = formatSurveyDateLabel("2026-11-20", "DINNER");
+  assert.equal(friDinner.dayOfWeek, "Friday");
+  assert.equal(friDinner.dateLabel, "Nov 20 (Fri)");
+
+  // Friday Brunch
+  const friBrunch = formatSurveyDateLabel("2026-11-20", "BRUNCH");
+  assert.equal(friBrunch.dayOfWeek, "Friday");
+  assert.equal(friBrunch.dateLabel, "Nov 20 (Fri, Brunch)");
+
+  // Saturday Dinner
+  const satDinner = formatSurveyDateLabel("2026-11-21", "DINNER");
+  assert.equal(satDinner.dayOfWeek, "Saturday");
+  assert.equal(satDinner.dateLabel, "Nov 21 (Sat, Dinner)");
+
+  // Saturday Brunch
+  const satBrunch = formatSurveyDateLabel("2026-11-21", "BRUNCH");
+  assert.equal(satBrunch.dayOfWeek, "Saturday");
+  assert.equal(satBrunch.dateLabel, "Nov 21 (Sat, Brunch)");
+
+  // Sunday Dinner
+  const sunDinner = formatSurveyDateLabel("2026-11-15", "DINNER");
+  assert.equal(sunDinner.dayOfWeek, "Sunday");
+  assert.equal(sunDinner.dateLabel, "Nov 15 (Sun, Dinner)");
+
+  // Sunday Brunch
+  const sunBrunch = formatSurveyDateLabel("2026-11-15", "BRUNCH");
+  assert.equal(sunBrunch.dayOfWeek, "Sunday");
+  assert.equal(sunBrunch.dateLabel, "Nov 15 (Sun, Brunch)");
+
+  // Wednesday Dinner
+  const wedDinner = formatSurveyDateLabel("2026-11-18", "DINNER");
+  assert.equal(wedDinner.dayOfWeek, "Wednesday");
+  assert.equal(wedDinner.dateLabel, "Nov 18 (Wed)");
+
+  // Test buildFormGridRowLabel with special note
+  const customConfig = {
+    dateKey: "2026-11-26",
+    dateLabel: "Nov 26 (Thur)",
+    dayOfWeek: "Thursday",
+    mealType: "DINNER",
+    specialNote: "Thanksgiving Meal",
+    included: true,
+  };
+  assert.equal(buildFormGridRowLabel(customConfig), "Nov 26 (Thur) - Thanksgiving Meal");
 });
