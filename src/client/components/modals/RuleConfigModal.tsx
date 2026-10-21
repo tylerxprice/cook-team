@@ -70,7 +70,14 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
             <select
               id="rule-type-select"
               value={newRule.rule_type}
-              onChange={(e) => setNewRule({ ...newRule, rule_type: e.target.value as RuleType })}
+              onChange={(e) => {
+                const rt = e.target.value as RuleType;
+                setNewRule({
+                  ...newRule,
+                  rule_type: rt,
+                  target_role_a: rt === "EXTRA_HELPER" ? "ANY" : (newRule.target_role_a || "COOK"),
+                });
+              }}
               className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
             >
               <option value="NOT_SAME_TEAM">NOT_SAME_TEAM (Cannot be in same team)</option>
@@ -89,7 +96,7 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
             <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl p-3 text-xs text-amber-950 dark:text-amber-200">
               <p className="font-bold">🤝 How Extra Helper Works:</p>
               <p className="mt-0.5 text-amber-900 dark:text-amber-300">
-                Person A will <strong>not</strong> count toward required core team sizes (3 cooks on dinner, 2 on brunch). The matchmaker will first form a full core team, then tack Person A onto a completed team as an extra helper without diluting team capacity.
+                Person A will <strong>not</strong> count toward required core team sizes (3 cooks on dinner, 2 on brunch). Once a team is fully staffed, the matchmaker adds at most <strong>1 extra helper</strong> to a completed Cook or Clean team based on Person A's survey availability selections and paired mentor.
               </p>
             </div>
           )}
@@ -100,19 +107,21 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
                 htmlFor="target-role-select"
                 className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1"
               >
-                Target Role
+                Team Type / Role
               </label>
               <select
                 id="target-role-select"
-                value={newRule.target_role_a || "COOK"}
+                value={newRule.target_role_a || "ANY"}
                 onChange={(e) =>
                   setNewRule({ ...newRule, target_role_a: e.target.value as any })
                 }
                 className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
               >
-                <option value="COOK">Cook Team Only (Default)</option>
+                <option value="ANY">
+                  Either Team Type (Cook or Clean — based on availability)
+                </option>
+                <option value="COOK">Cook Team Only</option>
                 <option value="CLEAN">Clean Team Only</option>
-                <option value="ANY">Either Cook or Clean Team</option>
               </select>
             </div>
           )}

@@ -83,7 +83,7 @@ export function solveSinglePass(
       (r) =>
         r.rule_type === "EXTRA_HELPER" &&
         r.person_a.trim().toLowerCase() === resp.name.trim().toLowerCase() &&
-        (r.target_role_a === "ANY" || r.target_role_a === "CLEAN")
+        (!r.target_role_a || r.target_role_a === "ANY" || r.target_role_a === "CLEAN")
     );
 
     candidates.set(resp.name, {
@@ -582,46 +582,78 @@ export function solveSinglePass(
   }
 
   // Step 3: Helper Assignment Pass: Tack extra helpers onto completed full teams
+  // Domain Rule: Only 1 extra helper per meal date across either team type,
+  // matched strictly to the member's survey availability selections and mentor pairing.
   const helperRules = exceptions.filter((r) => r.rule_type === "EXTRA_HELPER");
   for (const rule of helperRules) {
     const cand = candidates.get(rule.person_a);
     if (!cand) continue;
 
-    const targetRole = rule.target_role_a || "COOK";
+    const targetRole = rule.target_role_a || "ANY";
     const canHelpCook = targetRole === "ANY" || targetRole === "COOK";
     const canHelpClean = targetRole === "ANY" || targetRole === "CLEAN";
 
-    // 1. Assign Cook Helper shifts if applicable
-    if (canHelpCook) {
-      while (
-        cand.assignedCookDates.size < cand.cookQuota &&
-        cand.assignedCookDates.size + cand.assignedCleanDates.size < cand.maxTotalShifts
-      ) {
-        const eligibleDays = adjustedMealDates.filter((md) => {
-          const entry = scheduleMap.get(md.dateKey);
-          if (!entry) return false;
-          if (cand.assignedCookDates.has(md.dateKey)) return false;
-          if (md.targetCookCount === 0) return false;
-          if (entry.cooks.length < md.targetCookCount) return false; // Must be a FULL core team!
-          if ((entry.extraCookHelpers?.length || 0) >= 1) return false; // Max 1 helper per team
+    const effectiveCookQuota =
+      cand.cookQuota > 0 ? cand.cookQuota : (canHelpCook && cand.cleanQuota === 0 ? 1 : 0);
+    const effectiveCleanQuota =
+      cand.cleanQuota > 0 ? cand.cleanQuota : (canHelpClean && cand.cookQuota === 0 ? 1 : 0);
+    const effectiveMaxShifts = Math.max(
+      cand.maxTotalShifts,
+      effectiveCookQuota + effectiveCleanQuota,
+      1
+    );
 
-          const status = getCandidateAvailability(cand, md);
-          if (status !== "AVAILABLE" && status !== "COOK_ONLY") return false;
+    const requiredMentors =
+      rule.person_b && rule.person_b.trim() ? parseWhitelist(rule.person_b) : [];
 
-          // Same-day check if already cleaning today
-          if (entry.cleaners.includes(cand.name) && !cand.canSameDay) return false;
+    while (
+      cand.assignedCookDates.size + cand.assignedCleanDates.size < effectiveMaxShifts &&
+      (cand.assignedCookDates.size < effectiveCookQuota ||
+        cand.assignedCleanDates.size < effectiveCleanQuota)
+    ) {
+      type HelperOpportunity = {
+        dateKey: string;
+        role: "COOK" | "CLEAN";
+        isStrictRoleAvail: boolean;
+        hasMentor: boolean;
+        teamLength: number;
+      };
 
-          // Check mentor if rule.person_b is specified
-          if (rule.person_b && rule.person_b.trim()) {
-            const requiredMentors = parseWhitelist(rule.person_b);
-            const hasRequiredMentor = entry.cooks.some((c) =>
-              requiredMentors.includes(c.toLowerCase())
-            );
-            if (!hasRequiredMentor) return false;
-          }
+      const opportunities: HelperOpportunity[] = [];
 
+      for (const md of adjustedMealDates) {
+        const entry = scheduleMap.get(md.dateKey);
+        if (!entry) continue;
+
+        // Rule: Only 1 extra helper per meal date across either team type
+        const totalHelpersOnDate =
+          (entry.extraCookHelpers?.length || 0) + (entry.extraCleanHelpers?.length || 0);
+        if (totalHelpersOnDate >= 1) continue;
+
+        // Helper cannot already be scheduled on this meal date
+        if (entry.cooks.includes(cand.name) || entry.cleaners.includes(cand.name)) continue;
+        if (cand.assignedCookDates.has(md.dateKey) || cand.assignedCleanDates.has(md.dateKey)) {
+          continue;
+        }
+
+        const status = getCandidateAvailability(cand, md);
+        if (status === "UNAVAILABLE") continue;
+
+        // Check Cook team eligibility
+        if (
+          canHelpCook &&
+          cand.assignedCookDates.size < effectiveCookQuota &&
+          (status === "AVAILABLE" || status === "COOK_ONLY") &&
+          md.targetCookCount > 0 &&
+          entry.cooks.length >= md.targetCookCount &&
+          (entry.extraCookHelpers?.length || 0) < 1
+        ) {
+          const hasMentor =
+            requiredMentors.length === 0 ||
+            entry.cooks.some((c) => requiredMentors.includes(c.toLowerCase()));
           if (
-            violatesHardRule(
+            hasMentor &&
+            !violatesHardRule(
               cand.name,
               "COOK",
               md.dateKey,
@@ -630,60 +662,31 @@ export function solveSinglePass(
               md.targetCookCount + 1
             )
           ) {
-            return false;
+            opportunities.push({
+              dateKey: md.dateKey,
+              role: "COOK",
+              isStrictRoleAvail: status === "COOK_ONLY",
+              hasMentor: requiredMentors.length > 0 && hasMentor,
+              teamLength: entry.cooks.length,
+            });
           }
+        }
 
-          return true;
-        });
-
-        if (eligibleDays.length === 0) break;
-
-        // Prioritize days with fewest total cooks (e.g. 3 over 4), or if person_b specified
-        eligibleDays.sort((a, b) => {
-          const entryA = scheduleMap.get(a.dateKey)!;
-          const entryB = scheduleMap.get(b.dateKey)!;
-          return entryA.cooks.length - entryB.cooks.length;
-        });
-
-        const chosenDay = eligibleDays[0];
-        const chosenEntry = scheduleMap.get(chosenDay.dateKey)!;
-        chosenEntry.cooks.push(cand.name);
-        if (!chosenEntry.extraCookHelpers) chosenEntry.extraCookHelpers = [];
-        chosenEntry.extraCookHelpers.push(cand.name);
-        cand.assignedCookDates.add(chosenDay.dateKey);
-      }
-    }
-
-    // 2. Assign Clean Helper shifts if applicable
-    if (canHelpClean) {
-      while (
-        cand.assignedCleanDates.size < cand.cleanQuota &&
-        cand.assignedCookDates.size + cand.assignedCleanDates.size < cand.maxTotalShifts
-      ) {
-        const eligibleDays = adjustedMealDates.filter((md) => {
-          const entry = scheduleMap.get(md.dateKey);
-          if (!entry) return false;
-          if (cand.assignedCleanDates.has(md.dateKey)) return false;
-          if (md.targetCleanCount === 0) return false;
-          if (entry.cleaners.length < md.targetCleanCount) return false; // Must be a FULL core team!
-          if ((entry.extraCleanHelpers?.length || 0) >= 1) return false; // Max 1 helper per team
-
-          const status = getCandidateAvailability(cand, md);
-          if (status !== "AVAILABLE" && status !== "CLEAN_ONLY") return false;
-
-          // Same-day check if already cooking today
-          if (entry.cooks.includes(cand.name) && !cand.canSameDay) return false;
-
-          if (rule.person_b && rule.person_b.trim()) {
-            const requiredMentors = parseWhitelist(rule.person_b);
-            const hasRequiredMentor = entry.cleaners.some((c) =>
-              requiredMentors.includes(c.toLowerCase())
-            );
-            if (!hasRequiredMentor) return false;
-          }
-
+        // Check Clean team eligibility
+        if (
+          canHelpClean &&
+          cand.assignedCleanDates.size < effectiveCleanQuota &&
+          (status === "AVAILABLE" || status === "CLEAN_ONLY") &&
+          md.targetCleanCount > 0 &&
+          entry.cleaners.length >= md.targetCleanCount &&
+          (entry.extraCleanHelpers?.length || 0) < 1
+        ) {
+          const hasMentor =
+            requiredMentors.length === 0 ||
+            entry.cleaners.some((c) => requiredMentors.includes(c.toLowerCase()));
           if (
-            violatesHardRule(
+            hasMentor &&
+            !violatesHardRule(
               cand.name,
               "CLEAN",
               md.dateKey,
@@ -692,26 +695,47 @@ export function solveSinglePass(
               md.targetCleanCount + 1
             )
           ) {
-            return false;
+            opportunities.push({
+              dateKey: md.dateKey,
+              role: "CLEAN",
+              isStrictRoleAvail: status === "CLEAN_ONLY",
+              hasMentor: requiredMentors.length > 0 && hasMentor,
+              teamLength: entry.cleaners.length,
+            });
           }
+        }
+      }
 
-          return true;
-        });
+      if (opportunities.length === 0) break;
 
-        if (eligibleDays.length === 0) break;
+      // Sort opportunities:
+      // 1. Mentor pairing first
+      // 2. Strict availability first (COOK_ONLY or CLEAN_ONLY) over general AVAILABLE
+      // 3. Balance candidate's assigned roles (prefer role with fewer assigned shifts)
+      // 4. Fewest members on that team
+      opportunities.sort((a, b) => {
+        if (a.hasMentor !== b.hasMentor) return a.hasMentor ? -1 : 1;
+        if (a.isStrictRoleAvail !== b.isStrictRoleAvail) return a.isStrictRoleAvail ? -1 : 1;
+        const assignedRoleA =
+          a.role === "COOK" ? cand.assignedCookDates.size : cand.assignedCleanDates.size;
+        const assignedRoleB =
+          b.role === "COOK" ? cand.assignedCookDates.size : cand.assignedCleanDates.size;
+        if (assignedRoleA !== assignedRoleB) return assignedRoleA - assignedRoleB;
+        return a.teamLength - b.teamLength;
+      });
 
-        eligibleDays.sort((a, b) => {
-          const entryA = scheduleMap.get(a.dateKey)!;
-          const entryB = scheduleMap.get(b.dateKey)!;
-          return entryA.cleaners.length - entryB.cleaners.length;
-        });
-
-        const chosenDay = eligibleDays[0];
-        const chosenEntry = scheduleMap.get(chosenDay.dateKey)!;
+      const chosen = opportunities[0];
+      const chosenEntry = scheduleMap.get(chosen.dateKey)!;
+      if (chosen.role === "COOK") {
+        chosenEntry.cooks.push(cand.name);
+        if (!chosenEntry.extraCookHelpers) chosenEntry.extraCookHelpers = [];
+        chosenEntry.extraCookHelpers.push(cand.name);
+        cand.assignedCookDates.add(chosen.dateKey);
+      } else {
         chosenEntry.cleaners.push(cand.name);
         if (!chosenEntry.extraCleanHelpers) chosenEntry.extraCleanHelpers = [];
         chosenEntry.extraCleanHelpers.push(cand.name);
-        cand.assignedCleanDates.add(chosenDay.dateKey);
+        cand.assignedCleanDates.add(chosen.dateKey);
       }
     }
   }

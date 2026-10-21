@@ -206,13 +206,13 @@ export const Step2NotesRules: React.FC<Step2NotesRulesProps> = ({
                                     <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
                                       {rule.target_role_a === "CLEAN"
                                         ? "(Clean Teams Only)"
-                                        : rule.target_role_a === "ANY"
-                                          ? "(Cook & Clean)"
-                                          : "(Cook Teams Only)"}
+                                        : rule.target_role_a === "COOK"
+                                          ? "(Cook Teams Only)"
+                                          : "(Either Team Type - Cook or Clean)"}
                                     </span>
                                   </div>
                                   <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
-                                    Tacked onto full teams without diluting core team size
+                                    Tacked onto full teams without diluting core team size (max 1 helper per meal)
                                     {rule.person_b ? ` (paired with ${rule.person_b})` : ""}.
                                   </p>
                                 </div>

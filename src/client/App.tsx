@@ -2434,6 +2434,11 @@ function MainApp() {
       person_a: newRule.person_a,
       person_b: newRule.person_b || undefined,
       rule_type: newRule.rule_type as RuleType,
+      target_role_a:
+        newRule.rule_type === "EXTRA_HELPER"
+          ? newRule.target_role_a || "ANY"
+          : newRule.target_role_a,
+      target_role_b: newRule.target_role_b,
       is_hard_rule: newRule.is_hard_rule ?? true,
       notes: newRule.notes || "",
     };
