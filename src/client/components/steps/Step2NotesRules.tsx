@@ -77,25 +77,12 @@ export const Step2NotesRules: React.FC<Step2NotesRulesProps> = ({
     );
   }, [membersRequiringAttention]);
 
-  // Search filter predicate
+  // Search filter predicate: strictly match on member name
   const q = searchQuery.trim().toLowerCase();
   const matchesSearch = React.useCallback(
     (item: MemberAttentionItem) => {
       if (!q) return true;
-      if (item.name.toLowerCase().includes(q)) return true;
-      if (item.specialInstructions && item.specialInstructions.toLowerCase().includes(q)) return true;
-      if (
-        item.rules.some(
-          (r) =>
-            r.person_a.toLowerCase().includes(q) ||
-            (r.person_b && r.person_b.toLowerCase().includes(q)) ||
-            r.rule_type.toLowerCase().includes(q) ||
-            (r.notes && r.notes.toLowerCase().includes(q))
-        )
-      ) {
-        return true;
-      }
-      return false;
+      return item.name.toLowerCase().includes(q);
     },
     [q]
   );
@@ -379,8 +366,8 @@ export const Step2NotesRules: React.FC<Step2NotesRulesProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Filter by member name, note, or rule..."
-            aria-label="Filter members by name, note, or rule"
+            placeholder="Filter members by name..."
+            aria-label="Filter members by name"
             className="w-full pl-10 pr-9 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-600 dark:placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-colors"
           />
           {searchQuery && (
