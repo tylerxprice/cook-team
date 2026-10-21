@@ -54,7 +54,7 @@ import { formatSurveyDateLabel } from "../server/surveyFormGenerator";
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 
 import { Step1IntakeAudit } from "./components/steps/Step1IntakeAudit";
-import { Step2NotesRules } from "./components/steps/Step2NotesRules";
+import { Step2NotesRules, MemberAttentionItem } from "./components/steps/Step2NotesRules";
 import { Step3SolveReview } from "./components/steps/Step3SolveReview";
 import { Step4PublishEmail } from "./components/steps/Step4PublishEmail";
 
@@ -2541,16 +2541,10 @@ function MainApp() {
     if (!intakeData) return [];
     const map = new Map<
       string,
-      {
-        name: string;
-        specialInstructions?: string;
-        canCookCleanSameDay: boolean;
-        cookQuota: number;
-        rules: ExceptionRule[];
-      }
+      MemberAttentionItem
     >();
 
-    // 1. Process survey responses with special notes or same day preference
+    // 1. Process all survey responses
     for (const resp of intakeData.responses) {
       const hasNote =
         resp.specialInstructions &&
@@ -2559,18 +2553,16 @@ function MainApp() {
           resp.specialInstructions.trim().toLowerCase()
         );
 
-      if (hasNote || resp.canCookCleanSameDay) {
-        map.set(resp.name.toLowerCase(), {
-          name: resp.name,
-          specialInstructions: hasNote ? resp.specialInstructions : undefined,
-          canCookCleanSameDay: resp.canCookCleanSameDay,
-          cookQuota: resp.cookQuota,
-          rules: [],
-        });
-      }
+      map.set(resp.name.toLowerCase(), {
+        name: resp.name,
+        specialInstructions: hasNote ? resp.specialInstructions : undefined,
+        canCookCleanSameDay: resp.canCookCleanSameDay,
+        cookQuota: resp.cookQuota,
+        rules: [],
+      });
     }
 
-    // 2. Add members who have existing rules configured
+    // 2. Add members who have existing rules configured (even if they didn't submit a survey this month)
     for (const rule of exceptions) {
       const keyA = rule.person_a.toLowerCase();
       if (!map.has(keyA)) {
@@ -2605,7 +2597,7 @@ function MainApp() {
           });
         }
         const bRules = map.get(keyB)!.rules;
-        if (!bRules.some((r) => r.id === rule.id)) {
+        if (!bRules.some((r: ExceptionRule) => r.id === rule.id)) {
           bRules.push(rule);
         }
       }
