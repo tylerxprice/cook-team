@@ -79,8 +79,43 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
                 SAME_DAY_DIFF_TEAM (Same date, different team)
               </option>
               <option value="PAIR_WITH_ROLE">PAIR_WITH_ROLE (Assign together for role)</option>
+              <option value="EXTRA_HELPER">
+                EXTRA_HELPER (Helper only - add to completed full team)
+              </option>
             </select>
           </div>
+
+          {newRule.rule_type === "EXTRA_HELPER" && (
+            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl p-3 text-xs text-amber-950 dark:text-amber-200">
+              <p className="font-bold">🤝 How Extra Helper Works:</p>
+              <p className="mt-0.5 text-amber-900 dark:text-amber-300">
+                Person A will <strong>not</strong> count toward required core team sizes (3 cooks on dinner, 2 on brunch). The matchmaker will first form a full core team, then tack Person A onto a completed team as an extra helper without diluting team capacity.
+              </p>
+            </div>
+          )}
+
+          {newRule.rule_type === "EXTRA_HELPER" && (
+            <div>
+              <label
+                htmlFor="target-role-select"
+                className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1"
+              >
+                Target Role
+              </label>
+              <select
+                id="target-role-select"
+                value={newRule.target_role_a || "COOK"}
+                onChange={(e) =>
+                  setNewRule({ ...newRule, target_role_a: e.target.value as any })
+                }
+                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
+              >
+                <option value="COOK">Cook Team Only (Default)</option>
+                <option value="CLEAN">Clean Team Only</option>
+                <option value="ANY">Either Cook or Clean Team</option>
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -112,7 +147,9 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
                 htmlFor="person-b-select"
                 className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1"
               >
-                Person B (Optional)
+                {newRule.rule_type === "EXTRA_HELPER"
+                  ? "Paired Mentor / Partner (Optional)"
+                  : "Person B (Optional)"}
               </label>
               <select
                 id="person-b-select"
@@ -120,7 +157,11 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
                 onChange={(e) => setNewRule({ ...newRule, person_b: e.target.value })}
                 className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
               >
-                <option value="">Select Member (if paired)...</option>
+                <option value="">
+                  {newRule.rule_type === "EXTRA_HELPER"
+                    ? "None (Any full team)"
+                    : "Select Member (if paired)..."}
+                </option>
                 {[...members]
                   .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
                   .map((m) => (

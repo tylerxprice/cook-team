@@ -197,6 +197,25 @@ export const Step2NotesRules: React.FC<Step2NotesRulesProps> = ({
                                     ))}
                                   </div>
                                 </div>
+                              ) : rule.rule_type === "EXTRA_HELPER" ? (
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800">
+                                      🤝 Extra Helper
+                                    </span>
+                                    <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                                      {rule.target_role_a === "CLEAN"
+                                        ? "(Clean Teams Only)"
+                                        : rule.target_role_a === "ANY"
+                                          ? "(Cook & Clean)"
+                                          : "(Cook Teams Only)"}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
+                                    Tacked onto full teams without diluting core team size
+                                    {rule.person_b ? ` (paired with ${rule.person_b})` : ""}.
+                                  </p>
+                                </div>
                               ) : (
                                 <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                                   <span className="text-orange-800 dark:text-orange-400 font-mono">

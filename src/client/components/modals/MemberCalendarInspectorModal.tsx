@@ -1,6 +1,6 @@
 import React from "react";
 import { UserPlus, X, MessageSquare, XCircle } from "lucide-react";
-import { DaySchedule, IntakePayload, Role, ScheduleOutput } from "../../../server/types";
+import { DaySchedule, IntakePayload, Role, ScheduleOutput, ExceptionRule } from "../../../server/types";
 import {
   getMemberAvailabilityForDate,
   isWillingTwoPersonDinner,
@@ -12,6 +12,7 @@ export interface MemberCalendarInspectorModalProps {
   onClose: () => void;
   solverResult: ScheduleOutput | null;
   intakeData: IntakePayload | null;
+  exceptions?: ExceptionRule[];
   selectedQuotaFocusDateKey: string | null;
   checkAssignmentConflict: (memberName: string, role: Role, day: DaySchedule) => string | null;
   handleAddExtraShift: (dateKey: string, memberName: string, role: Role) => void;
@@ -23,6 +24,7 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
   onClose,
   solverResult,
   intakeData,
+  exceptions,
   selectedQuotaFocusDateKey,
   checkAssignmentConflict,
   handleAddExtraShift,
@@ -97,6 +99,15 @@ export const MemberCalendarInspectorModal: React.FC<MemberCalendarInspectorModal
               );
             })()}
             <div className="flex flex-wrap items-center gap-2 mt-2">
+              {exceptions?.some(
+                (r) =>
+                  r.rule_type === "EXTRA_HELPER" &&
+                  r.person_a.toLowerCase() === selectedQuotaMember.toLowerCase()
+              ) && (
+                <span className="text-xs px-2.5 py-1 rounded-lg font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-800">
+                  🤝 Extra Helper (Assigned only to full teams)
+                </span>
+              )}
               {is2PersonWilling ? (
                 <span className="text-xs px-2.5 py-1 rounded-lg font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-950 dark:text-blue-200 border border-blue-300 dark:border-blue-800">
                   👥 2-Person Cook Team: Willing ({resp?.cookTeamSizePref || "2 for either"})

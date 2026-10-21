@@ -14,7 +14,8 @@ export type RuleType =
   | "SAME_DAY_DIFF_TEAM"
   | "PAIR_WITH_ROLE"
   | "PREF_SAME_DAY"
-  | "REQUIRE_ONE_OF_TEAM";
+  | "REQUIRE_ONE_OF_TEAM"
+  | "EXTRA_HELPER";
 
 export type CookTeamPolicy = "ADAPTIVE_3_OR_2" | "DINNER_3_BRUNCH_2" | "TWO_REGARDLESS";
 
@@ -111,6 +112,8 @@ export interface DaySchedule {
   unfilledCooks: number;
   unfilledCleaners: number;
   isNoMeal?: boolean;
+  extraCookHelpers?: string[];
+  extraCleanHelpers?: string[];
 }
 
 export interface MemberQuotaStat {

@@ -1303,3 +1303,115 @@ test("Schedule Parser - Rejects Google Form responses sheet and survey options",
   assert.equal(isValidMemberName("Clean only"), false);
   assert.equal(isValidMemberName("Timestamp"), false);
 });
+
+test("Matchmaker Solver - EXTRA_HELPER Rule excludes helper from core team and tacks onto completed team", () => {
+  const mealDates = [
+    {
+      dateKey: "2026-10-01",
+      dateLabel: "Oct 1 (Thu)",
+      mealType: "DINNER",
+      targetCookCount: 3,
+      targetCleanCount: 3,
+    },
+    {
+      dateKey: "2026-10-04",
+      dateLabel: "Oct 4 (Sun, Brunch)",
+      mealType: "BRUNCH",
+      targetCookCount: 2,
+      targetCleanCount: 2,
+    },
+  ];
+
+  const responses = [
+    { name: "Core Cook 1", cookQuota: 1, cleanQuota: 0, availability: { "Oct 1 (Thu)": "COOK_ONLY" } },
+    { name: "Core Cook 2", cookQuota: 1, cleanQuota: 0, availability: { "Oct 1 (Thu)": "COOK_ONLY" } },
+    { name: "Core Cook 3", cookQuota: 1, cleanQuota: 0, availability: { "Oct 1 (Thu)": "COOK_ONLY" } },
+    { name: "Clean 1", cookQuota: 0, cleanQuota: 1, availability: { "Oct 1 (Thu)": "CLEAN_ONLY" } },
+    { name: "Clean 2", cookQuota: 0, cleanQuota: 1, availability: { "Oct 1 (Thu)": "CLEAN_ONLY" } },
+    { name: "Clean 3", cookQuota: 0, cleanQuota: 1, availability: { "Oct 1 (Thu)": "CLEAN_ONLY" } },
+    { name: "Brunch Cook 1", cookQuota: 1, cleanQuota: 0, availability: { "Oct 4 (Sun, Brunch)": "COOK_ONLY" } },
+    { name: "Brunch Cook 2", cookQuota: 1, cleanQuota: 0, availability: { "Oct 4 (Sun, Brunch)": "COOK_ONLY" } },
+    { name: "Brunch Clean 1", cookQuota: 0, cleanQuota: 1, availability: { "Oct 4 (Sun, Brunch)": "CLEAN_ONLY" } },
+    { name: "Brunch Clean 2", cookQuota: 0, cleanQuota: 1, availability: { "Oct 4 (Sun, Brunch)": "CLEAN_ONLY" } },
+    // Helper: available on Oct 1
+    { name: "Junior Helper", cookQuota: 1, cleanQuota: 0, availability: { "Oct 1 (Thu)": "AVAILABLE" } },
+  ];
+
+  const exceptions = [
+    {
+      id: "RULE-HELPER-1",
+      person_a: "Junior Helper",
+      rule_type: "EXTRA_HELPER",
+      target_role_a: "COOK",
+      is_hard_rule: true,
+    },
+  ];
+
+  const result = solveCookAndCleanSchedule(mealDates, responses, exceptions, {
+    cookPolicy: "DINNER_3_BRUNCH_2",
+    autoCancelDeficitDates: false,
+  });
+
+  const oct1 = result.schedule.find((d) => d.dateKey === "2026-10-01");
+  assert.ok(oct1);
+
+  // 1. Core cooks must be Core Cook 1, 2, 3
+  assert.ok(oct1.cooks.includes("Core Cook 1"));
+  assert.ok(oct1.cooks.includes("Core Cook 2"));
+  assert.ok(oct1.cooks.includes("Core Cook 3"));
+
+  // 2. Junior Helper was tacked on as the 4th cook!
+  assert.ok(oct1.cooks.includes("Junior Helper"));
+  assert.equal(oct1.cooks.length, 4);
+  assert.deepEqual(oct1.extraCookHelpers, ["Junior Helper"]);
+
+  // 3. Target remains 3, unfilled is 0!
+  assert.equal(oct1.targetCookCount, 3);
+  assert.equal(oct1.unfilledCooks, 0);
+
+  // 4. Member stats track the helper's shift!
+  assert.equal(result.memberStats["Junior Helper"].assignedCooks, 1);
+  assert.equal(result.memberStats["Junior Helper"].totalAssigned, 1);
+});
+
+test("Matchmaker Solver - EXTRA_HELPER Rule does NOT tack onto an incomplete/shortage team", () => {
+  const mealDates = [
+    {
+      dateKey: "2026-10-01",
+      dateLabel: "Oct 1 (Thu)",
+      mealType: "DINNER",
+      targetCookCount: 3,
+      targetCleanCount: 3,
+    },
+  ];
+
+  // Only 2 regular cooks available (short 1 cook to reach full team of 3)
+  const responses = [
+    { name: "Core Cook 1", cookQuota: 1, cleanQuota: 0, availability: { "Oct 1 (Thu)": "COOK_ONLY" } },
+    { name: "Core Cook 2", cookQuota: 1, cleanQuota: 0, availability: { "Oct 1 (Thu)": "COOK_ONLY" } },
+    { name: "Clean 1", cookQuota: 0, cleanQuota: 1, availability: { "Oct 1 (Thu)": "CLEAN_ONLY" } },
+    { name: "Clean 2", cookQuota: 0, cleanQuota: 1, availability: { "Oct 1 (Thu)": "CLEAN_ONLY" } },
+    { name: "Clean 3", cookQuota: 0, cleanQuota: 1, availability: { "Oct 1 (Thu)": "CLEAN_ONLY" } },
+    { name: "Junior Helper", cookQuota: 1, cleanQuota: 0, availability: { "Oct 1 (Thu)": "AVAILABLE" } },
+  ];
+
+  const exceptions = [
+    {
+      id: "RULE-HELPER-1",
+      person_a: "Junior Helper",
+      rule_type: "EXTRA_HELPER",
+      target_role_a: "COOK",
+      is_hard_rule: true,
+    },
+  ];
+
+  const result = solveCookAndCleanSchedule(mealDates, responses, exceptions, {
+    cookPolicy: "DINNER_3_BRUNCH_2",
+    autoCancelDeficitDates: false,
+  });
+
+  const oct1 = result.schedule.find((d) => d.dateKey === "2026-10-01");
+  // Because core team only had 2 cooks (not a full team of 3), helper is NOT tacked on
+  assert.equal(oct1.cooks.includes("Junior Helper"), false);
+  assert.equal(oct1.unfilledCooks, 1);
+});

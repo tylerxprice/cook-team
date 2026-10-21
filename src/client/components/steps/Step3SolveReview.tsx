@@ -16,6 +16,7 @@ import {
   DaySchedule,
   ConstraintViolation,
   NearCompleteMealOpportunity,
+  ExceptionRule,
 } from "../../../server/types";
 import { formatDisplayDateLabel } from "../../utils/formatters";
 
@@ -23,6 +24,7 @@ interface Step3SolveReviewProps {
   solverResult: ScheduleOutput | null;
   loading: boolean;
   intakeData: IntakePayload | null;
+  exceptions?: ExceptionRule[];
   showNonParticipatingQuota: boolean;
   setShowNonParticipatingQuota: React.Dispatch<React.SetStateAction<boolean>>;
   handleRunSolver: () => void;
@@ -45,6 +47,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
   solverResult,
   loading,
   intakeData,
+  exceptions,
   showNonParticipatingQuota,
   setShowNonParticipatingQuota,
   handleRunSolver,
@@ -390,21 +393,45 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                             )}
                           </div>
                           <div className="flex flex-wrap gap-2 mt-1.5">
-                            {day.cooks.map((name: string, cIdx: number) => (
-                              <button
-                                type="button"
-                                key={`cook-${name}-${cIdx}`}
-                                onClick={() => {
-                                  setSelectedQuotaMember(name);
-                                  setSelectedQuotaFocusDateKey(day.dateKey);
-                                }}
-                                className="min-h-[38px] inline-flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-orange-50 dark:hover:bg-orange-950/40 text-orange-950 dark:text-orange-200 border border-orange-300 dark:border-orange-800/80 hover:border-orange-400 rounded-xl text-xs sm:text-sm font-bold shadow-2xs transition-all cursor-pointer group"
-                                title={`Click to view ${name}'s availability and shifts`}
-                              >
-                                <span>{name}</span>
-                                <Search className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform" />
-                              </button>
-                            ))}
+                            {day.cooks.map((name: string, cIdx: number) => {
+                              const isHelper =
+                                day.extraCookHelpers?.includes(name) ||
+                                exceptions?.some(
+                                  (r) =>
+                                    r.rule_type === "EXTRA_HELPER" &&
+                                    r.person_a.toLowerCase() === name.toLowerCase() &&
+                                    (!r.target_role_a ||
+                                      r.target_role_a === "ANY" ||
+                                      r.target_role_a === "COOK")
+                                );
+                              return (
+                                <button
+                                  type="button"
+                                  key={`cook-${name}-${cIdx}`}
+                                  onClick={() => {
+                                    setSelectedQuotaMember(name);
+                                    setSelectedQuotaFocusDateKey(day.dateKey);
+                                  }}
+                                  className="min-h-[38px] inline-flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-orange-50 dark:hover:bg-orange-950/40 text-orange-950 dark:text-orange-200 border border-orange-300 dark:border-orange-800/80 hover:border-orange-400 rounded-xl text-xs sm:text-sm font-bold shadow-2xs transition-all cursor-pointer group"
+                                  title={
+                                    isHelper
+                                      ? `${name} is assigned as an extra helper on this team`
+                                      : `Click to view ${name}'s availability and shifts`
+                                  }
+                                >
+                                  <span>{name}</span>
+                                  {isHelper && (
+                                    <span
+                                      className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 shadow-2xs"
+                                      title="Assigned as extra helper to full team"
+                                    >
+                                      🤝 Helper
+                                    </span>
+                                  )}
+                                  <Search className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform" />
+                                </button>
+                              );
+                            })}
                             {Array.from({ length: day.unfilledCooks }).map((_, i) => (
                               <button
                                 key={`empty-cook-${i}`}
@@ -440,21 +467,43 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                             )}
                           </div>
                           <div className="flex flex-wrap gap-2 mt-1.5">
-                            {day.cleaners.map((name: string, clIdx: number) => (
-                              <button
-                                type="button"
-                                key={`clean-${name}-${clIdx}`}
-                                onClick={() => {
-                                  setSelectedQuotaMember(name);
-                                  setSelectedQuotaFocusDateKey(day.dateKey);
-                                }}
-                                className="min-h-[38px] inline-flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/40 text-sky-950 dark:text-sky-200 border border-sky-300 dark:border-sky-800/80 hover:border-sky-400 rounded-xl text-xs sm:text-sm font-bold shadow-2xs transition-all cursor-pointer group"
-                                title={`Click to view ${name}'s availability and shifts`}
-                              >
-                                <span>{name}</span>
-                                <Search className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 group-hover:scale-110 transition-transform" />
-                              </button>
-                            ))}
+                            {day.cleaners.map((name: string, clIdx: number) => {
+                              const isHelper =
+                                day.extraCleanHelpers?.includes(name) ||
+                                exceptions?.some(
+                                  (r) =>
+                                    r.rule_type === "EXTRA_HELPER" &&
+                                    r.person_a.toLowerCase() === name.toLowerCase() &&
+                                    (r.target_role_a === "ANY" || r.target_role_a === "CLEAN")
+                                );
+                              return (
+                                <button
+                                  type="button"
+                                  key={`clean-${name}-${clIdx}`}
+                                  onClick={() => {
+                                    setSelectedQuotaMember(name);
+                                    setSelectedQuotaFocusDateKey(day.dateKey);
+                                  }}
+                                  className="min-h-[38px] inline-flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/40 text-sky-950 dark:text-sky-200 border border-sky-300 dark:border-sky-800/80 hover:border-sky-400 rounded-xl text-xs sm:text-sm font-bold shadow-2xs transition-all cursor-pointer group"
+                                  title={
+                                    isHelper
+                                      ? `${name} is assigned as an extra helper on this team`
+                                      : `Click to view ${name}'s availability and shifts`
+                                  }
+                                >
+                                  <span>{name}</span>
+                                  {isHelper && (
+                                    <span
+                                      className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-sky-100 dark:bg-sky-950/60 text-sky-900 dark:text-sky-200 border border-sky-300 dark:border-sky-800 shadow-2xs"
+                                      title="Assigned as extra helper to full team"
+                                    >
+                                      🤝 Helper
+                                    </span>
+                                  )}
+                                  <Search className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 group-hover:scale-110 transition-transform" />
+                                </button>
+                              );
+                            })}
                             {Array.from({ length: day.unfilledCleaners }).map((_, i) => (
                               <button
                                 key={`empty-clean-${i}`}
@@ -596,7 +645,21 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                         className={`hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors ${isMuted ? "bg-slate-50/50 dark:bg-slate-800/20 text-slate-600 dark:text-slate-400" : ""}`}
                       >
                         <th scope="row" className="px-4 py-3 font-bold text-slate-900 dark:text-white">
-                          {stat.name}
+                          <div className="flex items-center gap-1.5">
+                            <span>{stat.name}</span>
+                            {exceptions?.some(
+                              (r) =>
+                                r.rule_type === "EXTRA_HELPER" &&
+                                r.person_a.toLowerCase() === stat.name.toLowerCase()
+                            ) && (
+                              <span
+                                className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 shadow-2xs"
+                                title="Configured as an extra helper (assigned only to full teams)"
+                              >
+                                🤝 Helper
+                              </span>
+                            )}
+                          </div>
                         </th>
                         <td className="px-4 py-3 font-semibold text-slate-800 dark:text-slate-200">
                           {stat.availableCookDays}{" "}

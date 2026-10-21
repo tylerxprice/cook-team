@@ -2585,7 +2585,8 @@ function MainApp() {
       if (
         rule.person_b &&
         rule.rule_type !== "REQUIRE_ONE_OF_TEAM" &&
-        rule.rule_type !== "PREF_SAME_DAY"
+        rule.rule_type !== "PREF_SAME_DAY" &&
+        rule.rule_type !== "EXTRA_HELPER"
       ) {
         const keyB = rule.person_b.toLowerCase();
         if (!map.has(keyB)) {
@@ -3835,6 +3836,7 @@ function MainApp() {
             solverResult={solverResult}
             loading={loading}
             intakeData={intakeData}
+            exceptions={exceptions}
             showNonParticipatingQuota={showNonParticipatingQuota}
             setShowNonParticipatingQuota={setShowNonParticipatingQuota}
             handleRunSolver={handleRunSolver}
@@ -3936,6 +3938,7 @@ function MainApp() {
         onClose={() => setSelectedQuotaMember(null)}
         solverResult={solverResult}
         intakeData={intakeData}
+        exceptions={exceptions}
         selectedQuotaFocusDateKey={selectedQuotaFocusDateKey}
         checkAssignmentConflict={checkAssignmentConflict}
         handleAddExtraShift={handleAddExtraShift}
