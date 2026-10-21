@@ -21,6 +21,15 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
   members,
   handleSaveRule,
 }) => {
+  React.useEffect(() => {
+    if (!show) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [show]);
+
   if (!show) return null;
 
   return (
@@ -28,10 +37,11 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title-rule"
-      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
     >
-      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full shadow-2xl p-6 space-y-4 border border-slate-200 dark:border-slate-800">
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[90vh] border border-slate-200 dark:border-slate-800 overflow-hidden text-slate-900 dark:text-slate-100 my-auto">
+        {/* Fixed Header */}
+        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/80 dark:bg-slate-800/80">
           <h3 id="modal-title-rule" className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
             {newRule.id ? "Edit Exception Rule" : "Add Exception Rule"}
           </h3>
@@ -44,194 +54,198 @@ export const RuleConfigModal: React.FC<RuleConfigModalProps> = ({
           </button>
         </div>
 
-        {/* Display Special Note Context if available */}
-        {modalContextNote && (
-          <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl p-3 flex items-start gap-2.5">
-            <MessageSquare className="w-4 h-4 text-amber-800 dark:text-amber-400 mt-0.5 shrink-0" />
-            <div>
-              <span className="text-xs font-bold text-amber-950 dark:text-amber-200">
-                Survey Request from {newRule.person_a}:
-              </span>
-              <p className="text-xs text-amber-900 dark:text-amber-300 mt-0.5 font-medium italic">
-                &quot;{modalContextNote}&quot;
-              </p>
-            </div>
-          </div>
-        )}
+        {/* Form Container with Scrollable Body and Pinned Footer */}
+        <form onSubmit={handleSaveRule} className="flex flex-col flex-1 overflow-hidden min-h-0">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 overscroll-contain">
+            {/* Display Special Note Context if available */}
+            {modalContextNote && (
+              <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl p-3 flex items-start gap-2.5">
+                <MessageSquare className="w-4 h-4 text-amber-800 dark:text-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <span className="text-xs font-bold text-amber-950 dark:text-amber-200">
+                    Survey Request from {newRule.person_a}:
+                  </span>
+                  <p className="text-xs text-amber-900 dark:text-amber-300 mt-0.5 font-medium italic">
+                    &quot;{modalContextNote}&quot;
+                  </p>
+                </div>
+              </div>
+            )}
 
-        <form onSubmit={handleSaveRule} className="space-y-4">
-          <div>
-            <label
-              htmlFor="rule-type-select"
-              className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1"
-            >
-              Rule Type
-            </label>
-            <select
-              id="rule-type-select"
-              value={newRule.rule_type}
-              onChange={(e) => {
-                const rt = e.target.value as RuleType;
-                setNewRule({
-                  ...newRule,
-                  rule_type: rt,
-                  target_role_a: rt === "EXTRA_HELPER" ? "ANY" : (newRule.target_role_a || "COOK"),
-                });
-              }}
-              className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
-            >
-              <option value="NOT_SAME_TEAM">NOT_SAME_TEAM (Cannot be in same team)</option>
-              <option value="NOT_SAME_DAY">NOT_SAME_DAY (Cannot be scheduled on same date)</option>
-              <option value="SAME_DAY_DIFF_TEAM">
-                SAME_DAY_DIFF_TEAM (Same date, different team)
-              </option>
-              <option value="PAIR_WITH_ROLE">PAIR_WITH_ROLE (Assign together for role)</option>
-              <option value="EXTRA_HELPER">
-                EXTRA_HELPER (Helper only - add to completed full team)
-              </option>
-            </select>
-          </div>
-
-          {newRule.rule_type === "EXTRA_HELPER" && (
-            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl p-3 text-xs text-amber-950 dark:text-amber-200">
-              <p className="font-bold">🤝 How Extra Helper Works:</p>
-              <p className="mt-0.5 text-amber-900 dark:text-amber-300">
-                Person A will <strong>not</strong> count toward required core team sizes (3 cooks on dinner, 2 on brunch). Once a team is fully staffed, the matchmaker adds at most <strong>1 extra helper</strong> to a completed Cook or Clean team based on Person A's survey availability selections and paired mentor.
-              </p>
-            </div>
-          )}
-
-          {newRule.rule_type === "EXTRA_HELPER" && (
             <div>
               <label
-                htmlFor="target-role-select"
+                htmlFor="rule-type-select"
                 className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1"
               >
-                Team Type / Role
+                Rule Type
               </label>
               <select
-                id="target-role-select"
-                value={newRule.target_role_a || "ANY"}
-                onChange={(e) =>
-                  setNewRule({ ...newRule, target_role_a: e.target.value as any })
-                }
+                id="rule-type-select"
+                value={newRule.rule_type}
+                onChange={(e) => {
+                  const rt = e.target.value as RuleType;
+                  setNewRule({
+                    ...newRule,
+                    rule_type: rt,
+                    target_role_a: rt === "EXTRA_HELPER" ? "ANY" : (newRule.target_role_a || "COOK"),
+                  });
+                }}
                 className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
               >
-                <option value="ANY">
-                  Either Team Type (Cook or Clean — based on availability)
+                <option value="NOT_SAME_TEAM">NOT_SAME_TEAM (Cannot be in same team)</option>
+                <option value="NOT_SAME_DAY">NOT_SAME_DAY (Cannot be scheduled on same date)</option>
+                <option value="SAME_DAY_DIFF_TEAM">
+                  SAME_DAY_DIFF_TEAM (Same date, different team)
                 </option>
-                <option value="COOK">Cook Team Only</option>
-                <option value="CLEAN">Clean Team Only</option>
-              </select>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label
-                htmlFor="person-a-select"
-                className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1"
-              >
-                Person A
-              </label>
-              <select
-                id="person-a-select"
-                value={newRule.person_a}
-                onChange={(e) => setNewRule({ ...newRule, person_a: e.target.value })}
-                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
-              >
-                <option value="">Select Member...</option>
-                {[...members]
-                  .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
-                  .map((m) => (
-                    <option key={m.name} value={m.name}>
-                      {m.name}
-                    </option>
-                  ))}
+                <option value="PAIR_WITH_ROLE">PAIR_WITH_ROLE (Assign together for role)</option>
+                <option value="EXTRA_HELPER">
+                  EXTRA_HELPER (Helper only - add to completed full team)
+                </option>
               </select>
             </div>
 
-            <div>
-              <label
-                htmlFor="person-b-select"
-                className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1"
-              >
-                {newRule.rule_type === "EXTRA_HELPER"
-                  ? "Paired Mentor / Partner (Optional)"
-                  : "Person B (Optional)"}
-              </label>
-              <select
-                id="person-b-select"
-                value={newRule.person_b || ""}
-                onChange={(e) => setNewRule({ ...newRule, person_b: e.target.value })}
-                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
-              >
-                <option value="">
+            {newRule.rule_type === "EXTRA_HELPER" && (
+              <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl p-3 text-xs text-amber-950 dark:text-amber-200">
+                <p className="font-bold">🤝 How Extra Helper Works:</p>
+                <p className="mt-0.5 text-amber-900 dark:text-amber-300">
+                  Person A will <strong>not</strong> count toward required core team sizes (3 cooks on dinner, 2 on brunch). Once a team is fully staffed, the matchmaker adds at most <strong>1 extra helper</strong> to a completed Cook or Clean team based on Person A's survey availability selections and paired mentor.
+                </p>
+              </div>
+            )}
+
+            {newRule.rule_type === "EXTRA_HELPER" && (
+              <div>
+                <label
+                  htmlFor="target-role-select"
+                  className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1"
+                >
+                  Team Type / Role
+                </label>
+                <select
+                  id="target-role-select"
+                  value={newRule.target_role_a || "ANY"}
+                  onChange={(e) =>
+                    setNewRule({ ...newRule, target_role_a: e.target.value as any })
+                  }
+                  className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
+                >
+                  <option value="ANY">
+                    Either Team Type (Cook or Clean — based on availability)
+                  </option>
+                  <option value="COOK">Cook Team Only</option>
+                  <option value="CLEAN">Clean Team Only</option>
+                </select>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label
+                  htmlFor="person-a-select"
+                  className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1"
+                >
+                  Person A
+                </label>
+                <select
+                  id="person-a-select"
+                  value={newRule.person_a}
+                  onChange={(e) => setNewRule({ ...newRule, person_a: e.target.value })}
+                  className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
+                >
+                  <option value="">Select Member...</option>
+                  {[...members]
+                    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
+                    .map((m) => (
+                      <option key={m.name} value={m.name}>
+                        {m.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="person-b-select"
+                  className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1"
+                >
                   {newRule.rule_type === "EXTRA_HELPER"
-                    ? "None (Any full team)"
-                    : "Select Member (if paired)..."}
-                </option>
-                {[...members]
-                  .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
-                  .map((m) => (
-                    <option key={m.name} value={m.name}>
-                      {m.name}
-                    </option>
-                  ))}
-              </select>
+                    ? "Paired Mentor / Partner (Optional)"
+                    : "Person B (Optional)"}
+                </label>
+                <select
+                  id="person-b-select"
+                  value={newRule.person_b || ""}
+                  onChange={(e) => setNewRule({ ...newRule, person_b: e.target.value })}
+                  className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
+                >
+                  <option value="">
+                    {newRule.rule_type === "EXTRA_HELPER"
+                      ? "None (Any full team)"
+                      : "Select Member (if paired)..."}
+                  </option>
+                  {[...members]
+                    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
+                    .map((m) => (
+                      <option key={m.name} value={m.name}>
+                        {m.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1.5">
+                Constraint Strictness
+              </span>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 min-h-[44px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="strictness"
+                    checked={newRule.is_hard_rule === true}
+                    onChange={() => setNewRule({ ...newRule, is_hard_rule: true })}
+                    className="w-4 h-4 text-orange-600 focus:ring-orange-500"
+                  />
+                  Hard Rule (Strictly enforced)
+                </label>
+                <label className="flex items-center gap-2 min-h-[44px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="strictness"
+                    checked={newRule.is_hard_rule === false}
+                    onChange={() => setNewRule({ ...newRule, is_hard_rule: false })}
+                    className="w-4 h-4 text-orange-600 focus:ring-orange-500"
+                  />
+                  Soft Preference (Best effort)
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="rule-notes-input"
+                className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1"
+              >
+                Rationale / Notes
+              </label>
+              <input
+                id="rule-notes-input"
+                type="text"
+                value={newRule.notes || ""}
+                onChange={(e) => setNewRule({ ...newRule, notes: e.target.value })}
+                placeholder="e.g. Roommates, Childcare conflict..."
+                className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
+              />
             </div>
           </div>
 
-          <div>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1.5">
-              Constraint Strictness
-            </span>
-            <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2 min-h-[44px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
-                <input
-                  type="radio"
-                  name="strictness"
-                  checked={newRule.is_hard_rule === true}
-                  onChange={() => setNewRule({ ...newRule, is_hard_rule: true })}
-                  className="w-4 h-4 text-orange-600 focus:ring-orange-500"
-                />
-                Hard Rule (Strictly enforced)
-              </label>
-              <label className="flex items-center gap-2 min-h-[44px] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
-                <input
-                  type="radio"
-                  name="strictness"
-                  checked={newRule.is_hard_rule === false}
-                  onChange={() => setNewRule({ ...newRule, is_hard_rule: false })}
-                  className="w-4 h-4 text-orange-600 focus:ring-orange-500"
-                />
-                Soft Preference (Best effort)
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <label
-              htmlFor="rule-notes-input"
-              className="text-xs font-bold text-slate-800 dark:text-slate-200 block mb-1"
-            >
-              Rationale / Notes
-            </label>
-            <input
-              id="rule-notes-input"
-              type="text"
-              value={newRule.notes || ""}
-              onChange={(e) => setNewRule({ ...newRule, notes: e.target.value })}
-              placeholder="e.g. Roommates, Childcare conflict..."
-              className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+          {/* Pinned Footer with Action Buttons */}
+          <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/80 shrink-0 flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="min-h-[44px] px-4 py-2 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              className="min-h-[44px] px-4 py-2 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
             >
               Cancel
             </button>
