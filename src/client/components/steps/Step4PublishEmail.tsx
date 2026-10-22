@@ -5,7 +5,6 @@ import {
   RefreshCw,
   Mail,
   Copy,
-  FileText,
   AlertTriangle,
   Eye,
   Edit3,
@@ -41,7 +40,7 @@ interface Step4PublishEmailProps {
   setEmailCc: (cc: string) => void;
   DEFAULT_ANNOUNCEMENT_TO: string;
   DEFAULT_ANNOUNCEMENT_CC: string;
-  DEV_TEST_EMAIL: string;
+  DEV_TEST_EMAIL?: string;
   emailSubject: string;
   setEmailSubject: (subject: string) => void;
   isEmailSubjectDirty: React.MutableRefObject<boolean>;
@@ -59,8 +58,8 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
   loading,
   handleExportSheet,
   handleCopyEmail,
-  handleSendGmail,
-  sendingEmail,
+  handleSendGmail: _handleSendGmail,
+  sendingEmail: _sendingEmail,
   emailDispatchInfo,
   emailDeliveryResult,
   emailTo,
@@ -69,7 +68,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
   setEmailCc,
   DEFAULT_ANNOUNCEMENT_TO,
   DEFAULT_ANNOUNCEMENT_CC,
-  DEV_TEST_EMAIL,
+  DEV_TEST_EMAIL: _DEV_TEST_EMAIL,
   emailSubject,
   setEmailSubject,
   isEmailSubjectDirty,
@@ -169,7 +168,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                 Community Announcement &amp; Gmail Dispatch
               </h3>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-0.5">
-                Compose in Gmail web, create a draft in Gmail, or copy formatted text
+                Compose in Gmail web or copy formatted text
               </p>
             </div>
           </div>
@@ -187,27 +186,19 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
               type="button"
               onClick={() => {
                 handleCopyEmail();
+                const bodyText = customEmailBody ?? generateEmailText();
                 const composeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
                   emailTo
                 )}&su=${encodeURIComponent(emailSubject)}${
                   emailCc ? `&cc=${encodeURIComponent(emailCc)}` : ""
-                }`;
+                }&body=${encodeURIComponent(bodyText)}`;
                 window.open(composeUrl, "_blank");
               }}
               className="min-h-[44px] inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-colors cursor-pointer"
-              title="Open Gmail compose tab in browser with recipient and subject pre-filled, and text copied to clipboard"
+              title="Open Gmail compose tab in browser with recipient, subject, and email body pre-filled"
             >
               <ExternalLink className="w-4 h-4" />
               <span>Compose in Gmail Web</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSendGmail("draft")}
-              disabled={sendingEmail}
-              className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-900 dark:text-blue-300 border border-blue-300 dark:border-blue-800 rounded-xl text-xs sm:text-sm font-bold transition-colors disabled:opacity-50 cursor-pointer"
-            >
-              <FileText className="w-4 h-4" />
-              <span>Create Gmail Draft</span>
             </button>
           </div>
         </div>
@@ -309,7 +300,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                   htmlFor="email-recipients-to-input"
                   className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200"
                 >
-                  Recipients / Listserv (To:)
+                  Recipients (To:)
                 </label>
                 <div className="flex items-center gap-1.5">
                   <button
@@ -322,17 +313,6 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                     }`}
                   >
                     Vancouver Cohousing Listserv
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEmailTo(DEV_TEST_EMAIL)}
-                    className={`text-xs px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
-                      emailTo === DEV_TEST_EMAIL
-                        ? "bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-800"
-                        : "text-slate-700 dark:text-slate-300 hover:text-amber-900 dark:hover:text-amber-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                    }`}
-                  >
-                    Dev / Test (Tyler)
                   </button>
                 </div>
               </div>

@@ -3479,6 +3479,7 @@ function MainApp() {
           onOpenCoordinator={() => navigateToView("coordinator", { step: currentStep })}
           onOpenSchedule={() => navigateToView("resident", { month: surveyFormMonthKey })}
           onToast={showToast}
+          communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
         />
         {showOverwriteSurveyModal && surveyFormExistingSurvey && (
           <OverwriteSurveyConfirmModal
@@ -3527,10 +3528,10 @@ function MainApp() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors">
       {/* Top Header */}
       <TopHeader
-        communityName="Coordinator Hub"
+        communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
         viewBadge={
           <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
-            Coordinator
+            Coordinator Hub
           </span>
         }
         onBackToHome={() => navigateToView("portal")}

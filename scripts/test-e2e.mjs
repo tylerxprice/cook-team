@@ -476,12 +476,13 @@ async function runE2ETest() {
       errors.push("Calendar link missing in email announcement");
     }
 
-    // Test Create Gmail Draft
-    console.log("   Testing Create Gmail Draft button...");
+    // Verify 'Create Gmail Draft' is removed per coordinator feedback
     const draftBtn = page.locator("button:has-text('Create Gmail Draft')");
-    await draftBtn.click();
-    await page.waitForSelector("text=Draft created in your Gmail account");
-    console.log("✓ Gmail Draft creation verified!");
+    const draftBtnCount = await draftBtn.count();
+    if (draftBtnCount > 0) {
+      throw new Error("Expected 'Create Gmail Draft' button to be removed, but found " + draftBtnCount);
+    }
+    console.log("✓ Verified 'Create Gmail Draft' button is removed!");
 
     // Test Compose in Gmail Web
     console.log("   Testing Compose in Gmail Web button...");

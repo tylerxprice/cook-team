@@ -98,7 +98,7 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
               {loading && <RefreshCw className="w-4 h-4 text-orange-600 animate-spin shrink-0" />}
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-0.5">
-              Select a monthly survey response sheet from Google Drive or choose a test scenario
+              Select a monthly survey response sheet from Google Drive
             </p>
           </div>
           <div className="flex items-center gap-2.5 flex-wrap">

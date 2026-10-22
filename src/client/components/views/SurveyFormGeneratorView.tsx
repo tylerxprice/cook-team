@@ -80,6 +80,7 @@ export interface SurveyFormGeneratorViewProps {
   onOpenSchedule?: () => void;
   onToast?: (message: string, type?: "success" | "error") => void;
   onClearFormResult?: () => void;
+  communityName?: string;
 }
 
 export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = ({
@@ -87,6 +88,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
   setMonthKey,
   loadDatesPreview,
   onClearFormResult,
+  communityName,
   formTitle: _formTitle = "",
   setFormTitle: _setFormTitle,
   folderId: _folderId,
@@ -338,7 +340,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
       {/* Top Navigation Header */}
       <TopHeader
-        communityName="CoHo"
+        communityName={communityName || "Vancouver Cohousing"}
         onBackToHome={onBackToHome}
         viewBadge={
           <span className="px-2.5 py-1 text-xs font-bold rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-950 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
