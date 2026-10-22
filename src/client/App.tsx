@@ -258,6 +258,7 @@ function MainApp() {
   const [isDevMode, setIsDevMode] = useState<boolean>(!isGasEnvironment());
   const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [intakeLoading, setIntakeLoading] = useState(false);
   const [currentStep, setCurrentStepState] = useState<1 | 2 | 3 | 4>(1);
   const [coordinatorStage, setCoordinatorStageState] = useState<CoordinatorStage>(() =>
     parseStageFromHash()
@@ -1737,60 +1738,6 @@ function MainApp() {
     }
   }, [nextUnconfiguredMonthKey]);
 
-  const activeCoordinatorMonthDisplayName = useMemo(() => {
-    try {
-      const [y, m] = activeCoordinatorMonthKey.split(/[-_]/);
-      const d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
-      return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    } catch {
-      return activeCoordinatorMonthKey;
-    }
-  }, [activeCoordinatorMonthKey]);
-
-  const { currentCoordinatorStatusLabel, currentCoordinatorStatusBadgeClass } = useMemo(() => {
-    switch (activeCoordinatorStatus) {
-      case "STAGING_DATES":
-      case "NOT_OPEN":
-        return {
-          currentCoordinatorStatusLabel: "Staging Dates",
-          currentCoordinatorStatusBadgeClass:
-            "bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-800",
-        };
-      case "SIGN_UPS_OPEN":
-      case "OPEN":
-        return {
-          currentCoordinatorStatusLabel: "Sign-ups Open",
-          currentCoordinatorStatusBadgeClass:
-            "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800",
-        };
-      case "RESPONSES_RECEIVED":
-        return {
-          currentCoordinatorStatusLabel: "Responses Received",
-          currentCoordinatorStatusBadgeClass:
-            "bg-blue-100 dark:bg-blue-950/60 text-blue-950 dark:text-blue-300 border-blue-300 dark:border-blue-800",
-        };
-      case "TEAMS_READY":
-        return {
-          currentCoordinatorStatusLabel: "Teams Ready",
-          currentCoordinatorStatusBadgeClass:
-            "bg-purple-100 dark:bg-purple-950/60 text-purple-950 dark:text-purple-300 border-purple-300 dark:border-purple-800",
-        };
-      case "EMAIL_SENT":
-      case "CLOSED":
-        return {
-          currentCoordinatorStatusLabel: "Email Sent",
-          currentCoordinatorStatusBadgeClass:
-            "bg-indigo-100 dark:bg-indigo-950/60 text-indigo-950 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800",
-        };
-      default:
-        return {
-          currentCoordinatorStatusLabel: "Sign-ups Open",
-          currentCoordinatorStatusBadgeClass:
-            "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700",
-        };
-    }
-  }, [activeCoordinatorStatus]);
-
   const handleStartNextMonth = () => {
     setSurveyFormMonthKey(nextUnconfiguredMonthKey);
     setSelectedActiveMonthKey(nextUnconfiguredMonthKey);
@@ -2040,6 +1987,7 @@ function MainApp() {
   const handleSelectPreset = async (presetKey: string) => {
     setSelectedPreset(presetKey);
     setEmailTo(DEV_TEST_EMAIL);
+    setIntakeLoading(true);
     setLoading(true);
     try {
       const data = await callGas<IntakePayload>("loadMockPreset", presetKey);
@@ -2067,6 +2015,7 @@ function MainApp() {
     } catch (err: any) {
       showToast(`Error: ${err.message}`, "error");
     } finally {
+      setIntakeLoading(false);
       setLoading(false);
     }
   };
@@ -2114,6 +2063,7 @@ function MainApp() {
       delete intakeCacheRef.current[targetSheet];
     }
 
+    setIntakeLoading(true);
     setLoading(true);
     try {
       const data = await callGas<IntakePayload>(
@@ -2152,6 +2102,7 @@ function MainApp() {
       console.error(err);
       showToast(`Failed to load survey: ${err.message}`, "error");
     } finally {
+      setIntakeLoading(false);
       setLoading(false);
     }
   };
@@ -3565,6 +3516,7 @@ function MainApp() {
   // Load Saved Schedule from existing tab
   const handleLoadExistingSchedule = async () => {
     if (!sheetInput) return;
+    setIntakeLoading(true);
     setLoading(true);
     try {
       const res = await callGas<ScheduleOutput>(
@@ -3590,6 +3542,7 @@ function MainApp() {
     } catch (err: any) {
       showToast(`Failed to load saved schedule: ${err.message}`, "error");
     } finally {
+      setIntakeLoading(false);
       setLoading(false);
     }
   };
@@ -4275,84 +4228,73 @@ function MainApp() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 space-y-3">
           {/* Top Month Selector & Actions Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            {/* Left: Survey Response Spreadsheet Selector, Open in Sheets, & Status Badge */}
-            <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
-              <div className="flex items-center gap-2 flex-wrap">
-                <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <select
-                  id="survey-sheet-select"
-                  value={sheetSelectMode || sheetInput || ""}
-                  onChange={(e) => handleSelectSheetOption(e.target.value)}
-                  disabled={loading}
-                  aria-label="Survey Response Spreadsheet"
-                  className="min-h-[38px] max-w-[200px] xs:max-w-xs sm:max-w-sm md:max-w-md px-3 py-1.5 text-xs sm:text-sm bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 font-bold text-slate-900 dark:text-white transition-colors cursor-pointer shadow-2xs truncate"
-                >
-                  <option value="" disabled>
-                    {isDevMode
-                      ? "-- Select a Test Scenario to Begin --"
-                      : "-- Select a Monthly Survey to Begin --"}
-                  </option>
-
-                  {!isDevMode && liveSheetsList.length > 0 && (
-                    <optgroup label="📁 Monthly Surveys (Google Drive)">
-                      {liveSheetsList.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          📄 {s.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-
-                  {isDevMode && devSheetsList.length > 0 && (
-                    <optgroup label="🧪 Dev / Test Scenarios">
-                      {devSheetsList.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          🧪 {s.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-
-                  {availableCoordinatorMonths.length > 0 && (
-                    <optgroup label="📅 Active Months">
-                      {availableCoordinatorMonths.map((mKey) => {
-                        const statusObj = configuredMonths.find((c) => c.monthKey === mKey);
-                        return (
-                          <option key={mKey} value={mKey}>
-                            📅 {formatMonthOptionLabel(mKey)}{statusObj?.status ? ` (${statusObj.status.replace(/_/g, " ")})` : ""}
-                          </option>
-                        );
-                      })}
-                    </optgroup>
-                  )}
-
-                  <optgroup label="🔗 Custom Input">
-                    <option value="custom">✏️ Paste Custom Google Sheet URL or ID...</option>
-                  </optgroup>
-                </select>
-
-                {currentSheetUrl && (
-                  <a
-                    href={currentSheetUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl transition-colors border border-slate-300 dark:border-slate-700 shadow-2xs shrink-0"
-                    title="Open current survey response Google Sheet in a new tab"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <span>Open in Sheets</span>
-                  </a>
-                )}
-              </div>
-
-              {/* Status Badge */}
-              <span
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border shadow-2xs ${currentCoordinatorStatusBadgeClass}`}
-                title={`${activeCoordinatorMonthDisplayName} Lifecycle Status: ${currentCoordinatorStatusLabel}`}
+            {/* Left: Survey Response Spreadsheet Selector & Open in Sheets */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <select
+                id="survey-sheet-select"
+                value={sheetSelectMode || sheetInput || ""}
+                onChange={(e) => handleSelectSheetOption(e.target.value)}
+                disabled={loading || intakeLoading}
+                aria-label="Survey Response Spreadsheet"
+                className="min-h-[38px] max-w-[200px] xs:max-w-xs sm:max-w-sm md:max-w-md px-3 py-1.5 text-xs sm:text-sm bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 font-bold text-slate-900 dark:text-white transition-colors cursor-pointer shadow-2xs truncate disabled:opacity-50"
               >
-                <span className="w-2 h-2 rounded-full bg-current opacity-75" />
-                {currentCoordinatorStatusLabel}
-              </span>
+                <option value="" disabled>
+                  {isDevMode
+                    ? "-- Select a Test Scenario to Begin --"
+                    : "-- Select a Monthly Survey to Begin --"}
+                </option>
+
+                {!isDevMode && liveSheetsList.length > 0 && (
+                  <optgroup label="📁 Monthly Surveys (Google Drive)">
+                    {liveSheetsList.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        📄 {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+
+                {isDevMode && devSheetsList.length > 0 && (
+                  <optgroup label="🧪 Dev / Test Scenarios">
+                    {devSheetsList.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        🧪 {s.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+
+                {availableCoordinatorMonths.length > 0 && (
+                  <optgroup label="📅 Active Months">
+                    {availableCoordinatorMonths.map((mKey) => {
+                      const statusObj = configuredMonths.find((c) => c.monthKey === mKey);
+                      return (
+                        <option key={mKey} value={mKey}>
+                          📅 {formatMonthOptionLabel(mKey)}{statusObj?.status ? ` (${statusObj.status.replace(/_/g, " ")})` : ""}
+                        </option>
+                      );
+                    })}
+                  </optgroup>
+                )}
+
+                <optgroup label="🔗 Custom Input">
+                  <option value="custom">✏️ Paste Custom Google Sheet URL or ID...</option>
+                </optgroup>
+              </select>
+
+              {currentSheetUrl && (
+                <a
+                  href={currentSheetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl transition-colors border border-slate-300 dark:border-slate-700 shadow-2xs shrink-0"
+                  title="Open current survey response Google Sheet in a new tab"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Open in Sheets</span>
+                </a>
+              )}
             </div>
 
             {/* Right: Companion Actions */}
@@ -4360,7 +4302,8 @@ function MainApp() {
               <button
                 type="button"
                 onClick={handleStartNextMonth}
-                className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl transition-colors border border-slate-300 dark:border-slate-700 cursor-pointer shadow-2xs shrink-0"
+                disabled={loading || intakeLoading}
+                className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl transition-colors border border-slate-300 dark:border-slate-700 cursor-pointer shadow-2xs shrink-0 disabled:opacity-50"
                 title={`Start staging dates for ${nextUnconfiguredMonthLabel}`}
               >
                 <CalendarPlus className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400 shrink-0" />
@@ -4370,12 +4313,12 @@ function MainApp() {
               <button
                 type="button"
                 onClick={() => fetchIntake(sheetInput, undefined, true)}
-                disabled={loading}
+                disabled={loading || intakeLoading}
                 className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl transition-colors border border-slate-300 dark:border-slate-700 cursor-pointer shadow-2xs shrink-0 disabled:opacity-50"
                 title="Refresh survey response data from Google Sheets"
                 aria-label="Refresh survey response data from Google Sheets"
               >
-                <RefreshCw className={`w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0 ${loading ? "animate-spin text-orange-600" : ""}`} />
+                <RefreshCw className={`w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0 ${intakeLoading || loading ? "animate-spin text-orange-600" : ""}`} />
                 <span>Refresh Data</span>
               </button>
             </div>
@@ -4408,37 +4351,56 @@ function MainApp() {
                 <button
                   type="button"
                   onClick={() => fetchIntake(sheetInput, undefined, true)}
-                  disabled={loading || !sheetInput.trim()}
+                  disabled={loading || intakeLoading || !sheetInput.trim()}
                   className="min-h-[36px] px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold transition-colors disabled:opacity-50 shrink-0 cursor-pointer flex items-center gap-1.5"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 ${intakeLoading || loading ? "animate-spin" : ""}`} />
                   <span>Load</span>
                 </button>
               </div>
             </div>
           )}
-
-          {/* 5-Stage Clickable Lifecycle Stepper */}
-          <MonthLifecycleTracker
-            monthKey={activeCoordinatorMonthKey}
-            monthStatus={activeCoordinatorStatus}
-            activeStage={coordinatorStage}
-            onSelectStage={(stage) => goToStage(stage)}
-            hideHeader={true}
-            datesCount={
-              intakeData?.mealDates?.length ||
-              surveyFormDates.filter((d) => d.included).length
-            }
-            responsesCount={intakeData?.responses?.length}
-            onToggleSignups={(close) =>
-              handleSetMonthStatus(close ? "RESPONSES_RECEIVED" : "SIGN_UPS_OPEN")
-            }
-          />
         </div>
       </div>
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full space-y-6">
+        {intakeLoading ? (
+          <div
+            data-testid="intake-loading-card"
+            className="bg-white dark:bg-slate-900 p-12 sm:p-16 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm text-center space-y-4 max-w-2xl mx-auto my-6 animate-fade-in"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 flex items-center justify-center mx-auto shadow-inner">
+              <RefreshCw className="w-7 h-7 animate-spin text-orange-600" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                Loading Survey &amp; Availability Data...
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+                Fetching sheet tabs and compiling availability...
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* 5-Stage Clickable Lifecycle Stepper */}
+            <MonthLifecycleTracker
+              disabled={loading || intakeLoading}
+              monthKey={activeCoordinatorMonthKey}
+              monthStatus={activeCoordinatorStatus}
+              activeStage={coordinatorStage}
+              onSelectStage={(stage) => goToStage(stage)}
+              hideHeader={true}
+              datesCount={
+                intakeData?.mealDates?.length ||
+                surveyFormDates.filter((d) => d.included).length
+              }
+              responsesCount={intakeData?.responses?.length}
+              onToggleSignups={(close) =>
+                handleSetMonthStatus(close ? "RESPONSES_RECEIVED" : "SIGN_UPS_OPEN")
+              }
+            />
         {coordinatorStage === 1 && (
           <SurveyFormGeneratorView
             embedded={true}
@@ -4622,6 +4584,8 @@ function MainApp() {
               </div>
             </div>
           )
+        )}
+          </>
         )}
       </main>
 

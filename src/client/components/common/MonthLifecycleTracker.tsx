@@ -20,6 +20,7 @@ export interface MonthLifecycleTrackerProps {
   onToggleSignups?: (close: boolean) => void;
   hideHeader?: boolean;
   className?: string;
+  disabled?: boolean;
 }
 
 const STAGES: {
@@ -102,6 +103,7 @@ export const MonthLifecycleTracker: React.FC<MonthLifecycleTrackerProps> = ({
   onToggleSignups,
   hideHeader = false,
   className = "",
+  disabled = false,
 }) => {
   const currentStageIndex = getStageIndex(monthStatus);
 
@@ -117,7 +119,10 @@ export const MonthLifecycleTracker: React.FC<MonthLifecycleTrackerProps> = ({
 
   return (
     <div
-      className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xs space-y-3 ${className}`}
+      className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xs space-y-3 transition-opacity ${
+        disabled ? "opacity-50 pointer-events-none select-none cursor-not-allowed" : ""
+      } ${className}`}
+      aria-disabled={disabled ? "true" : undefined}
     >
       {!hideHeader && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
@@ -149,8 +154,13 @@ export const MonthLifecycleTracker: React.FC<MonthLifecycleTrackerProps> = ({
             {onToggleSignups && (currentStageIndex === 1 || currentStageIndex === 2) && (
               <button
                 type="button"
-                onClick={() => onToggleSignups(currentStageIndex === 1)}
-                className={`min-h-[34px] px-3 py-1 text-xs font-bold rounded-xl border transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                disabled={disabled}
+                onClick={() => !disabled && onToggleSignups(currentStageIndex === 1)}
+                className={`min-h-[34px] px-3 py-1 text-xs font-bold rounded-xl border transition-colors flex items-center gap-1.5 shadow-2xs ${
+                  disabled
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                } ${
                   currentStageIndex === 1
                     ? "bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200 border-amber-300 dark:border-amber-800"
                     : "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800"
@@ -230,9 +240,16 @@ export const MonthLifecycleTracker: React.FC<MonthLifecycleTrackerProps> = ({
               <button
                 key={stage.id}
                 type="button"
-                onClick={() => onSelectStage(stage.stage)}
+                disabled={disabled}
+                aria-disabled={disabled ? "true" : undefined}
+                tabIndex={disabled ? -1 : 0}
+                onClick={() => !disabled && onSelectStage(stage.stage)}
                 aria-current={isSelected ? "step" : undefined}
-                className={`p-2.5 rounded-xl border transition-all flex flex-col justify-between text-left cursor-pointer group ${
+                className={`p-2.5 rounded-xl border transition-all flex flex-col justify-between text-left group ${
+                  disabled
+                    ? "cursor-not-allowed opacity-60 pointer-events-none"
+                    : "cursor-pointer"
+                } ${
                   isSelected
                     ? "bg-orange-50/90 dark:bg-orange-950/40 border-orange-400 dark:border-orange-600 ring-2 ring-orange-500/30 shadow-xs"
                     : isCompleted
