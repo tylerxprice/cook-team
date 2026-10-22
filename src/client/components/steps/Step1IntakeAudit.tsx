@@ -15,7 +15,6 @@ import {
   ChevronDown,
   ChevronUp,
   Search,
-  Lock,
 } from "lucide-react";
 import { IntakePayload, Member, MonthStatus } from "../../../server/types";
 import { formatLastActiveDisplay } from "../../../server/parser";
@@ -46,15 +45,15 @@ export interface Step1IntakeAuditProps {
 }
 
 export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
-  sheetInput,
-  setSheetInput,
-  sheetSelectMode,
-  handleSelectSheetOption,
-  fetchIntake,
+  sheetInput: _sheetInput,
+  setSheetInput: _setSheetInput,
+  sheetSelectMode: _sheetSelectMode,
+  handleSelectSheetOption: _handleSelectSheetOption,
+  fetchIntake: _fetchIntake,
   loading,
-  isDevMode,
-  liveSheetsList,
-  devSheetsList,
+  isDevMode: _isDevMode,
+  liveSheetsList: _liveSheetsList,
+  devSheetsList: _devSheetsList,
   intakeData,
   members,
   handleLoadExistingSchedule,
@@ -67,7 +66,7 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
   handleMarkInactive,
   handleOpenManualSurveyModal,
   goToStep,
-  onToggleMonthStatus,
+  onToggleMonthStatus: _onToggleMonthStatus,
 }) => {
   const [showSubmittedResponses, setShowSubmittedResponses] = useState(false);
   const [submittedSearch, setSubmittedSearch] = useState("");
@@ -88,154 +87,6 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
   }, [intakeData?.responses, submittedSearch]);
   return (
     <div className="space-y-6">
-      {/* Sheet Link & Dropdown Selector Card */}
-      <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 transition-colors">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <FileSpreadsheet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              <span>Survey Response Spreadsheet</span>
-              {loading && <RefreshCw className="w-4 h-4 text-orange-600 animate-spin shrink-0" />}
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-0.5">
-              Select a monthly survey response sheet from Google Drive
-            </p>
-          </div>
-          <div className="flex items-center gap-2.5 flex-wrap">
-            {intakeData && intakeData.monthStatus && (
-              <button
-                type="button"
-                onClick={() =>
-                  onToggleMonthStatus?.(intakeData.monthStatus === "OPEN" ? "CLOSED" : "OPEN")
-                }
-                className={`min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border transition-colors cursor-pointer shadow-2xs ${
-                  intakeData.monthStatus === "OPEN"
-                    ? "text-emerald-900 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border-emerald-300 dark:border-emerald-800"
-                    : "text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border-slate-300 dark:border-slate-700"
-                }`}
-                title={
-                  intakeData.monthStatus === "OPEN"
-                    ? "Sign-ups are open. Click to close and freeze submissions."
-                    : "Sign-ups are closed. Click to reopen."
-                }
-              >
-                {intakeData.monthStatus === "OPEN" ? (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                    <span>Sign-Ups: Open (Click to Close)</span>
-                  </>
-                ) : (
-                  <>
-                    <Lock className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0" />
-                    <span>Sign-Ups: Closed (Click to Reopen)</span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Sheet Dropdown Selector */}
-        <div className="space-y-2">
-          <label
-            htmlFor="survey-sheet-select"
-            className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 block"
-          >
-            Select Survey Sheet to Schedule:
-          </label>
-          <div className="flex items-center gap-2">
-            <select
-              id="survey-sheet-select"
-              value={sheetSelectMode}
-              onChange={(e) => handleSelectSheetOption(e.target.value)}
-              disabled={loading}
-              className="w-full min-h-[44px] px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium text-slate-900 dark:text-white transition-colors cursor-pointer disabled:opacity-60"
-            >
-              <option value="" disabled>
-                {isDevMode
-                  ? "-- Select a Test Scenario to Begin --"
-                  : "-- Select a Monthly Survey to Begin --"}
-              </option>
-              {!isDevMode && liveSheetsList.length > 0 && (
-                <optgroup label="📁 Monthly Surveys (01_Live_Production)">
-                  {liveSheetsList.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      📄 {s.name}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-
-              {isDevMode && devSheetsList.length > 0 && (
-                <optgroup label="🧪 Dev / Test Scenarios (02_Dev_and_Testing)">
-                  {devSheetsList.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      🧪 {s.name}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-
-              <optgroup label="🔗 Custom Input">
-                <option value="custom">✏️ Paste Custom Google Sheet URL or ID...</option>
-              </optgroup>
-            </select>
-
-            {sheetInput && (
-              <button
-                type="button"
-                onClick={() => fetchIntake(sheetInput, undefined, true)}
-                disabled={loading}
-                className="min-h-[44px] px-3.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-xl transition-colors cursor-pointer shrink-0 inline-flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
-                title="Reload survey responses from Google Sheet"
-                aria-label="Reload survey responses from Google Sheet"
-              >
-                <RefreshCw
-                  className={`w-3.5 h-3.5 ${loading ? "animate-spin text-orange-600" : "text-slate-600 dark:text-slate-400"}`}
-                />
-                <span className="hidden sm:inline">Reload</span>
-              </button>
-            )}
-          </div>
-
-          {sheetSelectMode === "custom" && (
-            <div className="pt-2">
-              <label
-                htmlFor="custom-sheet-url-input"
-                className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1"
-              >
-                Google Sheet URL or Document ID:
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  id="custom-sheet-url-input"
-                  type="text"
-                  value={sheetInput}
-                  onChange={(e) => setSheetInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && sheetInput.trim()) {
-                      fetchIntake(sheetInput, undefined, true);
-                    }
-                  }}
-                  placeholder="Paste Google Sheet URL or ID and press Enter..."
-                  className="w-full min-h-[44px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => fetchIntake(sheetInput, undefined, true)}
-                  disabled={loading || !sheetInput.trim()}
-                  className="min-h-[44px] px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold transition-colors disabled:opacity-50 shrink-0 cursor-pointer flex items-center gap-1.5"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-                  <span>Load</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
       {loading ? (
         <div
           data-testid="intake-loading-card"

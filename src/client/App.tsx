@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import {
   Utensils,
   Users,
-  Calendar,
   Settings,
   RefreshCw,
   FileText,
@@ -12,7 +11,7 @@ import {
   X,
   ExternalLink,
   CalendarPlus,
-  ChevronDown,
+  FileSpreadsheet,
 } from "lucide-react";
 import { callGas, isGasEnvironment, getBootstrapData, getPublicWebAppUrl } from "./utils/gas";
 import { parseAndDisambiguateGoogleGroupRoster } from "./utils/nameParser";
@@ -456,7 +455,6 @@ function MainApp() {
 
   // Main Navigation Hamburger Menu State
   const [showMainMenu, setShowMainMenu] = useState(false);
-  const [showCoordinatorMonthMenu, setShowCoordinatorMonthMenu] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -464,17 +462,14 @@ function MainApp() {
       if (!target.closest("#header-menu-container")) {
         setShowMainMenu(false);
       }
-      if (!target.closest("#coordinator-month-menu-container")) {
-        setShowCoordinatorMonthMenu(false);
-      }
     };
-    if (showMainMenu || showCoordinatorMonthMenu) {
+    if (showMainMenu) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showMainMenu, showCoordinatorMonthMenu]);
+  }, [showMainMenu]);
 
   // Fetch public schedule for Resident View / Portal
   const fetchPublicSchedule = useCallback(
@@ -1807,7 +1802,6 @@ function MainApp() {
   };
 
   const handleCoordinatorSelectMonth = async (targetMonth: string) => {
-    setShowCoordinatorMonthMenu(false);
     if (targetMonth === activeCoordinatorMonthKey) return;
     setSelectedActiveMonthKey(targetMonth);
     setSurveyFormMonthKey(targetMonth);
@@ -2012,6 +2006,10 @@ function MainApp() {
   const handleSelectSheetOption = async (optionValue: string) => {
     setSheetSelectMode(optionValue);
     if (optionValue === "custom") {
+      return;
+    }
+    if (/^\d{4}-\d{2}$/.test(optionValue)) {
+      await handleCoordinatorSelectMonth(optionValue);
       return;
     }
     setSheetInput(optionValue);
@@ -4277,70 +4275,70 @@ function MainApp() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 space-y-3">
           {/* Top Month Selector & Actions Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            {/* Left: Month Dropdown & Status Badge */}
+            {/* Left: Survey Response Spreadsheet Selector & Status Badge */}
             <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
-              {/* Month Selector Button & Custom Dropdown Menu */}
-              <div className="relative" id="coordinator-month-menu-container">
-                <button
-                  type="button"
-                  onClick={() => setShowCoordinatorMonthMenu((prev) => !prev)}
-                  aria-expanded={showCoordinatorMonthMenu}
-                  aria-haspopup="true"
-                  className="min-h-[38px] px-3.5 py-1.5 flex items-center gap-2 text-xs sm:text-sm font-bold bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl shadow-2xs transition-colors cursor-pointer"
-                  title="Click to switch target month"
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider hidden sm:inline">
+                  Survey Response Spreadsheet:
+                </span>
+                <select
+                  id="survey-sheet-select"
+                  value={sheetSelectMode || sheetInput || ""}
+                  onChange={(e) => handleSelectSheetOption(e.target.value)}
+                  disabled={loading}
+                  aria-label="Survey Response Spreadsheet"
+                  className="min-h-[38px] max-w-[200px] xs:max-w-xs sm:max-w-sm md:max-w-md px-3 py-1.5 text-xs sm:text-sm bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 font-bold text-slate-900 dark:text-white transition-colors cursor-pointer shadow-2xs truncate"
                 >
-                  <Calendar className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                  <span className="font-extrabold">{activeCoordinatorMonthDisplayName}</span>
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 text-slate-500 transition-transform ${
-                      showCoordinatorMonthMenu ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
+                  <option value="" disabled>
+                    {isDevMode
+                      ? "-- Select a Test Scenario to Begin --"
+                      : "-- Select a Monthly Survey to Begin --"}
+                  </option>
 
-                {showCoordinatorMonthMenu && (
-                  <div
-                    role="menu"
-                    className="absolute left-0 mt-1.5 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-40 py-1.5 overflow-hidden animate-in fade-in-50 zoom-in-95 duration-100"
-                  >
-                    <div className="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                      Switch Active Month
-                    </div>
-                    <div className="max-h-60 overflow-y-auto py-1">
+                  {!isDevMode && liveSheetsList.length > 0 && (
+                    <optgroup label="📁 Monthly Surveys (Google Drive)">
+                      {liveSheetsList.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          📄 {s.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+
+                  {isDevMode && devSheetsList.length > 0 && (
+                    <optgroup label="🧪 Dev / Test Scenarios">
+                      {devSheetsList.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          🧪 {s.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+
+                  {availableCoordinatorMonths.length > 0 && (
+                    <optgroup label="📅 Active Months">
                       {availableCoordinatorMonths.map((mKey) => {
-                        const isCurrent = mKey === activeCoordinatorMonthKey;
                         const statusObj = configuredMonths.find((c) => c.monthKey === mKey);
-                        const label = formatMonthOptionLabel(mKey);
                         return (
-                          <button
-                            key={mKey}
-                            role="menuitem"
-                            type="button"
-                            onClick={() => handleCoordinatorSelectMonth(mKey)}
-                            className={`w-full px-3.5 py-2 text-left flex items-center justify-between text-xs sm:text-sm transition-colors cursor-pointer ${
-                              isCurrent
-                                ? "bg-orange-50 dark:bg-orange-950/40 text-orange-950 dark:text-orange-300 font-bold"
-                                : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
-                            }`}
-                          >
-                            <span className="truncate">{label}</span>
-                            {statusObj?.status && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 shrink-0">
-                                {statusObj.status.replace(/_/g, " ")}
-                              </span>
-                            )}
-                          </button>
+                          <option key={mKey} value={mKey}>
+                            📅 {formatMonthOptionLabel(mKey)}{statusObj?.status ? ` (${statusObj.status.replace(/_/g, " ")})` : ""}
+                          </option>
                         );
                       })}
-                    </div>
-                  </div>
-                )}
+                    </optgroup>
+                  )}
+
+                  <optgroup label="🔗 Custom Input">
+                    <option value="custom">✏️ Paste Custom Google Sheet URL or ID...</option>
+                  </optgroup>
+                </select>
               </div>
 
               {/* Status Badge */}
               <span
                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border shadow-2xs ${currentCoordinatorStatusBadgeClass}`}
-                title={`Lifecycle Status: ${currentCoordinatorStatusLabel}`}
+                title={`${activeCoordinatorMonthDisplayName} Lifecycle Status: ${currentCoordinatorStatusLabel}`}
               >
                 <span className="w-2 h-2 rounded-full bg-current opacity-75" />
                 {currentCoordinatorStatusLabel}
@@ -4385,6 +4383,43 @@ function MainApp() {
               </button>
             </div>
           </div>
+
+          {/* Custom Sheet URL / ID Input Form (when custom mode is selected) */}
+          {sheetSelectMode === "custom" && (
+            <div className="pt-2 pb-1 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center gap-2">
+              <label
+                htmlFor="custom-sheet-url-input"
+                className="text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0"
+              >
+                Google Sheet URL or ID:
+              </label>
+              <div className="flex items-center gap-2 flex-1">
+                <input
+                  id="custom-sheet-url-input"
+                  type="text"
+                  value={sheetInput}
+                  onChange={(e) => setSheetInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && sheetInput.trim()) {
+                      fetchIntake(sheetInput, undefined, true);
+                    }
+                  }}
+                  placeholder="Paste Google Sheet URL or ID and press Enter..."
+                  className="w-full min-h-[36px] px-3.5 py-1.5 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => fetchIntake(sheetInput, undefined, true)}
+                  disabled={loading || !sheetInput.trim()}
+                  className="min-h-[36px] px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold transition-colors disabled:opacity-50 shrink-0 cursor-pointer flex items-center gap-1.5"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+                  <span>Load</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* 5-Stage Clickable Lifecycle Stepper */}
           <MonthLifecycleTracker
