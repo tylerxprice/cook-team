@@ -4275,13 +4275,10 @@ function MainApp() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 space-y-3">
           {/* Top Month Selector & Actions Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            {/* Left: Survey Response Spreadsheet Selector & Status Badge */}
+            {/* Left: Survey Response Spreadsheet Selector, Open in Sheets, & Status Badge */}
             <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider hidden sm:inline">
-                  Survey Response Spreadsheet:
-                </span>
                 <select
                   id="survey-sheet-select"
                   value={sheetSelectMode || sheetInput || ""}
@@ -4333,6 +4330,19 @@ function MainApp() {
                     <option value="custom">✏️ Paste Custom Google Sheet URL or ID...</option>
                   </optgroup>
                 </select>
+
+                {currentSheetUrl && (
+                  <a
+                    href={currentSheetUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl transition-colors border border-slate-300 dark:border-slate-700 shadow-2xs shrink-0"
+                    title="Open current survey response Google Sheet in a new tab"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>Open in Sheets</span>
+                  </a>
+                )}
               </div>
 
               {/* Status Badge */}
@@ -4347,39 +4357,26 @@ function MainApp() {
 
             {/* Right: Companion Actions */}
             <div className="flex items-center gap-2 flex-wrap">
-              {currentSheetUrl && (
-                <a
-                  href={currentSheetUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl transition-colors border border-slate-300 dark:border-slate-700 shadow-2xs"
-                  title="Open current survey response Google Sheet in a new tab"
-                >
-                  <ExternalLink className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Open in Sheets</span>
-                </a>
-              )}
-
               <button
                 type="button"
                 onClick={handleStartNextMonth}
-                className="min-h-[38px] inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-orange-950 dark:text-orange-200 bg-orange-50 dark:bg-orange-950/50 hover:bg-orange-100 dark:hover:bg-orange-900/60 rounded-xl transition-colors border border-orange-200 dark:border-orange-800 cursor-pointer shadow-2xs"
+                className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl transition-colors border border-slate-300 dark:border-slate-700 cursor-pointer shadow-2xs shrink-0"
                 title={`Start staging dates for ${nextUnconfiguredMonthLabel}`}
               >
-                <CalendarPlus className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
-                <span>+ Plan Next Month ({nextUnconfiguredMonthLabel})</span>
+                <CalendarPlus className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400 shrink-0" />
+                <span>Plan Next Month</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => fetchIntake(sheetInput, undefined, true)}
                 disabled={loading}
-                className="min-h-[38px] inline-flex items-center gap-2 px-3 sm:px-3.5 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs sm:text-sm font-bold shrink-0 transition-colors border border-slate-200 dark:border-slate-700 cursor-pointer disabled:opacity-50"
-                title="Refresh Survey Data"
+                className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl transition-colors border border-slate-300 dark:border-slate-700 cursor-pointer shadow-2xs shrink-0 disabled:opacity-50"
+                title="Refresh survey response data from Google Sheets"
                 aria-label="Refresh survey response data from Google Sheets"
               >
-                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-orange-600" : ""}`} />
-                <span className="hidden sm:inline">Refresh Data</span>
+                <RefreshCw className={`w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0 ${loading ? "animate-spin text-orange-600" : ""}`} />
+                <span>Refresh Data</span>
               </button>
             </div>
           </div>

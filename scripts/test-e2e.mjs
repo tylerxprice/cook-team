@@ -310,9 +310,9 @@ async function runE2ETest() {
 
     // Verify Step 1: Intake & Audit
     console.log("2. Verifying Step 1: Intake & Audit ...");
-    await page.waitForSelector("text=Survey Response Spreadsheet");
+    await page.waitForSelector("#survey-sheet-select");
     await page.waitForSelector("text=Select a Survey to Begin Scheduling");
-    const sheetSelect = page.locator("select").first();
+    const sheetSelect = page.locator("#survey-sheet-select, select").first();
     await sheetSelect.selectOption("test-sheet-standard");
     await page.waitForSelector("text=Proceed to Notes & Exception Rules");
     console.log("✓ Step 1 verified after explicit selection.");
@@ -660,7 +660,7 @@ async function runE2ETest() {
     console.log("10. Testing Scenario Presets on Step 1...");
     const step1Nav = page.locator("button:has-text('Intake & Audit')").first();
     await step1Nav.click();
-    await page.waitForSelector("text=Survey Response Spreadsheet");
+    await page.waitForSelector("#survey-sheet-select");
 
     const presets = [
       "test-sheet-standard",
