@@ -81,6 +81,7 @@ export interface SurveyFormGeneratorViewProps {
   onToast?: (message: string, type?: "success" | "error") => void;
   onClearFormResult?: () => void;
   communityName?: string;
+  embedded?: boolean;
 }
 
 export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = ({
@@ -117,6 +118,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
   onOpenCoordinator,
   onOpenSchedule: _onOpenSchedule,
   onToast: _onToast,
+  embedded = false,
 }) => {
   const [activeTab, setActiveTab] = useState<"form" | "beta">("form");
   const [betaSubject, setBetaSubject] = useState<string>(
@@ -416,42 +418,19 @@ ${communityName} Meal Team Coordinator`;
 
   const activeDatesCount = dates.filter((d) => d.included).length;
 
-  return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
-      {/* Top Navigation Header */}
-      <TopHeader
-        communityName={communityName || "Vancouver Cohousing"}
-        onBackToHome={onBackToHome}
-        viewBadge={
-          <span className="px-2.5 py-1 text-xs font-bold rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-950 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
-            Survey Form Generator
-          </span>
-        }
-      >
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onOpenCoordinator}
-            className="min-h-[40px] px-3.5 py-1.5 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
-          >
-            <span>Coordinator Wizard</span>
-          </button>
+  const mainContent = (
+    <>
+      {/* Page Title & Subtitle */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+            {embedded ? "Stage 1: Staging Dates & Survey Generator" : "Survey Form Generator"}
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            Prepare meal dates, create Google Forms, or manage beta sign-ups for community meals
+          </p>
         </div>
-      </TopHeader>
-
-      {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full space-y-6">
-        {/* Page Title & Subtitle */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-slate-800">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-              Survey Form Generator
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-              Prepare meal dates, create Google Forms, or manage beta sign-ups for community meals
-            </p>
-          </div>
-        </div>
+      </div>
         {/* Top Control Bar: Target Month & Status (ALWAYS VISIBLE) */}
         <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1613,6 +1592,51 @@ ${communityName} Meal Team Coordinator`;
             )}
           </>
         )}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-6">
+        {mainContent}
+        {/* Modal: Add Custom Meal Date */}
+        <AddCustomDateModal
+          show={showAddDateModal}
+          onClose={() => setShowAddDateModal(false)}
+          onAddDate={handleAddDateFromModal}
+          monthKey={monthKey}
+          existingDates={dates}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
+      {/* Top Navigation Header */}
+      <TopHeader
+        communityName={communityName || "Vancouver Cohousing"}
+        onBackToHome={onBackToHome}
+        viewBadge={
+          <span className="px-2.5 py-1 text-xs font-bold rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-950 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
+            Survey Form Generator
+          </span>
+        }
+      >
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onOpenCoordinator}
+            className="min-h-[40px] px-3.5 py-1.5 text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+          >
+            <span>Coordinator Wizard</span>
+          </button>
+        </div>
+      </TopHeader>
+
+      {/* Main Container */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full space-y-6">
+        {mainContent}
       </main>
 
       {/* Modal: Add Custom Meal Date */}

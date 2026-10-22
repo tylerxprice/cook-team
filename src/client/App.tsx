@@ -2,17 +2,17 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import {
   Utensils,
   Users,
-  CheckCircle2,
   Calendar,
   Settings,
   RefreshCw,
-  Mail,
-  ChevronRight,
   FileText,
   BarChart3,
   ClipboardList,
   Menu,
   X,
+  ExternalLink,
+  CalendarPlus,
+  ChevronDown,
 } from "lucide-react";
 import { callGas, isGasEnvironment, getBootstrapData, getPublicWebAppUrl } from "./utils/gas";
 import { parseAndDisambiguateGoogleGroupRoster } from "./utils/nameParser";
@@ -176,14 +176,40 @@ export function getAppUrlParams(): URLSearchParams {
   return filterCleanUrlParams(rawParams);
 }
 
+export type CoordinatorStage = 1 | 2 | 3 | 4 | 5;
+
+export function parseStageFromHash(hash?: string): CoordinatorStage {
+  const targetHash =
+    hash !== undefined ? hash : typeof window !== "undefined" ? window.location.hash : "";
+  if (!targetHash) return 2;
+  const stageMatch = targetHash.match(/(?:#|^)stage-([1-5])(?:\b|$)/);
+  if (stageMatch) {
+    const parsed = parseInt(stageMatch[1], 10);
+    if ([1, 2, 3, 4, 5].includes(parsed)) return parsed as CoordinatorStage;
+  }
+  const stepMatch = targetHash.match(/(?:#|^)step-([1-4])(?:\b|$)/);
+  if (stepMatch) {
+    const legacyStep = parseInt(stepMatch[1], 10);
+    const legacyMap: Record<number, CoordinatorStage> = { 1: 2, 2: 3, 3: 4, 4: 5 };
+    return legacyMap[legacyStep] || 2;
+  }
+  return 2;
+}
+
 export function parseStepFromHash(hash?: string): 1 | 2 | 3 | 4 {
   const targetHash =
     hash !== undefined ? hash : typeof window !== "undefined" ? window.location.hash : "";
   if (!targetHash) return 1;
-  const match = targetHash.match(/(?:#|^)step-([1-4])(?:\b|$)/);
-  if (match) {
-    const parsed = parseInt(match[1], 10);
+  const stepMatch = targetHash.match(/(?:#|^)step-([1-4])(?:\b|$)/);
+  if (stepMatch) {
+    const parsed = parseInt(stepMatch[1], 10);
     if ([1, 2, 3, 4].includes(parsed)) return parsed as 1 | 2 | 3 | 4;
+  }
+  const stageMatch = targetHash.match(/(?:#|^)stage-([1-5])(?:\b|$)/);
+  if (stageMatch) {
+    const stage = parseInt(stageMatch[1], 10);
+    if (stage === 1) return 1;
+    return (stage - 1) as 1 | 2 | 3 | 4;
   }
   return 1;
 }
@@ -234,6 +260,9 @@ function MainApp() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStepState] = useState<1 | 2 | 3 | 4>(1);
+  const [coordinatorStage, setCoordinatorStageState] = useState<CoordinatorStage>(() =>
+    parseStageFromHash()
+  );
   const [appView, setAppView] = useState<AppView>(getInitialAppView);
   const [urlMemberName, setUrlMemberName] = useState<string>(() => {
     const p = getAppUrlParams();
@@ -427,6 +456,7 @@ function MainApp() {
 
   // Main Navigation Hamburger Menu State
   const [showMainMenu, setShowMainMenu] = useState(false);
+  const [showCoordinatorMonthMenu, setShowCoordinatorMonthMenu] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -434,14 +464,17 @@ function MainApp() {
       if (!target.closest("#header-menu-container")) {
         setShowMainMenu(false);
       }
+      if (!target.closest("#coordinator-month-menu-container")) {
+        setShowCoordinatorMonthMenu(false);
+      }
     };
-    if (showMainMenu) {
+    if (showMainMenu || showCoordinatorMonthMenu) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showMainMenu]);
+  }, [showMainMenu, showCoordinatorMonthMenu]);
 
   // Fetch public schedule for Resident View / Portal
   const fetchPublicSchedule = useCallback(
@@ -597,10 +630,13 @@ function MainApp() {
     fetchPublicSchedule(newMonthKey);
   };
 
-  // Synchronize wizard navigation with browser history (Back / Forward buttons)
-  const goToStep = (step: 1 | 2 | 3 | 4, replace = false) => {
-    setCurrentStepState(step);
-    const hash = `#step-${step}`;
+  // Synchronize lifecycle stage navigation with browser history (Back / Forward buttons)
+  const goToStage = (stage: CoordinatorStage, replace = false) => {
+    setCoordinatorStageState(stage);
+    const legacyStep = stage === 1 ? 1 : (((stage - 1) > 4 ? 4 : (stage - 1)) as 1 | 2 | 3 | 4);
+    setCurrentStepState(legacyStep);
+
+    const hash = `#stage-${stage}`;
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       for (const sp of SYSTEM_QUERY_PARAMS) {
@@ -608,7 +644,7 @@ function MainApp() {
       }
       url.searchParams.set("view", "coordinator");
       url.hash = hash;
-      const state = { view: "coordinator", step };
+      const state = { view: "coordinator", stage, step: legacyStep };
       if (replace) {
         window.history.replaceState(state, "", url.toString());
       } else {
@@ -620,12 +656,27 @@ function MainApp() {
         const historyMethod = replace
           ? (window as any).google.script.history.replace
           : (window as any).google.script.history.push;
-        historyMethod({ view: "coordinator", step }, { view: "coordinator" }, `step-${step}`);
+        historyMethod(
+          { view: "coordinator", stage, step: legacyStep },
+          { view: "coordinator" },
+          `stage-${stage}`
+        );
       } catch (err) {
         console.warn("GAS history push failed:", err);
       }
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const goToStep = (step: 1 | 2 | 3 | 4, replace = false) => {
+    const stageMap: Record<number, CoordinatorStage> = {
+      1: 2,
+      2: 3,
+      3: 4,
+      4: 5,
+    };
+    const targetStage = stageMap[step] || 2;
+    goToStage(targetStage, replace);
   };
 
   // Centralized navigation router that synchronizes app views with URL query parameters and browser history
@@ -636,6 +687,7 @@ function MainApp() {
         replace?: boolean;
         month?: string;
         step?: 1 | 2 | 3 | 4;
+        stage?: CoordinatorStage;
         member?: string;
       }
     ) => {
@@ -710,10 +762,18 @@ function MainApp() {
           }
         } else if (targetView === "coordinator") {
           url.searchParams.set("view", "coordinator");
-          const targetStep = options?.step || currentStep || 1;
+          const targetStage: CoordinatorStage =
+            options?.stage ||
+            (options?.step
+              ? (((options.step + 1) > 5 ? 5 : (options.step + 1)) as CoordinatorStage)
+              : coordinatorStage || 2);
+          const targetStep: 1 | 2 | 3 | 4 =
+            options?.step ||
+            (targetStage === 1 ? 1 : (((targetStage - 1) > 4 ? 4 : (targetStage - 1)) as 1 | 2 | 3 | 4));
+          setCoordinatorStageState(targetStage);
           setCurrentStepState(targetStep);
-          url.hash = `#step-${targetStep}`;
-          const state = { view: "coordinator", step: targetStep };
+          url.hash = `#stage-${targetStage}`;
+          const state = { view: "coordinator", stage: targetStage, step: targetStep };
           if (replace) {
             window.history.replaceState(state, "", url.toString());
           } else {
@@ -721,7 +781,12 @@ function MainApp() {
           }
           if (historyAction) {
             try {
-              historyAction.call(gasHistory, state, { view: "coordinator" }, `step-${targetStep}`);
+              historyAction.call(
+                gasHistory,
+                state,
+                { view: "coordinator" },
+                `stage-${targetStage}`
+              );
             } catch (err) {
               console.warn("GAS history navigation failed:", err);
             }
@@ -1572,6 +1637,224 @@ function MainApp() {
     return found || configuredMonths[0];
   }, [configuredMonths, selectedActiveMonthKey, surveyFormMonthKey]);
 
+  const formatMonthOptionLabel = (mKey: string): string => {
+    try {
+      const [y, m] = mKey.split(/[-_]/);
+      const d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+      return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    } catch {
+      return mKey;
+    }
+  };
+
+  const activeCoordinatorMonthKey = useMemo(() => {
+    return (
+      intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7) ||
+      surveyFormMonthKey ||
+      selectedActiveMonthKey ||
+      "2026-11"
+    );
+  }, [intakeData?.mealDates, surveyFormMonthKey, selectedActiveMonthKey]);
+
+  const activeCoordinatorStatus = useMemo<MonthStatus>(() => {
+    const configured = configuredMonths.find((m) => m.monthKey === activeCoordinatorMonthKey);
+    if (configured) return configured.status;
+    if (
+      intakeData?.monthStatus &&
+      intakeData.mealDates?.[0]?.dateKey?.startsWith(activeCoordinatorMonthKey)
+    ) {
+      return intakeData.monthStatus as MonthStatus;
+    }
+    if (surveyFormMonthKey === activeCoordinatorMonthKey && surveyFormMonthStatus) {
+      return surveyFormMonthStatus;
+    }
+    return "SIGN_UPS_OPEN";
+  }, [configuredMonths, activeCoordinatorMonthKey, intakeData, surveyFormMonthKey, surveyFormMonthStatus]);
+
+  const availableCoordinatorMonths = useMemo(() => {
+    const keys = new Set<string>();
+    if (configuredMonths && configuredMonths.length > 0) {
+      configuredMonths.forEach((m) => keys.add(m.monthKey));
+    }
+    if (availableReportMonths && availableReportMonths.length > 0) {
+      availableReportMonths.forEach((m) => keys.add(m));
+    }
+    driveSheets.forEach((s) => {
+      const match = s.name.match(/\b(20\d\d)[-_](0[1-9]|1[0-2])\b/);
+      if (match) {
+        keys.add(`${match[1]}-${match[2]}`);
+      }
+    });
+    if (surveyFormMonthKey) keys.add(surveyFormMonthKey);
+    if (intakeData?.mealDates?.[0]?.dateKey) {
+      keys.add(intakeData.mealDates[0].dateKey.slice(0, 7));
+    }
+    if (keys.size === 0) {
+      keys.add("2026-11");
+      keys.add("2026-10");
+    }
+    return Array.from(keys).sort((a, b) => b.localeCompare(a));
+  }, [configuredMonths, availableReportMonths, driveSheets, surveyFormMonthKey, intakeData?.mealDates]);
+
+  const currentSheetUrl = useMemo(() => {
+    if (!sheetInput) {
+      const matched = driveSheets.find((s) => s.id === sheetInput);
+      if (matched?.url) return matched.url;
+      return null;
+    }
+    if (sheetInput.startsWith("http://") || sheetInput.startsWith("https://")) {
+      return sheetInput;
+    }
+    const matched = driveSheets.find((s) => s.id === sheetInput);
+    if (matched?.url) return matched.url;
+    if (!sheetInput.startsWith("test-sheet-")) {
+      return `https://docs.google.com/spreadsheets/d/${sheetInput}/edit`;
+    }
+    return null;
+  }, [sheetInput, driveSheets]);
+
+  const nextUnconfiguredMonthKey = useMemo(() => {
+    const configuredKeys = new Set(configuredMonths.map((m) => m.monthKey));
+    let candidate = activeCoordinatorMonthKey || "2026-11";
+    for (let i = 0; i < 24; i++) {
+      const [yStr, mStr] = candidate.split("-");
+      let y = parseInt(yStr, 10);
+      let m = parseInt(mStr, 10) + 1;
+      if (m > 12) {
+        m = 1;
+        y += 1;
+      }
+      candidate = `${y}-${String(m).padStart(2, "0")}`;
+      if (!configuredKeys.has(candidate)) {
+        return candidate;
+      }
+    }
+    return candidate;
+  }, [configuredMonths, activeCoordinatorMonthKey]);
+
+  const nextUnconfiguredMonthLabel = useMemo(() => {
+    try {
+      const [y, m] = nextUnconfiguredMonthKey.split(/[-_]/);
+      const d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+      return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    } catch {
+      return nextUnconfiguredMonthKey;
+    }
+  }, [nextUnconfiguredMonthKey]);
+
+  const activeCoordinatorMonthDisplayName = useMemo(() => {
+    try {
+      const [y, m] = activeCoordinatorMonthKey.split(/[-_]/);
+      const d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+      return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    } catch {
+      return activeCoordinatorMonthKey;
+    }
+  }, [activeCoordinatorMonthKey]);
+
+  const { currentCoordinatorStatusLabel, currentCoordinatorStatusBadgeClass } = useMemo(() => {
+    switch (activeCoordinatorStatus) {
+      case "STAGING_DATES":
+      case "NOT_OPEN":
+        return {
+          currentCoordinatorStatusLabel: "Staging Dates",
+          currentCoordinatorStatusBadgeClass:
+            "bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-800",
+        };
+      case "SIGN_UPS_OPEN":
+      case "OPEN":
+        return {
+          currentCoordinatorStatusLabel: "Sign-ups Open",
+          currentCoordinatorStatusBadgeClass:
+            "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800",
+        };
+      case "RESPONSES_RECEIVED":
+        return {
+          currentCoordinatorStatusLabel: "Responses Received",
+          currentCoordinatorStatusBadgeClass:
+            "bg-blue-100 dark:bg-blue-950/60 text-blue-950 dark:text-blue-300 border-blue-300 dark:border-blue-800",
+        };
+      case "TEAMS_READY":
+        return {
+          currentCoordinatorStatusLabel: "Teams Ready",
+          currentCoordinatorStatusBadgeClass:
+            "bg-purple-100 dark:bg-purple-950/60 text-purple-950 dark:text-purple-300 border-purple-300 dark:border-purple-800",
+        };
+      case "EMAIL_SENT":
+      case "CLOSED":
+        return {
+          currentCoordinatorStatusLabel: "Email Sent",
+          currentCoordinatorStatusBadgeClass:
+            "bg-indigo-100 dark:bg-indigo-950/60 text-indigo-950 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800",
+        };
+      default:
+        return {
+          currentCoordinatorStatusLabel: "Sign-ups Open",
+          currentCoordinatorStatusBadgeClass:
+            "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700",
+        };
+    }
+  }, [activeCoordinatorStatus]);
+
+  const handleStartNextMonth = () => {
+    setSurveyFormMonthKey(nextUnconfiguredMonthKey);
+    setSelectedActiveMonthKey(nextUnconfiguredMonthKey);
+    setSurveyFormResult(null);
+    setSurveyFormExistingSurvey(null);
+    loadSurveyFormDatesPreview(nextUnconfiguredMonthKey);
+    goToStage(1);
+    showToast(`Staging dates for ${nextUnconfiguredMonthLabel}`);
+  };
+
+  const handleCoordinatorSelectMonth = async (targetMonth: string) => {
+    setShowCoordinatorMonthMenu(false);
+    if (targetMonth === activeCoordinatorMonthKey) return;
+    setSelectedActiveMonthKey(targetMonth);
+    setSurveyFormMonthKey(targetMonth);
+
+    const item = configuredMonths.find((m) => m.monthKey === targetMonth);
+    if (item) {
+      setSurveyFormMonthStatus(item.status);
+      if (item.dates && item.dates.length > 0) {
+        setSurveyFormDates(item.dates);
+      }
+    }
+
+    // Match sheet for this month
+    const matchedSheet = driveSheets.find((s) => {
+      const n = s.name.toLowerCase();
+      const [y, m] = targetMonth.split(/[-_]/);
+      const yy = y.slice(-2);
+      return (
+        n.includes(`${yy}-${m}`) ||
+        n.includes(`${y}-${m}`) ||
+        n.includes(`${yy}_${m}`) ||
+        n.includes(`${y}_${m}`)
+      );
+    });
+
+    if (matchedSheet) {
+      setSheetInput(matchedSheet.id);
+      setSheetSelectMode(matchedSheet.id);
+      try {
+        await fetchIntake(matchedSheet.id);
+      } catch (e) {
+        console.warn("Could not fetch intake for month:", targetMonth, e);
+      }
+    }
+
+    // Direct to stage matching status
+    if (item?.status === "STAGING_DATES" || item?.status === "NOT_OPEN" || !matchedSheet) {
+      goToStage(1);
+    } else if (item?.status === "TEAMS_READY") {
+      goToStage(4);
+    } else if (item?.status === "EMAIL_SENT" || item?.status === "CLOSED") {
+      goToStage(5);
+    } else {
+      goToStage(2);
+    }
+  };
+
   const handleSelectCoordinatorFromPortal = async (
     step: 1 | 2 | 3 | 4 = 1,
     targetMonth?: string
@@ -2117,9 +2400,17 @@ function MainApp() {
 
       if (targetView === "coordinator") {
         const popState = (e as PopStateEvent).state;
-        if (popState && typeof popState.step === "number" && [1, 2, 3, 4].includes(popState.step)) {
+        if (popState && typeof popState.stage === "number" && [1, 2, 3, 4, 5].includes(popState.stage)) {
+          setCoordinatorStageState(popState.stage as CoordinatorStage);
+          const legacyStep = popState.stage === 1 ? 1 : (((popState.stage - 1) > 4 ? 4 : (popState.stage - 1)) as 1 | 2 | 3 | 4);
+          setCurrentStepState(legacyStep);
+        } else if (popState && typeof popState.step === "number" && [1, 2, 3, 4].includes(popState.step)) {
+          const legacyMap: Record<number, CoordinatorStage> = { 1: 2, 2: 3, 3: 4, 4: 5 };
+          setCoordinatorStageState(legacyMap[popState.step] || 2);
           setCurrentStepState(popState.step as 1 | 2 | 3 | 4);
         } else {
+          const stage = parseStageFromHash();
+          setCoordinatorStageState(stage);
           const step = parseStepFromHash();
           setCurrentStepState(step);
         }
@@ -2180,12 +2471,22 @@ function MainApp() {
           }
 
           if (targetView === "coordinator") {
-            const raw =
-              e.state?.step ||
-              (e.location?.hash ? e.location.hash.replace("#step-", "").replace("step-", "") : "");
-            const parsed = parseInt(raw, 10);
-            if ([1, 2, 3, 4].includes(parsed)) {
-              setCurrentStepState(parsed as 1 | 2 | 3 | 4);
+            const rawStage = e.state?.stage || (e.location?.hash ? e.location.hash.match(/(?:#|^)stage-([1-5])/)?.[1] : "");
+            const parsedStage = parseInt(rawStage, 10);
+            if ([1, 2, 3, 4, 5].includes(parsedStage)) {
+              setCoordinatorStageState(parsedStage as CoordinatorStage);
+              const legacyStep = parsedStage === 1 ? 1 : (((parsedStage - 1) > 4 ? 4 : (parsedStage - 1)) as 1 | 2 | 3 | 4);
+              setCurrentStepState(legacyStep);
+            } else {
+              const raw =
+                e.state?.step ||
+                (e.location?.hash ? e.location.hash.replace("#step-", "").replace("step-", "") : "");
+              const parsed = parseInt(raw, 10);
+              if ([1, 2, 3, 4].includes(parsed)) {
+                setCurrentStepState(parsed as 1 | 2 | 3 | 4);
+                const legacyMap: Record<number, CoordinatorStage> = { 1: 2, 2: 3, 3: 4, 4: 5 };
+                setCoordinatorStageState(legacyMap[parsed] || 2);
+              }
             }
           }
         });
@@ -3967,102 +4268,185 @@ function MainApp() {
       {/* Toast Notification */}
       {renderToast()}
 
-      {/* Step Wizard Navigation Bar */}
+      {/* Coordinator Month Control & Lifecycle Navigation Header */}
       <div
         className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-2xs transition-colors"
         role="navigation"
-        aria-label="Wizard Steps"
+        aria-label="Coordinator Lifecycle Navigation"
       >
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-4">
-          <nav className="flex items-center gap-1 sm:gap-2 md:gap-3" aria-label="Progress">
-            {[
-              { step: 1, title: "Intake & Audit", shortTitle: "Intake", icon: Users },
-              { step: 2, title: "Notes & Rules", shortTitle: "Rules", icon: Settings },
-              { step: 3, title: "Solve & Review", shortTitle: "Solve", icon: Calendar },
-              { step: 4, title: "Publish & Email", shortTitle: "Publish", icon: Mail },
-            ].map((item, idx, arr) => {
-              const isActive = currentStep === item.step;
-              const isDone = currentStep > item.step;
-
-              return (
-                <React.Fragment key={item.step}>
-                  <button
-                    onClick={() => goToStep(item.step as any)}
-                    aria-current={isActive ? "step" : undefined}
-                    aria-label={`Step ${item.step}: ${item.title}`}
-                    title={`Step ${item.step}: ${item.title}`}
-                    className={`min-h-[40px] sm:min-h-[42px] inline-flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3.5 md:px-4 rounded-xl text-xs sm:text-sm font-bold border transition-all shrink-0 select-none cursor-pointer ${
-                      isActive
-                        ? "bg-orange-600 text-white border-orange-600 shadow-sm shadow-orange-600/25"
-                        : isDone
-                          ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/60"
-                          : "bg-transparent text-slate-600 dark:text-slate-400 border-transparent hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800"
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 space-y-3">
+          {/* Top Month Selector & Actions Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Left: Month Dropdown & Status Badge */}
+            <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
+              {/* Month Selector Button & Custom Dropdown Menu */}
+              <div className="relative" id="coordinator-month-menu-container">
+                <button
+                  type="button"
+                  onClick={() => setShowCoordinatorMonthMenu((prev) => !prev)}
+                  aria-expanded={showCoordinatorMonthMenu}
+                  aria-haspopup="true"
+                  className="min-h-[38px] px-3.5 py-1.5 flex items-center gap-2 text-xs sm:text-sm font-bold bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700 rounded-xl shadow-2xs transition-colors cursor-pointer"
+                  title="Click to switch target month"
+                >
+                  <Calendar className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                  <span className="font-extrabold">{activeCoordinatorMonthDisplayName}</span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-slate-500 transition-transform ${
+                      showCoordinatorMonthMenu ? "rotate-180" : ""
                     }`}
+                  />
+                </button>
+
+                {showCoordinatorMonthMenu && (
+                  <div
+                    role="menu"
+                    className="absolute left-0 mt-1.5 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-40 py-1.5 overflow-hidden animate-in fade-in-50 zoom-in-95 duration-100"
                   >
-                    <span
-                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
-                        isActive
-                          ? "bg-white text-orange-700 shadow-2xs"
-                          : isDone
-                            ? "bg-emerald-700 text-white"
-                            : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
-                      }`}
-                    >
-                      {isDone ? <CheckCircle2 className="w-4 h-4" /> : item.step}
-                    </span>
-                    <span className="hidden md:inline">{item.title}</span>
-                    <span className="hidden sm:inline md:hidden">{item.shortTitle}</span>
-                  </button>
+                    <div className="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                      Switch Active Month
+                    </div>
+                    <div className="max-h-60 overflow-y-auto py-1">
+                      {availableCoordinatorMonths.map((mKey) => {
+                        const isCurrent = mKey === activeCoordinatorMonthKey;
+                        const statusObj = configuredMonths.find((c) => c.monthKey === mKey);
+                        const label = formatMonthOptionLabel(mKey);
+                        return (
+                          <button
+                            key={mKey}
+                            role="menuitem"
+                            type="button"
+                            onClick={() => handleCoordinatorSelectMonth(mKey)}
+                            className={`w-full px-3.5 py-2 text-left flex items-center justify-between text-xs sm:text-sm transition-colors cursor-pointer ${
+                              isCurrent
+                                ? "bg-orange-50 dark:bg-orange-950/40 text-orange-950 dark:text-orange-300 font-bold"
+                                : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
+                            }`}
+                          >
+                            <span className="truncate">{label}</span>
+                            {statusObj?.status && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 shrink-0">
+                                {statusObj.status.replace(/_/g, " ")}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
 
-                  {idx < arr.length - 1 && (
-                    <ChevronRight
-                      aria-hidden="true"
-                      className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 transition-colors ${
-                        currentStep > item.step
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-slate-300 dark:text-slate-700"
-                      }`}
-                    />
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </nav>
+              {/* Status Badge */}
+              <span
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border shadow-2xs ${currentCoordinatorStatusBadgeClass}`}
+                title={`Lifecycle Status: ${currentCoordinatorStatusLabel}`}
+              >
+                <span className="w-2 h-2 rounded-full bg-current opacity-75" />
+                {currentCoordinatorStatusLabel}
+              </span>
+            </div>
 
-          <button
-            onClick={() => fetchIntake(sheetInput, undefined, true)}
-            disabled={loading}
-            className="min-h-[40px] sm:min-h-[42px] inline-flex items-center gap-2 px-3 sm:px-3.5 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs sm:text-sm font-bold shrink-0 transition-colors border border-slate-200 dark:border-slate-700 cursor-pointer disabled:opacity-50"
-            title="Refresh Survey Data"
-            aria-label="Refresh survey response data from Google Sheets"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-orange-600" : ""}`} />
-            <span className="hidden sm:inline">Refresh Data</span>
-          </button>
+            {/* Right: Companion Actions */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {currentSheetUrl && (
+                <a
+                  href={currentSheetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl transition-colors border border-slate-300 dark:border-slate-700 shadow-2xs"
+                  title="Open current survey response Google Sheet in a new tab"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Open in Sheets</span>
+                </a>
+              )}
+
+              <button
+                type="button"
+                onClick={handleStartNextMonth}
+                className="min-h-[38px] inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-orange-950 dark:text-orange-200 bg-orange-50 dark:bg-orange-950/50 hover:bg-orange-100 dark:hover:bg-orange-900/60 rounded-xl transition-colors border border-orange-200 dark:border-orange-800 cursor-pointer shadow-2xs"
+                title={`Start staging dates for ${nextUnconfiguredMonthLabel}`}
+              >
+                <CalendarPlus className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
+                <span>+ Plan Next Month ({nextUnconfiguredMonthLabel})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fetchIntake(sheetInput, undefined, true)}
+                disabled={loading}
+                className="min-h-[38px] inline-flex items-center gap-2 px-3 sm:px-3.5 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs sm:text-sm font-bold shrink-0 transition-colors border border-slate-200 dark:border-slate-700 cursor-pointer disabled:opacity-50"
+                title="Refresh Survey Data"
+                aria-label="Refresh survey response data from Google Sheets"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-orange-600" : ""}`} />
+                <span className="hidden sm:inline">Refresh Data</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 5-Stage Clickable Lifecycle Stepper */}
+          <MonthLifecycleTracker
+            monthKey={activeCoordinatorMonthKey}
+            monthStatus={activeCoordinatorStatus}
+            activeStage={coordinatorStage}
+            onSelectStage={(stage) => goToStage(stage)}
+            hideHeader={true}
+            datesCount={
+              intakeData?.mealDates?.length ||
+              surveyFormDates.filter((d) => d.included).length
+            }
+            responsesCount={intakeData?.responses?.length}
+            onToggleSignups={(close) =>
+              handleSetMonthStatus(close ? "RESPONSES_RECEIVED" : "SIGN_UPS_OPEN")
+            }
+          />
         </div>
       </div>
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full space-y-6">
-        {/* Month Lifecycle Progress Tracker */}
-        <MonthLifecycleTracker
-          monthKey={
-            surveyFormMonthKey ||
-            intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7) ||
-            "2026-10"
-          }
-          monthStatus={surveyFormMonthStatus || intakeData?.monthStatus || "SIGN_UPS_OPEN"}
-          datesCount={
-            intakeData?.mealDates?.length ||
-            surveyFormDates.filter((d) => d.included).length
-          }
-          responsesCount={intakeData?.responses?.length}
-          onToggleSignups={(close) =>
-            handleSetMonthStatus(close ? "RESPONSES_RECEIVED" : "SIGN_UPS_OPEN")
-          }
-        />
+        {coordinatorStage === 1 && (
+          <SurveyFormGeneratorView
+            embedded={true}
+            monthKey={activeCoordinatorMonthKey}
+            setMonthKey={(mKey) => handleCoordinatorSelectMonth(mKey)}
+            onClearFormResult={handleClearSurveyFormResult}
+            loadDatesPreview={loadSurveyFormDatesPreview}
+            formTitle={surveyFormTitle}
+            setFormTitle={setSurveyFormTitle}
+            folderId={surveyFormFolderId}
+            setFolderId={setSurveyFormFolderId}
+            dates={surveyFormDates}
+            setDates={setSurveyFormDates}
+            loadingDates={surveyFormLoadingDates}
+            loadingCreate={surveyFormLoadingCreate}
+            formResult={surveyFormResult}
+            copiedLink={surveyFormCopiedLink}
+            onCopyLink={handleCopySurveyLink}
+            onAddCustomDate={handleAddCustomSurveyDate}
+            onExecuteCreateForm={(targetMonth) => handleExecuteCreateSurveyForm(false, targetMonth)}
+            members={members}
+            coordinatorEmail={emailTo}
+            spreadsheetId={sheetInput}
+            driveSheets={driveSheets}
+            monthStatus={surveyFormMonthStatus}
+            existingSurvey={surveyFormExistingSurvey}
+            onSaveDraftDates={(targetMonth) => handleSaveDraftDates(targetMonth)}
+            onSaveDatesAndOpen={(targetMonth) => handleSaveMonthDatesAndOpen(targetMonth)}
+            savingDates={surveyFormSavingDates}
+            onSetMonthStatus={handleSetMonthStatus}
+            deploymentUrl={deploymentUrl}
+            onBackToHome={() => navigateToView("portal")}
+            onOpenCoordinator={() => goToStage(2)}
+            onOpenSchedule={() => navigateToView("resident", { month: surveyFormMonthKey })}
+            onToast={showToast}
+            communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
+          />
+        )}
 
-        {currentStep === 1 && (
+        {coordinatorStage === 2 && (
           <Step1IntakeAudit
             sheetInput={sheetInput}
             setSheetInput={setSheetInput}
@@ -4092,21 +4476,40 @@ function MainApp() {
           />
         )}
 
-        {currentStep === 2 && intakeData && (
-          <Step2NotesRules
-            membersRequiringAttention={membersRequiringAttention}
-            handleOpenAddGenericRule={handleOpenAddGenericRule}
-            handleOpenAddWhitelistRule={handleOpenAddWhitelistRule}
-            handleOpenAddRuleForMember={handleOpenAddRuleForMember}
-            handleOpenEditRule={handleOpenEditRule}
-            handleDeleteRule={handleDeleteRule}
-            goToStep={goToStep}
-            handleRunSolver={handleRunSolver}
-            loading={loading}
-          />
+        {coordinatorStage === 3 && (
+          intakeData ? (
+            <Step2NotesRules
+              membersRequiringAttention={membersRequiringAttention}
+              handleOpenAddGenericRule={handleOpenAddGenericRule}
+              handleOpenAddWhitelistRule={handleOpenAddWhitelistRule}
+              handleOpenAddRuleForMember={handleOpenAddRuleForMember}
+              handleOpenEditRule={handleOpenEditRule}
+              handleDeleteRule={handleDeleteRule}
+              goToStep={goToStep}
+              handleRunSolver={handleRunSolver}
+              loading={loading}
+            />
+          ) : (
+            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm max-w-xl mx-auto my-8">
+              <ClipboardList className="w-12 h-12 text-orange-500 mx-auto mb-3" />
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+                No Survey Responses Loaded
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                Please select a survey response sheet on Stage 2 (Intake & Audit) first.
+              </p>
+              <button
+                type="button"
+                onClick={() => goToStage(2)}
+                className="min-h-[40px] px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs sm:text-sm rounded-xl transition-colors cursor-pointer shadow-sm"
+              >
+                Go to Intake & Audit
+              </button>
+            </div>
+          )
         )}
 
-        {currentStep === 3 && (
+        {coordinatorStage === 4 && (
           <Step3SolveReview
             solverResult={solverResult}
             loading={loading}
@@ -4127,7 +4530,7 @@ function MainApp() {
           />
         )}
 
-        {currentStep === 4 && (
+        {coordinatorStage === 5 && (
           solverResult ? (
             <Step4PublishEmail
               solverResult={solverResult}
@@ -4155,12 +4558,8 @@ function MainApp() {
               generateEmailText={generateEmailText}
               goToStep={goToStep}
               parseDateFromLabelOrKey={parseDateFromLabelOrKey}
-              monthKey={
-                surveyFormMonthKey ||
-                solverResult.schedule?.[0]?.dateKey?.slice(0, 7) ||
-                "2026-10"
-              }
-              monthStatus={surveyFormMonthStatus || intakeData?.monthStatus || "TEAMS_READY"}
+              monthKey={activeCoordinatorMonthKey}
+              monthStatus={activeCoordinatorStatus}
               onRecordBroadcastSent={handleRecordBroadcastSent}
               onToggleBroadcastSent={handleToggleBroadcastSent}
             />
@@ -4176,17 +4575,17 @@ function MainApp() {
               <div className="flex items-center justify-center gap-3">
                 <button
                   type="button"
-                  onClick={() => goToStep(1)}
+                  onClick={() => goToStage(2)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-sm cursor-pointer"
                 >
-                  Go to Step 1 (Intake)
+                  Go to Intake & Audit
                 </button>
                 <button
                   type="button"
-                  onClick={() => goToStep(3)}
-                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-sm cursor-pointer"
+                  onClick={() => goToStage(4)}
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm rounded-xl transition-colors cursor-pointer shadow-sm"
                 >
-                  Go to Step 3 (Solve)
+                  Go to Solve & Review
                 </button>
               </div>
             </div>

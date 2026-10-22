@@ -13,13 +13,17 @@ import { MonthStatus } from "../../../server/types";
 export interface MonthLifecycleTrackerProps {
   monthKey: string;
   monthStatus?: MonthStatus;
+  activeStage?: 1 | 2 | 3 | 4 | 5;
+  onSelectStage?: (stage: 1 | 2 | 3 | 4 | 5) => void;
   datesCount?: number;
   responsesCount?: number;
   onToggleSignups?: (close: boolean) => void;
+  hideHeader?: boolean;
   className?: string;
 }
 
 const STAGES: {
+  stage: 1 | 2 | 3 | 4 | 5;
   id: string;
   label: string;
   shortLabel: string;
@@ -27,38 +31,43 @@ const STAGES: {
   icon: React.FC<{ className?: string }>;
 }[] = [
   {
+    stage: 1,
     id: "staging",
     label: "1. Staging Dates",
-    shortLabel: "Staging",
+    shortLabel: "1. Staging Dates",
     description: "Meal dates configured",
     icon: Calendar,
   },
   {
+    stage: 2,
     id: "signups",
-    label: "2. Sign-ups Open",
-    shortLabel: "Sign-ups Open",
-    description: "Accepting submissions",
+    label: "2. Intake & Audit",
+    shortLabel: "2. Intake & Audit",
+    description: "Responses & missing audit",
     icon: ClipboardList,
   },
   {
+    stage: 3,
     id: "responses",
-    label: "3. Responses Received",
-    shortLabel: "Responses",
-    description: "Sign-ups closed, ready to solve",
+    label: "3. Notes & Rules",
+    shortLabel: "3. Notes & Rules",
+    description: "Special notes & rules",
     icon: Users,
   },
   {
+    stage: 4,
     id: "teams",
-    label: "4. Teams Ready",
-    shortLabel: "Teams Ready",
-    description: "Roster solved & sheet saved",
+    label: "4. Solve & Review",
+    shortLabel: "4. Solve & Review",
+    description: "Matchmaker & schedule",
     icon: CheckCircle2,
   },
   {
+    stage: 5,
     id: "broadcast",
-    label: "5. Email Sent",
-    shortLabel: "Email Sent",
-    description: "Broadcast live to community",
+    label: "5. Publish & Email",
+    shortLabel: "5. Publish & Email",
+    description: "Save sheet & announce",
     icon: Send,
   },
 ];
@@ -86,9 +95,12 @@ export function getStageIndex(status?: MonthStatus): number {
 export const MonthLifecycleTracker: React.FC<MonthLifecycleTrackerProps> = ({
   monthKey,
   monthStatus = "SIGN_UPS_OPEN",
+  activeStage,
+  onSelectStage,
   datesCount,
   responsesCount,
   onToggleSignups,
+  hideHeader = false,
   className = "",
 }) => {
   const currentStageIndex = getStageIndex(monthStatus);
@@ -105,82 +117,76 @@ export const MonthLifecycleTracker: React.FC<MonthLifecycleTrackerProps> = ({
 
   return (
     <div
-      className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3 ${className}`}
+      className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xs space-y-3 ${className}`}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <span className="text-xs font-black uppercase tracking-wider bg-orange-100 dark:bg-orange-950/60 text-orange-950 dark:text-orange-300 px-2.5 py-0.5 rounded-lg border border-orange-200 dark:border-orange-800">
-            {monthDisplayName}
-          </span>
-          <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
-            Lifecycle Progress:
-          </span>
-          <span className="text-xs font-black text-slate-900 dark:text-white">
-            {STAGES[currentStageIndex]?.label}
-          </span>
-        </div>
-
-        {/* Status Actions */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {datesCount !== undefined && datesCount > 0 && (
-            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
-              {datesCount} Meal Dates
+      {!hideHeader && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="text-xs font-black uppercase tracking-wider bg-orange-100 dark:bg-orange-950/60 text-orange-950 dark:text-orange-300 px-2.5 py-0.5 rounded-lg border border-orange-200 dark:border-orange-800">
+              {monthDisplayName}
             </span>
-          )}
-          {responsesCount !== undefined && responsesCount > 0 && (
-            <span className="text-[11px] font-bold text-blue-900 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800">
-              {responsesCount} Responses
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
+              Lifecycle Progress:
             </span>
-          )}
+            <span className="text-xs font-black text-slate-900 dark:text-white">
+              {STAGES[currentStageIndex]?.label}
+            </span>
+          </div>
 
-          {onToggleSignups && (currentStageIndex === 1 || currentStageIndex === 2) && (
-            <button
-              type="button"
-              onClick={() => onToggleSignups(currentStageIndex === 1)}
-              className={`min-h-[34px] px-3 py-1 text-xs font-bold rounded-xl border transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs ${
-                currentStageIndex === 1
-                  ? "bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200 border-amber-300 dark:border-amber-800"
-                  : "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800"
-              }`}
-            >
-              {currentStageIndex === 1 ? (
-                <>
-                  <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                  <span>Close Sign-ups</span>
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                  <span>Re-open Sign-ups</span>
-                </>
-              )}
-            </button>
-          )}
+          {/* Status Actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {datesCount !== undefined && datesCount > 0 && (
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                {datesCount} Meal Dates
+              </span>
+            )}
+            {responsesCount !== undefined && responsesCount > 0 && (
+              <span className="text-[11px] font-bold text-blue-900 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800">
+                {responsesCount} Responses
+              </span>
+            )}
+
+            {onToggleSignups && (currentStageIndex === 1 || currentStageIndex === 2) && (
+              <button
+                type="button"
+                onClick={() => onToggleSignups(currentStageIndex === 1)}
+                className={`min-h-[34px] px-3 py-1 text-xs font-bold rounded-xl border transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                  currentStageIndex === 1
+                    ? "bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 text-amber-950 dark:text-amber-200 border-amber-300 dark:border-amber-800"
+                    : "bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 text-emerald-950 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800"
+                }`}
+              >
+                {currentStageIndex === 1 ? (
+                  <>
+                    <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    <span>Close Sign-ups</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>Re-open Sign-ups</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 5-Stage Stepper Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         {STAGES.map((stage, idx) => {
           const Icon = stage.icon;
           const isCompleted = idx < currentStageIndex;
-          const isCurrent = idx === currentStageIndex;
+          const isCurrentLifecycle = idx === currentStageIndex;
+          const isSelected = activeStage ? activeStage === stage.stage : isCurrentLifecycle;
 
-          return (
-            <div
-              key={stage.id}
-              className={`p-2.5 rounded-xl border transition-all flex flex-col justify-between ${
-                isCurrent
-                  ? "bg-orange-50/90 dark:bg-orange-950/40 border-orange-400 dark:border-orange-600 ring-2 ring-orange-500/20 shadow-xs"
-                  : isCompleted
-                    ? "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200"
-                    : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 opacity-60 text-slate-500 dark:text-slate-400"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-1 mb-1.5">
+          const innerContent = (
+            <>
+              <div className="flex items-center justify-between gap-1 mb-1.5 w-full">
                 <div
-                  className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
-                    isCurrent
+                  className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                    isSelected
                       ? "bg-orange-600 text-white shadow-2xs"
                       : isCompleted
                         ? "bg-emerald-600 text-white"
@@ -193,14 +199,17 @@ export const MonthLifecycleTracker: React.FC<MonthLifecycleTrackerProps> = ({
                     <Icon className="w-3.5 h-3.5" />
                   )}
                 </div>
-                {isCurrent && (
-                  <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                {isCurrentLifecycle && (
+                  <span
+                    className="w-2 h-2 rounded-full bg-orange-500 animate-pulse"
+                    title="Active month stage"
+                  />
                 )}
               </div>
-              <div>
+              <div className="w-full text-left">
                 <p
                   className={`text-xs font-bold leading-tight ${
-                    isCurrent
+                    isSelected
                       ? "text-orange-950 dark:text-orange-200"
                       : isCompleted
                         ? "text-emerald-950 dark:text-emerald-200"
@@ -213,6 +222,41 @@ export const MonthLifecycleTracker: React.FC<MonthLifecycleTrackerProps> = ({
                   {stage.description}
                 </p>
               </div>
+            </>
+          );
+
+          if (onSelectStage) {
+            return (
+              <button
+                key={stage.id}
+                type="button"
+                onClick={() => onSelectStage(stage.stage)}
+                aria-current={isSelected ? "step" : undefined}
+                className={`p-2.5 rounded-xl border transition-all flex flex-col justify-between text-left cursor-pointer group ${
+                  isSelected
+                    ? "bg-orange-50/90 dark:bg-orange-950/40 border-orange-400 dark:border-orange-600 ring-2 ring-orange-500/30 shadow-xs"
+                    : isCompleted
+                      ? "bg-emerald-50/50 hover:bg-emerald-50 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200"
+                      : "bg-slate-50 hover:bg-slate-100/80 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400"
+                }`}
+              >
+                {innerContent}
+              </button>
+            );
+          }
+
+          return (
+            <div
+              key={stage.id}
+              className={`p-2.5 rounded-xl border transition-all flex flex-col justify-between ${
+                isSelected
+                  ? "bg-orange-50/90 dark:bg-orange-950/40 border-orange-400 dark:border-orange-600 ring-2 ring-orange-500/20 shadow-xs"
+                  : isCompleted
+                    ? "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200"
+                    : "bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 opacity-60 text-slate-500 dark:text-slate-400"
+              }`}
+            >
+              {innerContent}
             </div>
           );
         })}

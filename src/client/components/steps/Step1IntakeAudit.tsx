@@ -132,33 +132,6 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
                 )}
               </button>
             )}
-            {intakeData && (
-              <button
-                type="button"
-                onClick={() => handleOpenManualSurveyModal()}
-                className="min-h-[44px] inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-bold text-orange-950 dark:text-orange-200 bg-orange-50 dark:bg-orange-950/40 hover:bg-orange-100 dark:hover:bg-orange-900/60 rounded-xl border border-orange-300 dark:border-orange-800 transition-colors cursor-pointer shadow-2xs"
-                title="Enter survey availability response on behalf of a member"
-              >
-                <ClipboardEdit className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0" />
-                <span>+ Enter Response</span>
-              </button>
-            )}
-            {sheetInput && (
-              <a
-                href={
-                  sheetInput.startsWith("http")
-                    ? sheetInput
-                    : `https://docs.google.com/spreadsheets/d/${sheetInput}`
-                }
-                target="_blank"
-                rel="noreferrer"
-                className="min-h-[44px] inline-flex items-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 rounded-xl border border-emerald-300 dark:border-emerald-800 transition-colors"
-                title="Open spreadsheet in Google Sheets"
-              >
-                <ExternalLink className="w-4 h-4" />
-                <span>Open in Sheets</span>
-              </a>
-            )}
           </div>
         </div>
 
@@ -538,12 +511,23 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
                   Active members who have not yet submitted their availability survey.
                 </p>
               </div>
-              {intakeData.audit.missingMembers.length === 0 && (
-                <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-emerald-900 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-950/60 px-3.5 py-1.5 rounded-full border border-emerald-300 dark:border-emerald-800">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400" /> All
-                  Active Members Responded!
-                </span>
-              )}
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => handleOpenManualSurveyModal()}
+                  className="min-h-[38px] inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-sm font-bold text-orange-950 dark:text-orange-200 bg-orange-50 dark:bg-orange-950/40 hover:bg-orange-100 dark:hover:bg-orange-900/60 rounded-xl border border-orange-300 dark:border-orange-800 transition-colors cursor-pointer shadow-2xs"
+                  title="Enter survey availability response on behalf of any community member"
+                >
+                  <ClipboardEdit className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0" />
+                  <span>+ Enter Response</span>
+                </button>
+                {intakeData.audit.missingMembers.length === 0 && (
+                  <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-emerald-900 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-950/60 px-3.5 py-1.5 rounded-full border border-emerald-300 dark:border-emerald-800">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400" /> All
+                    Active Members Responded!
+                  </span>
+                )}
+              </div>
             </div>
 
             {intakeData.audit.missingMembers.length > 0 ? (
