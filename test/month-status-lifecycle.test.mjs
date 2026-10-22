@@ -161,3 +161,70 @@ test("Month Status Lifecycle - Canonicalizes month_status_YYYY_MM and month_date
   assert.equal(normalizeKey("month_status_2026-12"), "month_status_2026-12");
   assert.equal(normalizeKey("month_dates_2026-12"), "month_dates_2026-12");
 });
+
+test("Month Status Lifecycle - Multi-month active priority ranking", () => {
+  const settings = {
+    "month_status_2026-11": "TEAMS_READY",
+    "month_status_2026-12": "STAGING_DATES",
+    "month_dates_2026-11": JSON.stringify([{ dateKey: "2026-11-01", included: true }]),
+    "month_dates_2026-12": JSON.stringify([{ dateKey: "2026-12-03", included: true }]),
+  };
+
+  const STATUS_PRIORITY = {
+    TEAMS_READY: 1,
+    RESPONSES_RECEIVED: 2,
+    SIGN_UPS_OPEN: 3,
+    OPEN: 3,
+    STAGING_DATES: 4,
+    NOT_OPEN: 4,
+    EMAIL_SENT: 5,
+    CLOSED: 5,
+  };
+
+  const discovered = [];
+  for (const [k, v] of Object.entries(settings)) {
+    const m = k.match(/^month_status_(\d{4})[-_](\d{2})$/);
+    if (m && v) {
+      discovered.push({
+        monthKey: `${m[1]}-${m[2]}`,
+        status: String(v).trim().toUpperCase(),
+      });
+    }
+  }
+
+  discovered.sort((a, b) => {
+    const prioA = STATUS_PRIORITY[a.status] || 99;
+    const prioB = STATUS_PRIORITY[b.status] || 99;
+    if (prioA !== prioB) return prioA - prioB;
+    return b.monthKey.localeCompare(a.monthKey);
+  });
+
+  assert.equal(discovered.length, 2);
+  // TEAMS_READY (2026-11) has higher priority over STAGING_DATES (2026-12)
+  assert.equal(discovered[0].monthKey, "2026-11");
+  assert.equal(discovered[0].status, "TEAMS_READY");
+  assert.equal(discovered[1].monthKey, "2026-12");
+  assert.equal(discovered[1].status, "STAGING_DATES");
+});
+
+test("Month Status Lifecycle - open_months auto-heal ignores STAGING_DATES and TEAMS_READY", () => {
+  const settings = {
+    "month_status_2026-11": "TEAMS_READY",
+    "month_status_2026-12": "STAGING_DATES",
+    open_months: "2026-12", // Stale value in sheet
+  };
+
+  const openSet = new Set();
+  for (const [k, v] of Object.entries(settings)) {
+    const m = k.match(/^month_status_(\d{4})[-_](\d{2})$/);
+    const val = String(v).trim().toUpperCase();
+    if (m && (val === "OPEN" || val === "SIGN_UPS_OPEN")) {
+      openSet.add(`${m[1]}-${m[2]}`);
+    }
+  }
+
+  const syncedOpenMonths = Array.from(openSet).sort((a, b) => b.localeCompare(a)).join(",");
+
+  // Stale 2026-12 is stripped because its status is STAGING_DATES
+  assert.equal(syncedOpenMonths, "");
+});

@@ -246,7 +246,23 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
           a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
         ),
         exceptions: isDev ? localExceptions : [],
-        settings: { ...mockMasterSettings },
+        settings: (() => {
+          const openSet = new Set<string>();
+          for (const [k, v] of Object.entries(mockMonthConfigs)) {
+            if (v.status === "OPEN" || v.status === "SIGN_UPS_OPEN") openSet.add(k);
+          }
+          for (const [k, v] of Object.entries(mockMasterSettings)) {
+            const m = k.match(/^month_status_(\d{4})[-_](\d{2})$/);
+            const val = String(v).trim().toUpperCase();
+            if (m && (val === "OPEN" || val === "SIGN_UPS_OPEN")) {
+              openSet.add(`${m[1]}-${m[2]}`);
+            }
+          }
+          mockMasterSettings.open_months = Array.from(openSet)
+            .sort((a, b) => b.localeCompare(a))
+            .join(",");
+          return { ...mockMasterSettings };
+        })(),
       } as unknown as T;
     }
 

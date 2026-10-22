@@ -1,11 +1,11 @@
 import React from "react";
 import { Calendar, Sparkles, ArrowRight, Shield, FileText, Utensils } from "lucide-react";
 import { TopHeader } from "../common/TopHeader";
-import { MonthStatus } from "../../../server/types";
+import { MonthStatus, ConfiguredMonthSummary } from "../../../server/types";
 
 export interface PortalLandingViewProps {
   communityName?: string;
-  onSelectCoordinator: (step?: 1 | 2 | 3 | 4) => void;
+  onSelectCoordinator: (step?: 1 | 2 | 3 | 4, month?: string) => void;
   onSelectResident: (month?: string) => void;
   onSelectFormGenerator?: (month?: string) => void;
   monthTitle?: string;
@@ -13,6 +13,8 @@ export interface PortalLandingViewProps {
   activeMonthStatus?: MonthStatus;
   activeMonthDatesCount?: number;
   activeMonthResponseCount?: number;
+  configuredMonths?: ConfiguredMonthSummary[];
+  onSelectActiveMonth?: (monthKey: string) => void;
 }
 
 export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
@@ -25,6 +27,8 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
   activeMonthStatus = "SIGN_UPS_OPEN",
   activeMonthDatesCount,
   activeMonthResponseCount,
+  configuredMonths,
+  onSelectActiveMonth,
 }) => {
   const activeMonthDisplayName = React.useMemo(() => {
     if (!activeMonthKey) return "";
@@ -64,7 +68,7 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
                 ? `${activeMonthResponseCount} responses received so far. Accepting submissions.`
                 : "Form is live and accepting submissions from residents.",
             resumeButtonLabel: "View Survey & Responses",
-            handleQuickResume: () => onSelectCoordinator(1),
+            handleQuickResume: () => onSelectCoordinator(1, activeMonthKey),
           };
         case "RESPONSES_RECEIVED":
           return {
@@ -76,7 +80,7 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
                 ? `${activeMonthResponseCount} submissions locked. Ready to solve teams.`
                 : "Sign-ups closed. Ready for matchmaker solver.",
             resumeButtonLabel: "Solve & Review Teams",
-            handleQuickResume: () => onSelectCoordinator(2),
+            handleQuickResume: () => onSelectCoordinator(2, activeMonthKey),
           };
         case "TEAMS_READY":
           return {
@@ -86,7 +90,7 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
             statusDescription:
               "Schedule solved and saved to Google Sheet tab. Ready for final email announcement.",
             resumeButtonLabel: "Resume Teams & Send Email",
-            handleQuickResume: () => onSelectCoordinator(4),
+            handleQuickResume: () => onSelectCoordinator(4, activeMonthKey),
           };
         case "EMAIL_SENT":
         case "CLOSED":
@@ -105,7 +109,7 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
             statusBadgeClass: "bg-slate-100 text-slate-800 border-slate-300",
             statusDescription: "Meal planning in progress.",
             resumeButtonLabel: "Open Planning Wizard",
-            handleQuickResume: () => onSelectCoordinator(1),
+            handleQuickResume: () => onSelectCoordinator(1, activeMonthKey),
           };
       }
     }, [
@@ -141,38 +145,92 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
 
         {/* Active Month In-Progress Status Card */}
         {activeMonthKey && (
-          <div className="mb-6 p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border-2 border-orange-200 dark:border-orange-800/80 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in duration-150">
-            <div className="flex items-start sm:items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800 flex items-center justify-center shrink-0">
-                <Utensils className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-black uppercase tracking-wider bg-orange-100 dark:bg-orange-950/80 text-orange-950 dark:text-orange-300 px-2.5 py-0.5 rounded-full border border-orange-200 dark:border-orange-800">
-                    Active Month
-                  </span>
-                  <span className="text-sm font-black text-slate-900 dark:text-white">
-                    {activeMonthDisplayName}
-                  </span>
-                  <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${statusBadgeClass}`}>
-                    {statusLabel}
-                  </span>
+          <div className="mb-6 p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border-2 border-orange-200 dark:border-orange-800/80 shadow-md flex flex-col justify-between gap-4 animate-in fade-in duration-150">
+            {/* Multi-Month Quick Switcher Bar */}
+            {configuredMonths && configuredMonths.length > 1 && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-100 dark:border-slate-800 mb-1">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">
+                  Switch Month:
+                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {configuredMonths.map((m) => {
+                    const isSelected = m.monthKey === activeMonthKey;
+                    const [y, mm] = m.monthKey.split(/[-_]/);
+                    const label = new Date(parseInt(y, 10), parseInt(mm, 10) - 1, 1).toLocaleDateString(
+                      "en-US",
+                      { month: "short", year: "numeric" }
+                    );
+                    const badgeText =
+                      m.status === "TEAMS_READY"
+                        ? "Teams Ready"
+                        : m.status === "RESPONSES_RECEIVED"
+                          ? "Responses Locked"
+                          : m.status === "SIGN_UPS_OPEN" || m.status === "OPEN"
+                            ? "Sign-ups Open"
+                            : m.status === "STAGING_DATES" || m.status === "NOT_OPEN"
+                              ? "Staging Dates"
+                              : "Email Sent";
+                    return (
+                      <button
+                        key={m.monthKey}
+                        type="button"
+                        onClick={() => onSelectActiveMonth?.(m.monthKey)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                          isSelected
+                            ? "bg-orange-600 text-white shadow-sm ring-2 ring-orange-500/30"
+                            : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                        }`}
+                      >
+                        <span>{label}</span>
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                            isSelected
+                              ? "bg-orange-700 text-orange-100"
+                              : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400"
+                          }`}
+                        >
+                          {badgeText}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                  {statusDescription}
-                </p>
               </div>
-            </div>
+            )}
 
-            <div className="flex items-center gap-2.5 shrink-0 sm:self-center">
-              <button
-                type="button"
-                onClick={handleQuickResume}
-                className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-orange-600/20 transition-all cursor-pointer"
-              >
-                <span>{resumeButtonLabel}</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start sm:items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800 flex items-center justify-center shrink-0">
+                  <Utensils className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-black uppercase tracking-wider bg-orange-100 dark:bg-orange-950/80 text-orange-950 dark:text-orange-300 px-2.5 py-0.5 rounded-full border border-orange-200 dark:border-orange-800">
+                      Active Month
+                    </span>
+                    <span className="text-sm font-black text-slate-900 dark:text-white">
+                      {activeMonthDisplayName}
+                    </span>
+                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${statusBadgeClass}`}>
+                      {statusLabel}
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                    {statusDescription}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 shrink-0 sm:self-center">
+                <button
+                  type="button"
+                  onClick={handleQuickResume}
+                  className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-orange-600/20 transition-all cursor-pointer"
+                >
+                  <span>{resumeButtonLabel}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         )}

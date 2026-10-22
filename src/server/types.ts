@@ -417,6 +417,13 @@ export type MonthStatus =
   | "OPEN"
   | "CLOSED";
 
+export interface ConfiguredMonthSummary {
+  monthKey: string;
+  status: MonthStatus;
+  datesCount?: number;
+  dates?: SurveyFormDateConfig[];
+}
+
 export interface MonthConfig {
   monthKey: string; // e.g. "2026-11"
   status: MonthStatus;

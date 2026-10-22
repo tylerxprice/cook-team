@@ -41,6 +41,7 @@ import {
   SetMonthStatusResult,
   SurveyFormDatesPreviewResult,
   ExistingSurveyInfo,
+  ConfiguredMonthSummary,
 } from "../server/types";
 import {
   computeMemberQuotaStats,
@@ -414,6 +415,10 @@ function MainApp() {
     useState<ExistingSurveyInfo | null>(null);
   const [showOverwriteSurveyModal, setShowOverwriteSurveyModal] = useState(false);
   const [deploymentUrl, setDeploymentUrl] = useState<string>("");
+
+  // Configured Months from Master Settings State
+  const [configuredMonths, setConfiguredMonths] = useState<ConfiguredMonthSummary[]>([]);
+  const [selectedActiveMonthKey, setSelectedActiveMonthKey] = useState<string>("");
 
   // Modal: Manual Survey Response Entry (Brenda's Coordinator Workflow)
   const [showManualSurveyModal, setShowManualSurveyModal] = useState(false);
@@ -1462,6 +1467,162 @@ function MainApp() {
     }
     if (typeof settings.betaWebSignupEnabled === "boolean") {
       setBetaWebSignupEnabled(settings.betaWebSignupEnabled);
+    }
+
+    // Extract dynamic month statuses and configured meal dates
+    const discovered: ConfiguredMonthSummary[] = [];
+    for (const [k, v] of Object.entries(settings)) {
+      const m = k.match(/^month_status_(\d{4})[-_](\d{2})$/);
+      if (m && v) {
+        const monthKey = `${m[1]}-${m[2]}`;
+        const rawStatus = String(v).trim().toUpperCase();
+        const statusVal: MonthStatus =
+          rawStatus === "OPEN" || rawStatus === "SIGN_UPS_OPEN"
+            ? "SIGN_UPS_OPEN"
+            : rawStatus === "STAGING_DATES" || rawStatus === "NOT_OPEN"
+              ? "STAGING_DATES"
+              : rawStatus === "RESPONSES_RECEIVED"
+                ? "RESPONSES_RECEIVED"
+                : rawStatus === "TEAMS_READY"
+                  ? "TEAMS_READY"
+                  : rawStatus === "EMAIL_SENT" || rawStatus === "CLOSED"
+                    ? "EMAIL_SENT"
+                    : (rawStatus as MonthStatus);
+
+        const datesKey = `month_dates_${monthKey}`;
+        const altDatesKey = `month_dates_${m[1]}_${m[2]}`;
+        const datesVal = (settings as any)[datesKey] || (settings as any)[altDatesKey];
+        let datesCount: number | undefined = undefined;
+        let parsedDates: SurveyFormDateConfig[] | undefined = undefined;
+        if (datesVal) {
+          try {
+            const parsed = typeof datesVal === "string" ? JSON.parse(datesVal) : datesVal;
+            if (Array.isArray(parsed)) {
+              parsedDates = parsed;
+              datesCount = parsed.filter((d: any) => d.included !== false).length;
+            }
+          } catch (e) {
+            console.warn("Could not parse dates for month:", monthKey, e);
+          }
+        }
+
+        if (!discovered.some((d) => d.monthKey === monthKey)) {
+          discovered.push({
+            monthKey,
+            status: statusVal,
+            datesCount,
+            dates: parsedDates,
+          });
+        }
+      }
+    }
+
+    if (discovered.length > 0) {
+      const STATUS_PRIORITY: Record<string, number> = {
+        TEAMS_READY: 1,
+        RESPONSES_RECEIVED: 2,
+        SIGN_UPS_OPEN: 3,
+        OPEN: 3,
+        STAGING_DATES: 4,
+        NOT_OPEN: 4,
+        EMAIL_SENT: 5,
+        CLOSED: 5,
+      };
+
+      discovered.sort((a, b) => {
+        const prioA = STATUS_PRIORITY[a.status] || 99;
+        const prioB = STATUS_PRIORITY[b.status] || 99;
+        if (prioA !== prioB) return prioA - prioB;
+        return b.monthKey.localeCompare(a.monthKey);
+      });
+
+      setConfiguredMonths(discovered);
+
+      // Select highest priority active month if not already explicitly selected
+      const primary = discovered[0];
+      setSelectedActiveMonthKey((prev) => {
+        if (prev && discovered.some((d) => d.monthKey === prev)) return prev;
+        return primary.monthKey;
+      });
+
+      setSurveyFormMonthKey(primary.monthKey);
+      setSurveyFormMonthStatus(primary.status);
+      if (primary.dates && primary.dates.length > 0) {
+        setSurveyFormDates(primary.dates);
+      }
+    }
+  };
+
+  const handleSelectActiveMonth = (targetMonth: string) => {
+    setSelectedActiveMonthKey(targetMonth);
+    const item = configuredMonths.find((m) => m.monthKey === targetMonth);
+    if (item) {
+      setSurveyFormMonthKey(item.monthKey);
+      setSurveyFormMonthStatus(item.status);
+      if (item.dates && item.dates.length > 0) {
+        setSurveyFormDates(item.dates);
+      }
+    }
+  };
+
+  const activeMonthItem = useMemo(() => {
+    if (configuredMonths.length === 0) return null;
+    const key = selectedActiveMonthKey || surveyFormMonthKey;
+    const found = configuredMonths.find((m) => m.monthKey === key);
+    return found || configuredMonths[0];
+  }, [configuredMonths, selectedActiveMonthKey, surveyFormMonthKey]);
+
+  const handleSelectCoordinatorFromPortal = async (
+    step: 1 | 2 | 3 | 4 = 1,
+    targetMonth?: string
+  ) => {
+    const month =
+      targetMonth || activeMonthItem?.monthKey || surveyFormMonthKey || "2026-11";
+
+    let matchedSheet = driveSheets.find((s) => {
+      const n = s.name.toLowerCase();
+      const [y, m] = month.split(/[-_]/);
+      const yy = y.slice(-2);
+      return (
+        n.includes(`${yy}-${m}`) ||
+        n.includes(`${y}-${m}`) ||
+        n.includes(`${yy}_${m}`) ||
+        n.includes(`${y}_${m}`)
+      );
+    });
+
+    if (matchedSheet) {
+      setSheetInput(matchedSheet.id);
+      setSheetSelectMode(matchedSheet.id);
+    }
+
+    navigateToView("coordinator", { step });
+
+    // Fetch intake data for this sheet if not yet loaded or if loaded sheet is for a different month
+    if (matchedSheet && (!intakeData || intakeData.mealDates?.[0]?.dateKey?.slice(0, 7) !== month)) {
+      try {
+        await fetchIntake(matchedSheet.id);
+      } catch (e) {
+        console.warn("Could not auto-fetch intake for coordinator resume:", e);
+      }
+    }
+
+    // If navigating to step 3 or 4 and schedule is not yet loaded, load existing schedule from sheet tab
+    if (step >= 3 && matchedSheet && !solverResult) {
+      try {
+        setLoading(true);
+        const res = await callGas<ScheduleOutput>("loadExistingScheduleFromSheet", matchedSheet.id);
+        if (res && res.schedule && res.schedule.length > 0) {
+          if (intakeData?.responses && intakeData.responses.length > 0) {
+            res.memberStats = computeMemberQuotaStats(res.schedule, intakeData.responses);
+          }
+          setSolverResult(res);
+        }
+      } catch (e) {
+        console.warn("Could not auto-load existing schedule for step:", step, e);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -3482,19 +3643,30 @@ function MainApp() {
         <PortalLandingView
           communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
           monthTitle={publicMonthTitle}
-          onSelectCoordinator={(step) => navigateToView("coordinator", { step: step || 1 })}
+          onSelectCoordinator={(step, month) => handleSelectCoordinatorFromPortal(step, month)}
           onSelectResident={(month) => navigateToView("resident", { month })}
           onSelectFormGenerator={(month) => handleOpenSurveyFormGenerator(month)}
           activeMonthKey={
-            surveyFormMonthKey || intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7) || "2026-11"
+            activeMonthItem?.monthKey ||
+            surveyFormMonthKey ||
+            intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7) ||
+            "2026-11"
           }
-          activeMonthStatus={surveyFormMonthStatus || intakeData?.monthStatus || "SIGN_UPS_OPEN"}
+          activeMonthStatus={
+            activeMonthItem?.status ||
+            surveyFormMonthStatus ||
+            intakeData?.monthStatus ||
+            "SIGN_UPS_OPEN"
+          }
           activeMonthDatesCount={
-            surveyFormDates.filter((d) => d.included).length || intakeData?.mealDates?.length
+            activeMonthItem?.datesCount ??
+            (surveyFormDates.filter((d) => d.included).length || intakeData?.mealDates?.length)
           }
           activeMonthResponseCount={
             intakeData?.responses?.length || surveyFormExistingSurvey?.responseCount || 0
           }
+          configuredMonths={configuredMonths}
+          onSelectActiveMonth={handleSelectActiveMonth}
         />
         {renderToast()}
       </>
@@ -3955,42 +4127,70 @@ function MainApp() {
           />
         )}
 
-        {currentStep === 4 && solverResult && (
-          <Step4PublishEmail
-            solverResult={solverResult}
-            exportedResult={exportedResult}
-            sheetInput={sheetInput}
-            loading={loading}
-            handleExportSheet={handleExportSheet}
-            handleCopyEmail={handleCopyEmail}
-            handleSendGmail={handleSendGmail}
-            sendingEmail={sendingEmail}
-            emailDispatchInfo={emailDispatchInfo}
-            emailDeliveryResult={emailDeliveryResult}
-            emailTo={emailTo}
-            setEmailTo={setEmailTo}
-            emailCc={emailCc}
-            setEmailCc={setEmailCc}
-            DEFAULT_ANNOUNCEMENT_TO={announcementTo}
-            DEFAULT_ANNOUNCEMENT_CC={announcementCc}
-            DEV_TEST_EMAIL={DEV_TEST_EMAIL}
-            emailSubject={emailSubject}
-            setEmailSubject={setEmailSubject}
-            isEmailSubjectDirty={isEmailSubjectDirty}
-            customEmailBody={customEmailBody}
-            setCustomEmailBody={setCustomEmailBody}
-            generateEmailText={generateEmailText}
-            goToStep={goToStep}
-            parseDateFromLabelOrKey={parseDateFromLabelOrKey}
-            monthKey={
-              surveyFormMonthKey ||
-              solverResult.schedule?.[0]?.dateKey?.slice(0, 7) ||
-              "2026-10"
-            }
-            monthStatus={surveyFormMonthStatus || intakeData?.monthStatus || "TEAMS_READY"}
-            onRecordBroadcastSent={handleRecordBroadcastSent}
-            onToggleBroadcastSent={handleToggleBroadcastSent}
-          />
+        {currentStep === 4 && (
+          solverResult ? (
+            <Step4PublishEmail
+              solverResult={solverResult}
+              exportedResult={exportedResult}
+              sheetInput={sheetInput}
+              loading={loading}
+              handleExportSheet={handleExportSheet}
+              handleCopyEmail={handleCopyEmail}
+              handleSendGmail={handleSendGmail}
+              sendingEmail={sendingEmail}
+              emailDispatchInfo={emailDispatchInfo}
+              emailDeliveryResult={emailDeliveryResult}
+              emailTo={emailTo}
+              setEmailTo={setEmailTo}
+              emailCc={emailCc}
+              setEmailCc={setEmailCc}
+              DEFAULT_ANNOUNCEMENT_TO={announcementTo}
+              DEFAULT_ANNOUNCEMENT_CC={announcementCc}
+              DEV_TEST_EMAIL={DEV_TEST_EMAIL}
+              emailSubject={emailSubject}
+              setEmailSubject={setEmailSubject}
+              isEmailSubjectDirty={isEmailSubjectDirty}
+              customEmailBody={customEmailBody}
+              setCustomEmailBody={setCustomEmailBody}
+              generateEmailText={generateEmailText}
+              goToStep={goToStep}
+              parseDateFromLabelOrKey={parseDateFromLabelOrKey}
+              monthKey={
+                surveyFormMonthKey ||
+                solverResult.schedule?.[0]?.dateKey?.slice(0, 7) ||
+                "2026-10"
+              }
+              monthStatus={surveyFormMonthStatus || intakeData?.monthStatus || "TEAMS_READY"}
+              onRecordBroadcastSent={handleRecordBroadcastSent}
+              onToggleBroadcastSent={handleToggleBroadcastSent}
+            />
+          ) : (
+            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm max-w-xl mx-auto my-8">
+              <Utensils className="w-12 h-12 text-orange-500 mx-auto mb-3" />
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+                No Schedule Loaded
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                Please load a survey response sheet and run the matchmaker solver or load a saved schedule first.
+              </p>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => goToStep(1)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-sm cursor-pointer"
+                >
+                  Go to Step 1 (Intake)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToStep(3)}
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-sm cursor-pointer"
+                >
+                  Go to Step 3 (Solve)
+                </button>
+              </div>
+            </div>
+          )
         )}
       </main>
 

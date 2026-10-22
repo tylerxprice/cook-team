@@ -905,20 +905,24 @@ function getMasterRegistryData(
           }
         }
 
-        // In-memory fallback if open_months is not yet persisted
-        if (!settings.open_months) {
-          const discoveredOpen: string[] = [];
-          for (const [k, v] of Object.entries(settings)) {
-            const m = k.match(/^month_status_(\d{4})[-_](\d{2})$/);
-            if (m && String(v).trim().toUpperCase() === "OPEN") {
+        // Synchronize open_months: must strictly reflect months currently marked OPEN or SIGN_UPS_OPEN
+        const discoveredOpen: string[] = [];
+        for (const [k, v] of Object.entries(settings)) {
+          const m = k.match(/^month_status_(\d{4})[-_](\d{2})$/);
+          if (m) {
+            const st = String(v).trim().toUpperCase();
+            if (st === "OPEN" || st === "SIGN_UPS_OPEN") {
               discoveredOpen.push(`${m[1]}-${m[2]}`);
             }
           }
-          if (discoveredOpen.length > 0) {
-            settings.open_months = Array.from(new Set(discoveredOpen))
-              .sort((a, b) => b.localeCompare(a))
-              .join(",");
-          }
+        }
+        const verifiedOpenMonths = Array.from(new Set(discoveredOpen))
+          .sort((a, b) => b.localeCompare(a))
+          .join(",");
+
+        // If open_months in settings is stale (e.g. contains staging/closed/teams_ready months) or empty, align it
+        if ((settings.open_months || "") !== verifiedOpenMonths) {
+          settings.open_months = verifiedOpenMonths;
         }
       }
     }
@@ -3798,7 +3802,7 @@ function syncOpenMonthsSetting(): { success: boolean; openMonths: string; messag
         .trim()
         .toUpperCase();
       const match = k.match(/^month_status_(\d{4})[-_](\d{2})$/);
-      if (match && v === "OPEN") {
+      if (match && (v === "OPEN" || v === "SIGN_UPS_OPEN")) {
         openSet.add(`${match[1]}-${match[2]}`);
       }
     }
@@ -4166,8 +4170,8 @@ function getSurveyFormDatesPreview(monthKey: string): SurveyFormDatesPreviewResu
     }
   }
 
-  // If OPEN, ensure open_months setting in Master Registry stays synchronized
-  if (effectiveStatus === "OPEN") {
+  // If OPEN or SIGN_UPS_OPEN, ensure open_months setting in Master Registry stays synchronized
+  if (effectiveStatus === "OPEN" || effectiveStatus === "SIGN_UPS_OPEN") {
     try {
       syncOpenMonthsSetting();
     } catch (e) {
