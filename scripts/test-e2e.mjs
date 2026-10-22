@@ -89,9 +89,10 @@ async function runE2ETest() {
     // 1b. Verify Portal Landing View & Resident View
     console.log("1b. Testing Portal Landing View & Resident View ...");
     await page.waitForSelector("text=What would you like to do?");
+    await page.waitForSelector("text=Active Month");
     await page.waitForSelector("text=View My Shifts & Add to Calendar");
     await page.waitForSelector("text=Coordinator Planning Wizard");
-    console.log("✓ Portal Landing View rendered successfully!");
+    console.log("✓ Portal Landing View & Active Month card rendered successfully!");
 
     // Test entering Resident View
     console.log("1c. Testing Resident View & Calendar Download ...");
@@ -460,7 +461,7 @@ async function runE2ETest() {
 
     // Navigate to Step 4: Publish & Email
     console.log("8. Navigating to Step 4: Publish & Email ...");
-    const step4Btn = page.locator("button:has-text('Proceed to Export & Email')").first();
+    const step4Btn = page.locator("button:has-text('Save Teams to Sheet & Proceed to Email')").first();
     await step4Btn.click();
     await page.waitForSelector("text=Community Announcement & Gmail Dispatch");
 
@@ -489,6 +490,11 @@ async function runE2ETest() {
     const composeBtn = page.locator("button:has-text('Compose in Gmail Web')");
     await composeBtn.waitFor({ state: "visible" });
     console.log("✓ Compose in Gmail Web button verified!");
+
+    // Verify 'Mark as Broadcast Sent' button is present
+    const markBroadcastBtn = page.locator("button:has-text('Mark as Broadcast Sent')");
+    await markBroadcastBtn.waitFor({ state: "visible" });
+    console.log("✓ Verified 'Mark as Broadcast Sent' button is present!");
 
     // Verify 'Send via Gmail' is completely removed
     const sendBtn = page.locator("button:has-text('Send via Gmail')");
@@ -624,7 +630,9 @@ async function runE2ETest() {
     const standardTabBtn = page.locator("button:has-text('Google Form & Meal Dates (Standard)')").first();
     await standardTabBtn.click();
     await page.waitForSelector("text=Configure Meal Dates for Survey Grid");
-    console.log("✓ Switched back to Google Form (Standard) tab.");
+    await page.waitForSelector("text=Community Survey Announcement");
+    await page.waitForSelector("button:has-text('Compose Survey Announcement in Gmail Web')");
+    console.log("✓ Switched back to Google Form (Standard) tab & verified Community Survey Announcement card!");
 
     // Return to Step 4 via browser back button
     await page.goBack();
@@ -688,6 +696,27 @@ async function runE2ETest() {
     await page.waitForSelector("text=Jessica");
     console.log("✓ Verified all 4 cooks and 4 cleaners from multi-column schedule tab are visibly rendered in Step 3!");
     console.log("✓ One-click jump to Step 3 with saved roster verified!");
+
+    // 12. Testing Overwrite Guard Modal in Step 3 when a saved schedule exists
+    console.log("12. Testing Overwrite Guard Confirmation Modal in Step 3...");
+    const rerunSolverBtn = page.locator("button:has-text('Re-Run Solver')").first();
+    await rerunSolverBtn.click();
+    await page.waitForSelector("text=Finalized Schedule Exists");
+    console.log("✓ Overwrite Guard Confirmation Modal opened successfully!");
+
+    // Test Cancel button keeps existing draft
+    const cancelModalBtn = page.locator(".fixed button:has-text('Cancel')").first();
+    await cancelModalBtn.click();
+    await page.waitForSelector("text=Finalized Schedule Exists", { state: "detached" });
+    console.log("✓ Overwrite Guard Cancel preserved saved draft!");
+
+    // Test Proceed button in modal re-runs solver
+    await rerunSolverBtn.click();
+    await page.waitForSelector("text=Finalized Schedule Exists");
+    const proceedRerunBtn = page.locator(".fixed button:has-text('Proceed & Re-run Solver')").first();
+    await proceedRerunBtn.click();
+    await page.waitForSelector("text=Generated Monthly Shift Roster");
+    console.log("✓ Overwrite Guard Proceed successfully re-ran matchmaker solver!");
 
     console.log("\n==========================================");
     if (errors.length === 0) {

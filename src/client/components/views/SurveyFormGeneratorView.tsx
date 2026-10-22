@@ -140,6 +140,86 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
 
   const [showAddDateModal, setShowAddDateModal] = useState<boolean>(false);
 
+  // Survey Announcement Email State
+  const [copiedAnnouncement, setCopiedAnnouncement] = useState<boolean>(false);
+  const [customSurveySubject, setCustomSurveySubject] = useState<string | null>(null);
+  const [customSurveyBody, setCustomSurveyBody] = useState<string | null>(null);
+
+  const monthDisplayName = React.useMemo(() => {
+    try {
+      const [y, m] = monthKey.split("-");
+      const d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+      return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    } catch {
+      return monthKey;
+    }
+  }, [monthKey]);
+
+  const defaultSurveySubject = `[${communityName}] ${monthDisplayName} Meal Team Sign-Ups Now Open!`;
+
+  const defaultSurveyBody = React.useMemo(() => {
+    const liveFormUrl =
+      formResult?.formPrefilledUrl ||
+      formResult?.formPublishedUrl ||
+      existingSurvey?.formUrl ||
+      `https://docs.google.com/forms/`;
+    const webSurveyUrl = `${deploymentUrl || getPublicWebAppUrl()}?view=survey&month=${monthKey}`;
+    const activeDates = dates.filter((d) => d.included);
+    const dateList = activeDates
+      .map(
+        (d) =>
+          `  • ${d.dateLabel} (${d.mealType === "BRUNCH" ? "Brunch" : "Dinner"}${
+            d.specialNote ? ` - ${d.specialNote}` : ""
+          })`
+      )
+      .join("\n");
+
+    return `Hi precious friends & neighbours,
+
+Sign-ups for our ${monthDisplayName} community meal teams are now officially open!
+
+Please submit your availability and shift preferences using either link below:
+
+Option 1: Web Sign-Up (Fast & Mobile-Friendly):
+${webSurveyUrl}
+
+Option 2: Google Form:
+${liveFormUrl}
+
+We have ${activeDates.length} meals scheduled for ${monthDisplayName}:
+${dateList}
+
+Deadline: Please submit your preferences by Sunday at 8:00 PM so we can generate and publish the roster promptly.
+
+Warmly,
+${communityName} Meal Team Coordinator`;
+  }, [monthDisplayName, formResult, existingSurvey, deploymentUrl, monthKey, dates, communityName]);
+
+  const effectiveSurveySubject = customSurveySubject ?? defaultSurveySubject;
+  const effectiveSurveyBody = customSurveyBody ?? defaultSurveyBody;
+
+  const handleCopySurveyAnnouncement = () => {
+    navigator.clipboard.writeText(`${effectiveSurveySubject}\n\n${effectiveSurveyBody}`);
+    setCopiedAnnouncement(true);
+    setTimeout(() => setCopiedAnnouncement(false), 2500);
+    if (_onToast) _onToast("Survey announcement copied to clipboard!");
+  };
+
+  const handleComposeSurveyAnnouncementInGmail = () => {
+    handleCopySurveyAnnouncement();
+    if (onSetMonthStatus) {
+      onSetMonthStatus("SIGN_UPS_OPEN", monthKey);
+    }
+    const to = coordinatorEmail || "";
+    const su = effectiveSurveySubject;
+    const body = effectiveSurveyBody;
+    const composeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
+      to
+    )}&su=${encodeURIComponent(su)}&body=${encodeURIComponent(body)}`;
+    window.open(composeUrl, "_blank");
+    if (_onToast) _onToast("Opened Gmail compose & marked month as Sign-Ups Open!");
+  };
+
   const handleAddDateFromModal = (newDate: SurveyFormDateConfig) => {
     setDates((prev) => {
       const existingIdx = prev.findIndex((d) => d.dateKey === newDate.dateKey);
@@ -735,6 +815,106 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
                       )}
                     </div>
                   )}
+
+                {/* Survey Launch Announcement Email Card */}
+                {(hasGeneratedForm || (isCurrentMonthFormResult && formResult?.success)) && (
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl border-2 border-blue-200 dark:border-blue-800 shadow-sm p-5 sm:p-6 space-y-4 animate-in fade-in duration-150">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-800 flex items-center justify-center shrink-0">
+                          <Mail className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <span>Community Survey Announcement</span>
+                            <span className="text-[11px] font-black uppercase tracking-wider bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+                              Ready to Send
+                            </span>
+                          </h3>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            Launch sign-ups by emailing the community with direct links to the Google Form and Web Survey
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={handleCopySurveyAnnouncement}
+                          className="min-h-[40px] px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        >
+                          {copiedAnnouncement ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                          <span>{copiedAnnouncement ? "Copied!" : "Copy Text"}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleComposeSurveyAnnouncementInGmail}
+                          className="min-h-[40px] px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs hover:shadow transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          <span>Compose Survey Announcement in Gmail Web</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Subject Line */}
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="survey-announcement-subject"
+                        className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200"
+                      >
+                        Subject Line
+                      </label>
+                      <input
+                        id="survey-announcement-subject"
+                        type="text"
+                        value={effectiveSurveySubject}
+                        onChange={(e) => setCustomSurveySubject(e.target.value)}
+                        className="w-full min-h-[42px] px-3.5 py-2 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white dark:bg-slate-800 font-bold text-slate-900 dark:text-white"
+                      />
+                    </div>
+
+                    {/* Email Body */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label
+                          htmlFor="survey-announcement-body"
+                          className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200"
+                        >
+                          Announcement Body
+                        </label>
+                        {customSurveyBody !== null && (
+                          <button
+                            type="button"
+                            onClick={() => setCustomSurveyBody(null)}
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold cursor-pointer"
+                          >
+                            Reset to Default Template
+                          </button>
+                        )}
+                      </div>
+                      <textarea
+                        id="survey-announcement-body"
+                        value={effectiveSurveyBody}
+                        onChange={(e) => setCustomSurveyBody(e.target.value)}
+                        rows={10}
+                        className="w-full p-3.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-mono text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 leading-relaxed resize-y select-all"
+                      />
+                    </div>
+
+                    <div className="p-3 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl text-xs text-blue-900 dark:text-blue-200 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                      <span>
+                        Clicking <strong>Compose Survey Announcement in Gmail Web</strong> will copy this message, open Gmail with To, Subject, and Body populated, and mark this month&apos;s status as <strong>Sign-ups Open</strong>.
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Interactive Meal Dates Table with Merged Form Title */}
                 <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden space-y-4 p-5">

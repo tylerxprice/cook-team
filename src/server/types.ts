@@ -407,7 +407,15 @@ export interface PublicScheduleResult {
   message?: string;
 }
 
-export type MonthStatus = "NOT_OPEN" | "OPEN" | "CLOSED";
+export type MonthStatus =
+  | "STAGING_DATES"
+  | "SIGN_UPS_OPEN"
+  | "RESPONSES_RECEIVED"
+  | "TEAMS_READY"
+  | "EMAIL_SENT"
+  | "NOT_OPEN"
+  | "OPEN"
+  | "CLOSED";
 
 export interface MonthConfig {
   monthKey: string; // e.g. "2026-11"
@@ -416,6 +424,10 @@ export interface MonthConfig {
   defaultTitle?: string;
   openedAt?: string;
   closedAt?: string;
+  teamsSavedAt?: string;
+  broadcastSentAt?: string;
+  formId?: string;
+  formUrl?: string;
   isConfigured?: boolean;
 }
 
@@ -446,6 +458,9 @@ export interface ExistingSurveyInfo {
   spreadsheetId?: string;
   spreadsheetName?: string;
   spreadsheetUrl?: string;
+  formId?: string;
+  formUrl?: string;
+  formEditUrl?: string;
   responseCount: number;
   canOverwrite: boolean; // false if responseCount > 1
   warningMessage?: string;

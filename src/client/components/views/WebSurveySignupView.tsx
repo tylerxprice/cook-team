@@ -79,6 +79,10 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
   const [monthStatus, setMonthStatus] = useState<MonthStatus>("OPEN");
   const [loadingMonthStatus, setLoadingMonthStatus] = useState<boolean>(true);
 
+  const isSignupsOpen = monthStatus === "OPEN" || monthStatus === "SIGN_UPS_OPEN";
+  const isNotOpenYet = monthStatus === "NOT_OPEN" || monthStatus === "STAGING_DATES";
+  const isClosed = !isSignupsOpen && !isNotOpenYet;
+
   // Auto-manage mealDates (fallback to getSurveyFormDatesPreview if not loaded via coordinator intake)
   const [activeMealDates, setActiveMealDates] = useState<MealDate[]>(() => {
     if (mealDates && mealDates.length > 0) return mealDates;
@@ -438,7 +442,7 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
               Loading sign-up form for {monthTitle}...
             </p>
           </div>
-        ) : monthStatus === "NOT_OPEN" ? (
+        ) : isNotOpenYet ? (
           /* Sign-Ups Not Open Yet View */
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-10 border border-slate-200 dark:border-slate-800 shadow-sm text-center space-y-6 animate-in fade-in duration-200">
             <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 flex items-center justify-center mx-auto shadow-2xs">
@@ -542,7 +546,7 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
           /* Main Survey Form Container */
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
             {/* Closed Banner if Teams Scheduled */}
-            {monthStatus === "CLOSED" && (
+            {isClosed && (
               <div className="bg-amber-50/90 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-800 rounded-2xl p-4 sm:p-5 text-slate-900 dark:text-slate-100 space-y-3 shadow-xs">
                 <div className="flex items-start gap-3.5">
                   <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/60 border border-amber-300 dark:border-amber-700 flex items-center justify-center shrink-0 text-amber-700 dark:text-amber-300 mt-0.5">
@@ -605,7 +609,7 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
                     <span className="text-xs font-black text-orange-950 dark:text-orange-300 bg-orange-100 dark:bg-orange-950/60 border border-orange-300 dark:border-orange-800 px-2.5 py-0.5 rounded-lg shadow-2xs">
                       Meal Team Sign-Up • {monthTitle}
                     </span>
-                    {monthStatus === "OPEN" ? (
+                    {isSignupsOpen ? (
                       <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 px-2 py-0.5 rounded-lg flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         Sign-Ups Open
@@ -709,7 +713,7 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                   <span>
-                    {monthStatus === "CLOSED"
+                    {isClosed
                       ? "Your recorded responses are shown below in read-only mode."
                       : "Your current responses are loaded below. You can update any answers and re-save anytime!"}
                   </span>
@@ -749,21 +753,21 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
                 setAvailability={setAvailability}
                 specialInstructions={specialInstructions}
                 setSpecialInstructions={setSpecialInstructions}
-                disabled={submitting || monthStatus === "CLOSED"}
+                disabled={submitting || isClosed}
                 accentColor="orange"
               />
 
               {/* Submit Button */}
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {monthStatus === "CLOSED"
+                  {isClosed
                     ? "Sign-ups are closed because monthly teams are already scheduled."
                     : "Submitting will safely record your response in the community response sheet."}
                 </p>
 
                 <button
                   type="submit"
-                  disabled={submitting || !selectedMemberName || monthStatus === "CLOSED"}
+                  disabled={submitting || !selectedMemberName || isClosed}
                   className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center gap-2 px-8 py-3 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm shadow-sm transition-colors cursor-pointer"
                 >
                   {submitting ? (
@@ -771,7 +775,7 @@ export const WebSurveySignupView: React.FC<WebSurveySignupViewProps> = ({
                       <LoadingSpinner size="sm" color="white" />
                       <span>Saving Response...</span>
                     </>
-                  ) : monthStatus === "CLOSED" ? (
+                  ) : isClosed ? (
                     <>
                       <Lock className="w-4 h-4" />
                       <span>Sign-Ups Closed (Schedule Published)</span>

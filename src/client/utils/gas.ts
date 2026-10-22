@@ -288,10 +288,22 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         localIntake = { ...MOCK_SAVED_SCHEDULE_PAYLOAD };
       }
       const monthKey = localIntake.mealDates?.[0]?.dateKey?.slice(0, 7) || "2026-10";
+      const cfg = mockMonthConfigs[monthKey];
+      const hasEmailSent = Boolean(mockEmailDispatchLog[monthKey]?.alreadySent);
+      const hasSavedTab = Boolean(localIntake.existingScheduleTab?.exists);
+      let calculatedStatus: MonthStatus = "SIGN_UPS_OPEN";
+      if (hasEmailSent) {
+        calculatedStatus = "EMAIL_SENT";
+      } else if (hasSavedTab) {
+        calculatedStatus = "TEAMS_READY";
+      } else if (cfg?.status) {
+        calculatedStatus = cfg.status;
+      }
       return {
         ...localIntake,
         settings: { ...mockMasterSettings },
         emailDispatchInfo: mockEmailDispatchLog[monthKey] || undefined,
+        monthStatus: calculatedStatus,
       } as unknown as T;
     }
 
@@ -888,17 +900,26 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         }
       }
       if (!monthSuffix) monthSuffix = "2026-10";
+      const now = new Date().toISOString();
       if (mockMonthConfigs[monthSuffix]) {
-        mockMonthConfigs[monthSuffix].status = "CLOSED";
-        mockMonthConfigs[monthSuffix].closedAt = new Date().toISOString();
+        mockMonthConfigs[monthSuffix].status = "TEAMS_READY";
+        mockMonthConfigs[monthSuffix].teamsSavedAt = now;
       } else {
         mockMonthConfigs[monthSuffix] = {
           monthKey: monthSuffix,
-          status: "CLOSED",
+          status: "TEAMS_READY",
           dates: [],
-          closedAt: new Date().toISOString(),
+          teamsSavedAt: now,
           isConfigured: true,
         };
+      }
+      if (localIntake) {
+        localIntake.existingScheduleTab = {
+          name: `Schedule_${monthSuffix}`,
+          exists: true,
+          dateMonth: monthSuffix,
+        };
+        localIntake.monthStatus = "TEAMS_READY";
       }
       const sheetTabName = `Schedule_${monthSuffix}`;
       return {
@@ -909,20 +930,65 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
       } as unknown as T;
     }
 
+    case "recordScheduleBroadcastSent": {
+      const [payload] = args as [
+        {
+          spreadsheetId?: string;
+          monthKey: string;
+          to?: string;
+          subject?: string;
+          sentBy?: string;
+        },
+      ];
+      const monthKey = payload?.monthKey || "2026-10";
+      const now = new Date().toISOString();
+      const dispatchInfo: EmailDispatchInfo = {
+        alreadySent: true,
+        sentAt: now,
+        to: payload?.to || "vancouver-cohousing@lists.example.com",
+        subject: payload?.subject || `${monthKey} Meal Teams Roster`,
+        sentBy: payload?.sentBy || "Brenda (Coordinator)",
+        monthKey,
+      };
+      mockEmailDispatchLog[monthKey] = dispatchInfo;
+      if (mockMonthConfigs[monthKey]) {
+        mockMonthConfigs[monthKey].status = "EMAIL_SENT";
+        mockMonthConfigs[monthKey].broadcastSentAt = now;
+      }
+      if (localIntake) {
+        localIntake.monthStatus = "EMAIL_SENT";
+        localIntake.emailDispatchInfo = dispatchInfo;
+      }
+      return {
+        success: true,
+        message: `Schedule broadcast recorded for ${monthKey}.`,
+        dispatchInfo,
+      } as unknown as T;
+    }
+
     case "sendScheduleEmail": {
       const [payload] = args as [EmailPayload];
       const monthKey = payload.monthKey || "2026-10";
       let dispatchInfo: EmailDispatchInfo | undefined = undefined;
       if (payload.mode === "send") {
+        const now = new Date().toISOString();
         dispatchInfo = {
           alreadySent: true,
-          sentAt: new Date().toISOString(),
+          sentAt: now,
           to: payload.to,
           subject: payload.subject,
           sentBy: "coordinator@local-vite.dev",
           monthKey,
         };
         mockEmailDispatchLog[monthKey] = dispatchInfo;
+        if (mockMonthConfigs[monthKey]) {
+          mockMonthConfigs[monthKey].status = "EMAIL_SENT";
+          mockMonthConfigs[monthKey].broadcastSentAt = now;
+        }
+        if (localIntake) {
+          localIntake.monthStatus = "EMAIL_SENT";
+          localIntake.emailDispatchInfo = dispatchInfo;
+        }
       }
       const ccMsg = payload.cc ? ` (CC: ${payload.cc})` : "";
       return {
@@ -1082,26 +1148,38 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         dates: [],
         isConfigured: false,
       };
+      const now = new Date().toISOString();
       mockMonthConfigs[monthKey] = {
         ...existing,
         status,
         closedAt:
-          status === "CLOSED"
-            ? new Date().toISOString()
-            : status === "NOT_OPEN"
+          status === "CLOSED" || status === "RESPONSES_RECEIVED"
+            ? existing.closedAt || now
+            : status === "NOT_OPEN" || status === "STAGING_DATES"
               ? undefined
               : existing.closedAt,
         openedAt:
-          status === "OPEN"
-            ? new Date().toISOString()
-            : status === "NOT_OPEN"
+          status === "OPEN" || status === "SIGN_UPS_OPEN"
+            ? existing.openedAt || now
+            : status === "NOT_OPEN" || status === "STAGING_DATES"
               ? undefined
               : existing.openedAt,
+        teamsSavedAt:
+          status === "TEAMS_READY"
+            ? existing.teamsSavedAt || now
+            : existing.teamsSavedAt,
+        broadcastSentAt:
+          status === "EMAIL_SENT"
+            ? existing.broadcastSentAt || now
+            : existing.broadcastSentAt,
       };
       mockMasterSettings[`month_status_${monthKey}`] = status;
+      if (localIntake) {
+        localIntake.monthStatus = status;
+      }
       const openSet = new Set<string>();
       for (const [k, v] of Object.entries(mockMonthConfigs)) {
-        if (v.status === "OPEN") openSet.add(k);
+        if (v.status === "OPEN" || v.status === "SIGN_UPS_OPEN") openSet.add(k);
       }
       mockMasterSettings.open_months = Array.from(openSet)
         .sort((a, b) => b.localeCompare(a))
@@ -1117,11 +1195,12 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
     case "syncOpenMonthsSetting": {
       const openSet = new Set<string>();
       for (const [k, v] of Object.entries(mockMonthConfigs)) {
-        if (v.status === "OPEN") openSet.add(k);
+        if (v.status === "OPEN" || v.status === "SIGN_UPS_OPEN") openSet.add(k);
       }
       for (const [k, v] of Object.entries(mockMasterSettings)) {
         const m = k.match(/^month_status_(\d{4})[-_](\d{2})$/);
-        if (m && String(v).trim().toUpperCase() === "OPEN") {
+        const val = String(v).trim().toUpperCase();
+        if (m && (val === "OPEN" || val === "SIGN_UPS_OPEN")) {
           openSet.add(`${m[1]}-${m[2]}`);
         }
       }
@@ -1147,6 +1226,9 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
           spreadsheetId: "1p02x7_k9k3v654b9d032",
           spreadsheetName: "26-10 Oct Meal Team Sign-Up (Responses)",
           spreadsheetUrl: "https://docs.google.com/spreadsheets/d/1p02x7_k9k3v654b9d032/edit",
+          formId: "mock-form-id-10",
+          formUrl: "https://docs.google.com/forms/d/e/mock-10/viewform",
+          formEditUrl: "https://docs.google.com/forms/d/mock-10/edit",
           responseCount: 26,
           canOverwrite: false,
           warningMessage:
@@ -1159,6 +1241,9 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
           spreadsheetId: "mock-response-ss-id-67890",
           spreadsheetName: `${deriveFormTitle(monthKey)} (Responses)`,
           spreadsheetUrl: "https://docs.google.com/spreadsheets/d/mock-response-ss-id-67890/edit",
+          formId: cfg.formId || "mock-form-id-12345",
+          formUrl: cfg.formUrl || "https://docs.google.com/forms/d/e/mock-form/viewform",
+          formEditUrl: "https://docs.google.com/forms/d/mock-form-id-12345/edit",
           responseCount: 0,
           canOverwrite: true,
           warningMessage: `A survey spreadsheet already exists with 0 responses.`,
@@ -1181,6 +1266,9 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
               spreadsheetId: "1p02x7_k9k3v654b9d032",
               spreadsheetName: "26-10 Oct Meal Team Sign-Up (Responses)",
               spreadsheetUrl: "https://docs.google.com/spreadsheets/d/1p02x7_k9k3v654b9d032/edit",
+              formId: "mock-form-id-10",
+              formUrl: "https://docs.google.com/forms/d/e/mock-10/viewform",
+              formEditUrl: "https://docs.google.com/forms/d/mock-10/edit",
               responseCount: 26,
               canOverwrite: false,
               warningMessage:
@@ -1193,6 +1281,9 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
                 spreadsheetName: `${deriveFormTitle(monthKey)} (Responses)`,
                 spreadsheetUrl:
                   "https://docs.google.com/spreadsheets/d/mock-response-ss-id-67890/edit",
+                formId: cfg.formId || "mock-form-id-12345",
+                formUrl: cfg.formUrl || "https://docs.google.com/forms/d/e/mock-form/viewform",
+                formEditUrl: "https://docs.google.com/forms/d/mock-form-id-12345/edit",
                 responseCount: 0,
                 canOverwrite: true,
                 warningMessage: `A survey spreadsheet already exists with 0 responses.`,
@@ -1210,7 +1301,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         monthKey !== "2026-09" &&
         monthKey !== "2026-08"
       ) {
-        effectiveStatus = "NOT_OPEN";
+        effectiveStatus = cfg?.status === "STAGING_DATES" ? "STAGING_DATES" : "NOT_OPEN";
       }
 
       if (cfg && cfg.isConfigured && cfg.dates && cfg.dates.length > 0) {
@@ -1244,12 +1335,17 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
       const activeDates = (payload.dates || []).filter((d: any) => d.included);
       mockMonthConfigs[monthKey] = {
         monthKey,
-        status: "OPEN",
+        status: "SIGN_UPS_OPEN",
         dates: payload.dates || [],
         defaultTitle: title,
         openedAt: new Date().toISOString(),
+        formId: "mock-form-id-12345",
+        formUrl: `https://docs.google.com/forms/d/e/1FAIpQLSd-mock-published-url/viewform`,
         isConfigured: true,
       };
+      if (localIntake) {
+        localIntake.monthStatus = "SIGN_UPS_OPEN";
+      }
       return {
         success: true,
         monthKey,

@@ -78,6 +78,7 @@ import { WebSurveySignupView } from "./components/views/WebSurveySignupView";
 import { SurveyFormGeneratorView } from "./components/views/SurveyFormGeneratorView";
 import { TopHeader } from "./components/common/TopHeader";
 import { Toast } from "./components/common/Toast";
+import { MonthLifecycleTracker } from "./components/common/MonthLifecycleTracker";
 
 export type AppView = "portal" | "coordinator" | "resident" | "survey" | "form-generator";
 
@@ -620,11 +621,6 @@ function MainApp() {
       }
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
-
-    // Auto-export when navigating to Step 4 if a schedule is generated
-    if (step === 4 && solverResult) {
-      handleExportSheet(solverResult);
-    }
   };
 
   // Centralized navigation router that synchronizes app views with URL query parameters and browser history
@@ -3153,16 +3149,97 @@ function MainApp() {
       setExportedResult(res);
       const scheduledMonth = intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7);
       if (scheduledMonth === surveyFormMonthKey) {
-        setSurveyFormMonthStatus("CLOSED");
+        setSurveyFormMonthStatus("TEAMS_READY");
       }
       if (intakeData) {
-        setIntakeData({ ...intakeData, monthStatus: "CLOSED" });
+        setIntakeData({ ...intakeData, monthStatus: "TEAMS_READY" });
       }
       showToast(res.message);
     } catch (err: any) {
       showToast(`Export failed: ${err.message}`, "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const [savingTeams, setSavingTeams] = useState<boolean>(false);
+
+  const handleSaveTeamsAndProceed = async () => {
+    if (!solverResult) {
+      goToStep(4);
+      return;
+    }
+    setSavingTeams(true);
+    try {
+      await handleExportSheet(solverResult);
+      goToStep(4);
+    } catch (err: any) {
+      showToast(`Failed to save teams: ${err.message}`, "error");
+    } finally {
+      setSavingTeams(false);
+    }
+  };
+
+  const handleRecordBroadcastSent = async (info?: Partial<EmailDispatchInfo>) => {
+    const currentMonthKey =
+      info?.monthKey ||
+      surveyFormMonthKey ||
+      (solverResult?.schedule?.[0]?.dateKey
+        ? solverResult.schedule[0].dateKey.slice(0, 7)
+        : "2026-10");
+    try {
+      const res = await callGas<{
+        success: boolean;
+        message: string;
+        dispatchInfo: EmailDispatchInfo;
+      }>("recordScheduleBroadcastSent", {
+        spreadsheetId: sheetInput,
+        monthKey: currentMonthKey,
+        to: info?.to || emailTo,
+        subject: info?.subject || emailSubject,
+        sentBy: "Brenda (Coordinator)",
+      });
+      setEmailDispatchInfo(res.dispatchInfo);
+      setSurveyFormMonthStatus("EMAIL_SENT");
+      if (intakeData) {
+        setIntakeData({ ...intakeData, monthStatus: "EMAIL_SENT" });
+      }
+      showToast("Broadcast logged and month marked as Email Sent!");
+    } catch (err: any) {
+      console.warn("Could not record broadcast:", err);
+      showToast("Failed to record broadcast: " + err.message, "error");
+    }
+  };
+
+  const handleToggleBroadcastSent = async (sent: boolean) => {
+    const currentMonthKey =
+      surveyFormMonthKey ||
+      (solverResult?.schedule?.[0]?.dateKey
+        ? solverResult.schedule[0].dateKey.slice(0, 7)
+        : "2026-10");
+    const newStatus: MonthStatus = sent ? "EMAIL_SENT" : "TEAMS_READY";
+    try {
+      await callGas("setMonthStatus", currentMonthKey, newStatus);
+      setSurveyFormMonthStatus(newStatus);
+      if (intakeData) {
+        setIntakeData({ ...intakeData, monthStatus: newStatus });
+      }
+      if (!sent) {
+        setEmailDispatchInfo(null);
+        showToast("Unmarked broadcast sent status.");
+      } else {
+        setEmailDispatchInfo({
+          alreadySent: true,
+          sentAt: new Date().toISOString(),
+          to: emailTo,
+          subject: emailSubject,
+          sentBy: "Brenda (Coordinator)",
+          monthKey: currentMonthKey,
+        });
+        showToast("Marked month as Email Sent!");
+      }
+    } catch (err: any) {
+      showToast("Failed to update status: " + err.message, "error");
     }
   };
 
@@ -3405,9 +3482,19 @@ function MainApp() {
         <PortalLandingView
           communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
           monthTitle={publicMonthTitle}
-          onSelectCoordinator={() => navigateToView("coordinator", { step: 1 })}
-          onSelectResident={() => navigateToView("resident")}
-          onSelectFormGenerator={() => handleOpenSurveyFormGenerator()}
+          onSelectCoordinator={(step) => navigateToView("coordinator", { step: step || 1 })}
+          onSelectResident={(month) => navigateToView("resident", { month })}
+          onSelectFormGenerator={(month) => handleOpenSurveyFormGenerator(month)}
+          activeMonthKey={
+            surveyFormMonthKey || intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7) || "2026-11"
+          }
+          activeMonthStatus={surveyFormMonthStatus || intakeData?.monthStatus || "SIGN_UPS_OPEN"}
+          activeMonthDatesCount={
+            surveyFormDates.filter((d) => d.included).length || intakeData?.mealDates?.length
+          }
+          activeMonthResponseCount={
+            intakeData?.responses?.length || surveyFormExistingSurvey?.responseCount || 0
+          }
         />
         {renderToast()}
       </>
@@ -3785,6 +3872,24 @@ function MainApp() {
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full space-y-6">
+        {/* Month Lifecycle Progress Tracker */}
+        <MonthLifecycleTracker
+          monthKey={
+            surveyFormMonthKey ||
+            intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7) ||
+            "2026-10"
+          }
+          monthStatus={surveyFormMonthStatus || intakeData?.monthStatus || "SIGN_UPS_OPEN"}
+          datesCount={
+            intakeData?.mealDates?.length ||
+            surveyFormDates.filter((d) => d.included).length
+          }
+          responsesCount={intakeData?.responses?.length}
+          onToggleSignups={(close) =>
+            handleSetMonthStatus(close ? "RESPONSES_RECEIVED" : "SIGN_UPS_OPEN")
+          }
+        />
+
         {currentStep === 1 && (
           <Step1IntakeAudit
             sheetInput={sheetInput}
@@ -3838,6 +3943,8 @@ function MainApp() {
             showNonParticipatingQuota={showNonParticipatingQuota}
             setShowNonParticipatingQuota={setShowNonParticipatingQuota}
             handleRunSolver={handleRunSolver}
+            handleSaveTeamsAndProceed={handleSaveTeamsAndProceed}
+            savingTeams={savingTeams}
             handleCancelMeal={handleCancelMeal}
             handleRestoreMeal={handleRestoreMeal}
             setSelectedNearCompleteDateKey={setSelectedNearCompleteDateKey}
@@ -3875,6 +3982,14 @@ function MainApp() {
             generateEmailText={generateEmailText}
             goToStep={goToStep}
             parseDateFromLabelOrKey={parseDateFromLabelOrKey}
+            monthKey={
+              surveyFormMonthKey ||
+              solverResult.schedule?.[0]?.dateKey?.slice(0, 7) ||
+              "2026-10"
+            }
+            monthStatus={surveyFormMonthStatus || intakeData?.monthStatus || "TEAMS_READY"}
+            onRecordBroadcastSent={handleRecordBroadcastSent}
+            onToggleBroadcastSent={handleToggleBroadcastSent}
           />
         )}
       </main>

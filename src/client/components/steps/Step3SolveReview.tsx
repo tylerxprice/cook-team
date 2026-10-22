@@ -28,6 +28,8 @@ interface Step3SolveReviewProps {
   showNonParticipatingQuota: boolean;
   setShowNonParticipatingQuota: React.Dispatch<React.SetStateAction<boolean>>;
   handleRunSolver: () => void;
+  handleSaveTeamsAndProceed?: () => Promise<void>;
+  savingTeams?: boolean;
   handleCancelMeal: (dateKey: string) => void;
   handleRestoreMeal: (dateKey: string) => void;
   setSelectedNearCompleteDateKey: (dateKey: string | null) => void;
@@ -51,6 +53,8 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
   showNonParticipatingQuota,
   setShowNonParticipatingQuota,
   handleRunSolver,
+  handleSaveTeamsAndProceed,
+  savingTeams = false,
   handleCancelMeal,
   handleRestoreMeal,
   setSelectedNearCompleteDateKey,
@@ -59,6 +63,15 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
   setSelectedSlotToFill,
   goToStep,
 }) => {
+  const [showOverwriteModal, setShowOverwriteModal] = React.useState<boolean>(false);
+
+  const requestRunSolver = () => {
+    if (intakeData?.existingScheduleTab?.exists) {
+      setShowOverwriteModal(true);
+    } else {
+      handleRunSolver();
+    }
+  };
   const totalPlannedDates = solverResult ? solverResult.schedule.length : 0;
   const activeMeals = solverResult
     ? solverResult.schedule.filter((d: DaySchedule) => d.targetCookCount > 0 && !d.isNoMeal)
@@ -154,7 +167,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
 
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={() => handleRunSolver()}
+            onClick={() => requestRunSolver()}
             disabled={loading}
             className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm disabled:opacity-50 cursor-pointer"
           >
@@ -180,7 +193,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
             </p>
           </div>
           <button
-            onClick={() => handleRunSolver()}
+            onClick={() => requestRunSolver()}
             disabled={loading}
             className="min-h-[48px] inline-flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-orange-600/20 transition-all cursor-pointer"
           >
@@ -832,21 +845,97 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
         </div>
       )}
 
+      {/* Overwrite Guard Confirmation Modal */}
+      {showOverwriteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                  Finalized Schedule Exists
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Tab: {intakeData?.existingScheduleTab?.name || "Schedule"}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              A saved schedule already exists for this month in your spreadsheet. Running the solver
+              will generate a new roster from scratch and replace your current draft. Do you want to
+              proceed?
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowOverwriteModal(false)}
+                className="min-h-[42px] px-4 py-2 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOverwriteModal(false);
+                  handleRunSolver();
+                }}
+                className="min-h-[42px] px-5 py-2 text-xs sm:text-sm font-bold text-white bg-orange-600 hover:bg-orange-700 rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                Proceed &amp; Re-run Solver
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Navigation Buttons */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
         <button
           onClick={() => goToStep(2)}
-          className="min-h-[48px] px-5 py-2.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          className="min-h-[48px] px-5 py-2.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer w-full sm:w-auto"
         >
           ← Back to Notes &amp; Rules
         </button>
-        <button
-          onClick={() => goToStep(4)}
-          className="min-h-[48px] inline-flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-orange-600/20 transition-all cursor-pointer"
-        >
-          <span>Proceed to Export &amp; Email</span>
-          <ChevronRight className="w-4 h-4" />
-        </button>
+
+        <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end flex-wrap">
+          <button
+            type="button"
+            onClick={() => goToStep(4)}
+            className="min-h-[48px] px-4 py-2.5 text-xs sm:text-sm font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+            title="Proceed to email announcement without re-saving schedule tab"
+          >
+            <span>Proceed Without Saving</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (handleSaveTeamsAndProceed) {
+                handleSaveTeamsAndProceed();
+              } else {
+                goToStep(4);
+              }
+            }}
+            disabled={savingTeams || loading}
+            className="min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-orange-600/20 transition-all cursor-pointer w-full sm:w-auto"
+          >
+            {savingTeams ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Saving Teams to Sheet...</span>
+              </>
+            ) : (
+              <>
+                <span>💾 Save Teams to Sheet &amp; Proceed to Email</span>
+                <ChevronRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

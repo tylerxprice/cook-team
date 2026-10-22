@@ -8,8 +8,9 @@ import {
   AlertTriangle,
   Eye,
   Edit3,
+  Check,
 } from "lucide-react";
-import { ScheduleOutput, EmailDispatchInfo } from "../../../server/types";
+import { ScheduleOutput, EmailDispatchInfo, MonthStatus } from "../../../server/types";
 import { formatEmailHtmlBody } from "../../utils/formatters";
 
 interface Step4PublishEmailProps {
@@ -49,6 +50,10 @@ interface Step4PublishEmailProps {
   generateEmailText: () => string;
   goToStep: (step: 1 | 2 | 3 | 4) => void;
   parseDateFromLabelOrKey: (label: string, key?: string) => Date | null;
+  monthKey?: string;
+  monthStatus?: MonthStatus;
+  onRecordBroadcastSent?: (info?: Partial<EmailDispatchInfo>) => Promise<void>;
+  onToggleBroadcastSent?: (sent: boolean) => Promise<void>;
 }
 
 export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
@@ -77,8 +82,15 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
   generateEmailText,
   goToStep,
   parseDateFromLabelOrKey,
+  monthKey,
+  monthStatus,
+  onRecordBroadcastSent,
+  onToggleBroadcastSent,
 }) => {
   const [emailTab, setEmailTab] = useState<"edit" | "preview">("edit");
+  const isBroadcastSent = Boolean(
+    emailDispatchInfo?.alreadySent || monthStatus === "EMAIL_SENT" || monthStatus === "CLOSED"
+  );
 
   return (
     <div className="space-y-6">
@@ -182,6 +194,7 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
               <Copy className="w-4 h-4" />
               <span>Copy Text</span>
             </button>
+
             <button
               type="button"
               onClick={() => {
@@ -193,12 +206,52 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                   emailCc ? `&cc=${encodeURIComponent(emailCc)}` : ""
                 }&body=${encodeURIComponent(bodyText)}`;
                 window.open(composeUrl, "_blank");
+                if (onRecordBroadcastSent) {
+                  onRecordBroadcastSent({
+                    to: emailTo,
+                    subject: emailSubject,
+                    monthKey,
+                  });
+                }
               }}
               className="min-h-[44px] inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-colors cursor-pointer"
               title="Open Gmail compose tab in browser with recipient, subject, and email body pre-filled"
             >
               <ExternalLink className="w-4 h-4" />
               <span>Compose in Gmail Web</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (isBroadcastSent && onToggleBroadcastSent) {
+                  onToggleBroadcastSent(false);
+                } else if (onRecordBroadcastSent) {
+                  onRecordBroadcastSent({
+                    to: emailTo,
+                    subject: emailSubject,
+                    monthKey,
+                  });
+                }
+              }}
+              className={`min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl border transition-colors cursor-pointer shadow-2xs ${
+                isBroadcastSent
+                  ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800"
+                  : "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700"
+              }`}
+              title="Manually toggle broadcast sent status if sent via external client or desktop app"
+            >
+              {isBroadcastSent ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Broadcast Sent ✓</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 text-slate-500" />
+                  <span>Mark as Broadcast Sent</span>
+                </>
+              )}
             </button>
           </div>
         </div>

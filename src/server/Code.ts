@@ -1347,11 +1347,14 @@ function getIntakeData(
     const emailDispatchInfo =
       getEmailDispatchMetadata(surveySpreadsheet, surveyMonthKey) || undefined;
     const regSettings = getMasterRegistryData(masterRegistryUrlOrId, isDevMode).settings;
-    const monthStatus: MonthStatus = existingScheduleTab?.exists
-      ? "CLOSED"
-      : surveyMonthKey
-        ? getMonthConfig(surveyMonthKey).status
-        : "OPEN";
+    const savedMonthConfig = surveyMonthKey ? getMonthConfig(surveyMonthKey) : null;
+    const monthStatus: MonthStatus = emailDispatchInfo?.alreadySent
+      ? "EMAIL_SENT"
+      : existingScheduleTab?.exists
+        ? "TEAMS_READY"
+        : savedMonthConfig?.status
+          ? savedMonthConfig.status
+          : "SIGN_UPS_OPEN";
 
     return {
       sheetId: surveySpreadsheet.getId(),
@@ -1557,12 +1560,17 @@ function saveWebSurveyResponse(
 ): ManualSurveyResponseResult {
   if (payload.monthKey) {
     const preview = getSurveyFormDatesPreview(payload.monthKey);
-    if (preview.status === "CLOSED") {
+    if (
+      preview.status === "CLOSED" ||
+      preview.status === "RESPONSES_RECEIVED" ||
+      preview.status === "TEAMS_READY" ||
+      preview.status === "EMAIL_SENT"
+    ) {
       throw new Error(
-        `Sign-ups for ${payload.monthKey} are closed because meal teams have already been scheduled.`
+        `Sign-ups for ${payload.monthKey} are currently closed.`
       );
     }
-    if (preview.status === "NOT_OPEN") {
+    if (preview.status === "NOT_OPEN" || preview.status === "STAGING_DATES") {
       throw new Error(`Sign-ups for ${payload.monthKey} have not opened yet.`);
     }
   }
@@ -3068,9 +3076,9 @@ function exportScheduleToSheet(
 
     try {
       recordPublishedMonthInMaster(monthSuffix);
-      setMonthStatus(monthSuffix, "CLOSED");
+      setMonthStatus(monthSuffix, "TEAMS_READY");
     } catch (e) {
-      console.warn("Could not record published month or close status in master:", e);
+      console.warn("Could not record published month or update status to TEAMS_READY in master:", e);
     }
 
     const tabUrl = `${sheet.getUrl()}#gid=${outputTab.getSheetId()}`;
@@ -3882,6 +3890,85 @@ function saveMonthDatesAndOpen(payload: SaveMonthDatesPayload): SaveMonthDatesRe
 }
 
 /**
+ * Sets acceptingResponses on the linked Google Form for a given monthKey.
+ */
+function setGoogleFormAcceptingResponses(
+  monthKey: string,
+  accepting: boolean,
+  customMessage?: string
+): { success: boolean; message: string; formId?: string } {
+  try {
+    const cleanMonth = (monthKey || "").trim();
+    const config = getMonthConfig(cleanMonth);
+    let form: GoogleAppsScript.Forms.Form | null = null;
+    let foundFormId = config.formId;
+
+    if (foundFormId) {
+      try {
+        form = FormApp.openById(foundFormId);
+      } catch (e) {
+        console.warn(`Could not open form by ID ${foundFormId}:`, e);
+      }
+    }
+
+    if (!form && config.formUrl) {
+      try {
+        form = FormApp.openByUrl(config.formUrl);
+        foundFormId = form.getId();
+      } catch (e) {
+        console.warn(`Could not open form by URL ${config.formUrl}:`, e);
+      }
+    }
+
+    if (!form) {
+      try {
+        const existing = checkExistingSurveyForMonth(cleanMonth);
+        if (existing.spreadsheetId) {
+          const ss = SpreadsheetApp.openById(existing.spreadsheetId);
+          const formUrl = ss.getFormUrl();
+          if (formUrl) {
+            form = FormApp.openByUrl(formUrl);
+            foundFormId = form.getId();
+          }
+        }
+      } catch (e) {
+        console.warn(`Could not find form from spreadsheet for ${cleanMonth}:`, e);
+      }
+    }
+
+    if (form) {
+      form.setAcceptingResponses(accepting);
+      if (!accepting) {
+        const defaultMsg =
+          customMessage ||
+          `Sign-ups for this month's meal teams (${cleanMonth}) are now closed. Thank you!`;
+        try {
+          form.setCustomClosedFormMessage(defaultMsg);
+        } catch (msgErr) {
+          console.warn("Could not set custom closed message on form:", msgErr);
+        }
+      }
+      return {
+        success: true,
+        message: `Google Form ${accepting ? "is now accepting responses" : "has been closed"}.`,
+        formId: foundFormId,
+      };
+    }
+
+    return {
+      success: false,
+      message: `No linked Google Form found for ${cleanMonth}.`,
+    };
+  } catch (err: any) {
+    console.warn(`Error setting form accepting responses for ${monthKey}:`, err);
+    return {
+      success: false,
+      message: `Could not update Google Form status: ${err?.message || err}`,
+    };
+  }
+}
+
+/**
  * Updates a month's sign-up status (e.g. CLOSING by scheduling teams, or REOPENING).
  */
 function setMonthStatus(monthKey: string, status: MonthStatus): SetMonthStatusResult {
@@ -3897,13 +3984,25 @@ function setMonthStatus(monthKey: string, status: MonthStatus): SetMonthStatusRe
     monthKey: cleanMonth,
     status,
     closedAt:
-      status === "CLOSED" ? now : status === "NOT_OPEN" ? undefined : existingConfig.closedAt,
+      status === "CLOSED" || status === "RESPONSES_RECEIVED"
+        ? existingConfig.closedAt || now
+        : status === "NOT_OPEN" || status === "STAGING_DATES"
+          ? undefined
+          : existingConfig.closedAt,
     openedAt:
-      status === "OPEN"
+      status === "OPEN" || status === "SIGN_UPS_OPEN"
         ? existingConfig.openedAt || now
-        : status === "NOT_OPEN"
+        : status === "NOT_OPEN" || status === "STAGING_DATES"
           ? undefined
           : existingConfig.openedAt,
+    teamsSavedAt:
+      status === "TEAMS_READY"
+        ? existingConfig.teamsSavedAt || now
+        : existingConfig.teamsSavedAt,
+    broadcastSentAt:
+      status === "EMAIL_SENT"
+        ? existingConfig.broadcastSentAt || now
+        : existingConfig.broadcastSentAt,
   };
 
   try {
@@ -3920,6 +4019,22 @@ function setMonthStatus(monthKey: string, status: MonthStatus): SetMonthStatusRe
     syncOpenMonthsSetting();
   } catch (e) {
     console.warn("Could not update status in Master Settings:", e);
+  }
+
+  // Toggle Google Forms accepting responses
+  try {
+    if (status === "SIGN_UPS_OPEN" || status === "OPEN") {
+      setGoogleFormAcceptingResponses(cleanMonth, true);
+    } else if (
+      status === "RESPONSES_RECEIVED" ||
+      status === "TEAMS_READY" ||
+      status === "EMAIL_SENT" ||
+      status === "CLOSED"
+    ) {
+      setGoogleFormAcceptingResponses(cleanMonth, false);
+    }
+  } catch (formErr) {
+    console.warn(`Could not sync Google Form acceptance for ${cleanMonth}:`, formErr);
   }
 
   return {
@@ -3985,11 +4100,37 @@ function checkExistingSurveyForMonth(monthKey: string): ExistingSurveyInfo {
     warningMessage = `A survey spreadsheet already exists with 0 responses ('${matchedSheet.name}').`;
   }
 
+  let formId: string | undefined = undefined;
+  let formUrl: string | undefined = undefined;
+  let formEditUrl: string | undefined = undefined;
+
+  const savedCfg = getMonthConfig(cleanMonth);
+  if (savedCfg.formId) formId = savedCfg.formId;
+  if (savedCfg.formUrl) formUrl = savedCfg.formUrl;
+
+  try {
+    const ss = SpreadsheetApp.openById(matchedSheet.id);
+    const linkedFormUrl = ss.getFormUrl();
+    if (linkedFormUrl) {
+      formUrl = linkedFormUrl;
+      try {
+        const form = FormApp.openByUrl(linkedFormUrl);
+        formId = form.getId();
+        formEditUrl = form.getEditUrl();
+      } catch {}
+    }
+  } catch (e) {
+    console.warn("Could not get linked form from spreadsheet:", e);
+  }
+
   return {
     exists: true,
     spreadsheetId: matchedSheet.id,
     spreadsheetName: matchedSheet.name,
     spreadsheetUrl: matchedSheet.url,
+    formId,
+    formUrl,
+    formEditUrl,
     responseCount,
     canOverwrite,
     warningMessage,
@@ -4095,12 +4236,69 @@ function createMonthlySurveyForm(payload: CreateSurveyFormPayload): CreateSurvey
       monthKey: resolvedMonthKey,
       dates: payload.dates,
       title: payload.title,
-      status: "OPEN",
+      status: "SIGN_UPS_OPEN",
     });
+    if (resolvedMonthKey) {
+      const props = PropertiesService.getScriptProperties();
+      const cfg = getMonthConfig(resolvedMonthKey);
+      const updatedCfg: MonthConfig = {
+        ...cfg,
+        monthKey: resolvedMonthKey,
+        status: "SIGN_UPS_OPEN",
+        formId: result.formId,
+        formUrl: result.formPublishedUrl,
+      };
+      props.setProperty(`MONTH_CONFIG_${resolvedMonthKey}`, JSON.stringify(updatedCfg));
+    }
   } catch (e) {
     console.warn("Could not mark month open during createMonthlySurveyForm:", e);
   }
   return result;
+}
+
+/**
+ * Records email dispatch metadata and updates month status to EMAIL_SENT
+ */
+function recordScheduleBroadcastSent(payload: {
+  spreadsheetId?: string;
+  monthKey: string;
+  to?: string;
+  subject?: string;
+  sentBy?: string;
+}): { success: boolean; message: string; dispatchInfo: EmailDispatchInfo } {
+  const cleanMonth = (payload.monthKey || "").trim();
+  const now = new Date().toISOString();
+  let sender = payload.sentBy;
+  if (!sender) {
+    try {
+      sender = Session.getActiveUser().getEmail();
+    } catch {}
+  }
+
+  const dispatchInfo: EmailDispatchInfo = {
+    alreadySent: true,
+    sentAt: now,
+    to: (payload.to || "").trim(),
+    subject: (payload.subject || "").trim(),
+    sentBy: sender || "Coordinator",
+    monthKey: cleanMonth,
+  };
+
+  recordEmailDispatchMetadata(payload.spreadsheetId, dispatchInfo);
+
+  if (cleanMonth) {
+    try {
+      setMonthStatus(cleanMonth, "EMAIL_SENT");
+    } catch (e) {
+      console.warn("Could not mark month status EMAIL_SENT:", e);
+    }
+  }
+
+  return {
+    success: true,
+    message: `Schedule broadcast recorded for ${cleanMonth}.`,
+    dispatchInfo,
+  };
 }
 
 // Global exposure for Google Apps Script runtime & google.script.run
@@ -4151,3 +4349,5 @@ g.getPublicSchedule = getPublicSchedule;
 g.populatePublishedMonthsInMaster = populatePublishedMonthsInMaster;
 g.getDeploymentUrl = getDeploymentUrl;
 g.syncOpenMonthsSetting = syncOpenMonthsSetting;
+g.setGoogleFormAcceptingResponses = setGoogleFormAcceptingResponses;
+g.recordScheduleBroadcastSent = recordScheduleBroadcastSent;
