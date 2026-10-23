@@ -73,7 +73,23 @@ function saveWebSurveyResponse(payload) { return globalThis.saveWebSurveyRespons
 function sendBetaSurveyInvitations(payload) { return globalThis.sendBetaSurveyInvitations ? globalThis.sendBetaSurveyInvitations(payload) : null; }
 function getDeploymentUrl() { return globalThis.getDeploymentUrl ? globalThis.getDeploymentUrl() : null; }
 function syncOpenMonthsSetting() { return globalThis.syncOpenMonthsSetting ? globalThis.syncOpenMonthsSetting() : null; }
+function checkExistingSurveyForMonth(monthKey) { return globalThis.checkExistingSurveyForMonth ? globalThis.checkExistingSurveyForMonth(monthKey) : null; }
+function setGoogleFormAcceptingResponses(monthKey, accepting, customMessage) { return globalThis.setGoogleFormAcceptingResponses ? globalThis.setGoogleFormAcceptingResponses(monthKey, accepting, customMessage) : null; }
+function recordScheduleBroadcastSent(payload) { return globalThis.recordScheduleBroadcastSent ? globalThis.recordScheduleBroadcastSent(payload) : null; }
 `;
+
+  // Sanity check: Ensure all g.<name> assignments in Code.ts have a corresponding top-level stub
+  const codeSrc = path.resolve(rootDir, "src", "server", "Code.ts");
+  if (fs.existsSync(codeSrc)) {
+    const codeContent = fs.readFileSync(codeSrc, "utf8");
+    const exportMatches = [...codeContent.matchAll(/^g\.(\w+)\s*=\s*\1;/gm)].map((m) => m[1]);
+    const missing = exportMatches.filter((fnName) => !gasStubs.includes(`function ${fnName}(`));
+    if (missing.length > 0) {
+      console.error(`❌ Build Error: Missing top-level GAS stubs in copy-manifest.js for: ${missing.join(", ")}`);
+      process.exit(1);
+    }
+  }
+
   fs.appendFileSync(codeDest, gasStubs, "utf8");
   console.log("✓ Appended top-level GAS entrypoint functions to dist/Code.js");
 }
