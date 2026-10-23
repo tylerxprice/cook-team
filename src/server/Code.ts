@@ -1357,17 +1357,32 @@ function getIntakeData(
       finalMealDates.length > 0 && finalMealDates[0].dateKey
         ? finalMealDates[0].dateKey.slice(0, 7)
         : undefined;
-    const emailDispatchInfo =
+    let emailDispatchInfo =
       getEmailDispatchMetadata(surveySpreadsheet, surveyMonthKey) || undefined;
     const regSettings = getMasterRegistryData(masterRegistryUrlOrId, isDevMode).settings;
     const savedMonthConfig = surveyMonthKey ? getMonthConfig(surveyMonthKey) : null;
-    const monthStatus: MonthStatus = emailDispatchInfo?.alreadySent
-      ? "EMAIL_SENT"
-      : existingScheduleTab?.exists
-        ? "TEAMS_READY"
-        : savedMonthConfig?.status
-          ? savedMonthConfig.status
-          : "SIGN_UPS_OPEN";
+    const isMasterEmailSent =
+      savedMonthConfig?.status === "EMAIL_SENT" || savedMonthConfig?.status === "CLOSED";
+
+    if (!emailDispatchInfo && isMasterEmailSent) {
+      emailDispatchInfo = {
+        alreadySent: true,
+        sentAt: savedMonthConfig?.broadcastSentAt || new Date().toISOString(),
+        to: regSettings?.announcementTo || "Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>",
+        monthKey: surveyMonthKey,
+        sentBy: "Coordinator",
+      };
+    }
+
+    const monthStatus: MonthStatus = isMasterEmailSent
+      ? (savedMonthConfig!.status as MonthStatus)
+      : emailDispatchInfo?.alreadySent
+        ? "EMAIL_SENT"
+        : existingScheduleTab?.exists
+          ? "TEAMS_READY"
+          : savedMonthConfig?.status
+            ? savedMonthConfig.status
+            : "SIGN_UPS_OPEN";
 
     return {
       sheetId: surveySpreadsheet.getId(),
@@ -3157,12 +3172,14 @@ function getEmailDispatchMetadata(
     console.warn("Could not read Email_Dispatch_Log tab:", err);
   }
 
-  // Fallback to DocumentProperties
+  // Fallback to ScriptProperties / DocumentProperties
   try {
-    const docProps = PropertiesService.getDocumentProperties();
-    if (docProps) {
+    const props =
+      PropertiesService.getScriptProperties() ||
+      PropertiesService.getDocumentProperties();
+    if (props) {
       const propKey = monthKey ? `EMAIL_SENT_${monthKey}` : "EMAIL_SENT_LATEST";
-      const raw = docProps.getProperty(propKey);
+      const raw = props.getProperty(propKey);
       if (raw) {
         const parsed = JSON.parse(raw);
         return {
@@ -3227,15 +3244,17 @@ function recordEmailDispatchMetadata(spreadsheetIdOrUrl?: string, info?: EmailDi
     console.warn("Could not write to Email_Dispatch_Log tab:", err);
   }
 
-  // Also save in DocumentProperties as backup
+  // Also save in ScriptProperties as authoritative backup (available in all GAS runtime contexts)
   try {
-    const docProps = PropertiesService.getDocumentProperties();
-    if (docProps && info.monthKey) {
-      docProps.setProperty(`EMAIL_SENT_${info.monthKey}`, JSON.stringify(info));
-      docProps.setProperty("EMAIL_SENT_LATEST", JSON.stringify(info));
+    const props =
+      PropertiesService.getScriptProperties() ||
+      PropertiesService.getDocumentProperties();
+    if (props && info.monthKey) {
+      props.setProperty(`EMAIL_SENT_${info.monthKey}`, JSON.stringify(info));
+      props.setProperty("EMAIL_SENT_LATEST", JSON.stringify(info));
     }
-  } catch {
-    // Ignore property errors
+  } catch (err) {
+    console.warn("Could not save to properties:", err);
   }
 }
 
@@ -3342,7 +3361,18 @@ function sendScheduleEmail(payload: EmailPayload): EmailResult {
         monthKey: payload.monthKey,
       };
 
-      recordEmailDispatchMetadata(payload.spreadsheetId, dispatchInfo);
+      if (payload.spreadsheetId) {
+    recordEmailDispatchMetadata(payload.spreadsheetId, dispatchInfo);
+  }
+
+  try {
+    const master = getMasterRegistrySpreadsheet();
+    if (master && master.getId() !== payload.spreadsheetId) {
+      recordEmailDispatchMetadata(master.getId(), dispatchInfo);
+    }
+  } catch (e) {
+    console.warn("Could not record dispatch in master sheet:", e);
+  }
 
       return {
         success: true,
@@ -4297,7 +4327,18 @@ function recordScheduleBroadcastSent(payload: {
     monthKey: cleanMonth,
   };
 
-  recordEmailDispatchMetadata(payload.spreadsheetId, dispatchInfo);
+  if (payload.spreadsheetId) {
+    recordEmailDispatchMetadata(payload.spreadsheetId, dispatchInfo);
+  }
+
+  try {
+    const master = getMasterRegistrySpreadsheet();
+    if (master && master.getId() !== payload.spreadsheetId) {
+      recordEmailDispatchMetadata(master.getId(), dispatchInfo);
+    }
+  } catch (e) {
+    console.warn("Could not record dispatch in master sheet:", e);
+  }
 
   if (cleanMonth) {
     try {

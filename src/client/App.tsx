@@ -2056,6 +2056,31 @@ function MainApp() {
       effectiveStatus = "SIGN_UPS_OPEN";
     }
 
+    // Auto-load saved schedule if detected on a live sheet
+    if (intake?.existingScheduleTab?.exists && matchedSheet && !matchedSheet.id.startsWith("test-sheet-")) {
+      try {
+        setLoading(true);
+        const savedRes = await callGas<ScheduleOutput>(
+          "loadExistingScheduleFromSheet",
+          matchedSheet.id,
+          intake.existingScheduleTab.name
+        );
+        if (savedRes && savedRes.schedule && savedRes.schedule.length > 0) {
+          if (intake.responses && intake.responses.length > 0) {
+            savedRes.memberStats = computeMemberQuotaStats(savedRes.schedule, intake.responses);
+          }
+          setSolverResult(savedRes);
+          if (savedRes.schedule) {
+            setEmailSubject(formatDefaultSubject(savedRes.schedule));
+          }
+        }
+      } catch (err) {
+        console.warn("Could not auto-load saved schedule on month select:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
     // Immediately keep in-memory status in sync so UI and lifecycle tracker update on first click
     setSurveyFormMonthStatus(effectiveStatus);
     setConfiguredMonths((prev) => {
@@ -2316,6 +2341,57 @@ function MainApp() {
           return [...prev, { monthKey: intakeMonth, status: effectiveStatus }];
         });
       }
+
+      // If opening a real live sheet, auto-load saved schedule and push through to matching lifecycle stage!
+      if (!optionValue.startsWith("test-sheet-")) {
+        if (loadedIntake.existingScheduleTab?.exists) {
+          try {
+            setLoading(true);
+            const savedRes = await callGas<ScheduleOutput>(
+              "loadExistingScheduleFromSheet",
+              optionValue,
+              loadedIntake.existingScheduleTab.name
+            );
+            if (savedRes && savedRes.schedule && savedRes.schedule.length > 0) {
+              if (loadedIntake.responses && loadedIntake.responses.length > 0) {
+                savedRes.memberStats = computeMemberQuotaStats(savedRes.schedule, loadedIntake.responses);
+              }
+              setSolverResult(savedRes);
+              if (savedRes.schedule) {
+                setEmailSubject(formatDefaultSubject(savedRes.schedule));
+              }
+            }
+          } catch (err) {
+            console.warn("Could not auto-load saved schedule on sheet select:", err);
+          } finally {
+            setLoading(false);
+          }
+        }
+
+        switch (effectiveStatus) {
+          case "STAGING_DATES":
+          case "NOT_OPEN":
+            goToStage(1);
+            break;
+          case "SIGN_UPS_OPEN":
+          case "OPEN":
+            goToStage(2);
+            break;
+          case "RESPONSES_RECEIVED":
+            goToStage(3);
+            break;
+          case "TEAMS_READY":
+            goToStage(4);
+            break;
+          case "EMAIL_SENT":
+          case "CLOSED":
+            goToStage(5);
+            break;
+          default:
+            goToStage(2);
+            break;
+        }
+      }
     }
   };
 
@@ -2359,7 +2435,20 @@ function MainApp() {
           });
         }
       }
-      setEmailDispatchInfo(data.emailDispatchInfo || null);
+      if (data.emailDispatchInfo) {
+        setEmailDispatchInfo(data.emailDispatchInfo);
+      } else if (data.monthStatus === "EMAIL_SENT" || data.monthStatus === "CLOSED") {
+        setEmailDispatchInfo({
+          alreadySent: true,
+          sentAt: new Date().toISOString(),
+          to: emailTo,
+          subject: emailSubject,
+          monthKey: intakeMonth,
+          sentBy: "Coordinator",
+        });
+      } else {
+        setEmailDispatchInfo(null);
+      }
       isEmailSubjectDirty.current = false;
       setEmailSubject(formatDefaultSubject(data.mealDates));
       setSolverResult(null);
@@ -2416,7 +2505,20 @@ function MainApp() {
           });
         }
       }
-      setEmailDispatchInfo(cached.emailDispatchInfo || null);
+      if (cached.emailDispatchInfo) {
+        setEmailDispatchInfo(cached.emailDispatchInfo);
+      } else if (cached.monthStatus === "EMAIL_SENT" || cached.monthStatus === "CLOSED") {
+        setEmailDispatchInfo({
+          alreadySent: true,
+          sentAt: new Date().toISOString(),
+          to: emailTo,
+          subject: emailSubject,
+          monthKey: intakeMonth,
+          sentBy: "Coordinator",
+        });
+      } else {
+        setEmailDispatchInfo(null);
+      }
       isEmailSubjectDirty.current = false;
       setEmailSubject(formatDefaultSubject(cached.mealDates));
       if (!targetSheet.startsWith("test-sheet-")) {
@@ -2472,7 +2574,20 @@ function MainApp() {
           });
         }
       }
-      setEmailDispatchInfo(data.emailDispatchInfo || null);
+      if (data.emailDispatchInfo) {
+        setEmailDispatchInfo(data.emailDispatchInfo);
+      } else if (data.monthStatus === "EMAIL_SENT" || data.monthStatus === "CLOSED") {
+        setEmailDispatchInfo({
+          alreadySent: true,
+          sentAt: new Date().toISOString(),
+          to: emailTo,
+          subject: emailSubject,
+          monthKey: intakeMonth,
+          sentBy: "Coordinator",
+        });
+      } else {
+        setEmailDispatchInfo(null);
+      }
       isEmailSubjectDirty.current = false;
       setEmailSubject(formatDefaultSubject(data.mealDates));
       if (!targetSheet.startsWith("test-sheet-")) {
@@ -2919,6 +3034,28 @@ function MainApp() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [currentStep]);
+
+  // Auto-load saved schedule if an existing schedule tab exists and user enters Stage 4
+  useEffect(() => {
+    if (
+      coordinatorStage === 4 &&
+      !solverResult &&
+      intakeData?.existingScheduleTab?.exists &&
+      sheetInput &&
+      !sheetInput.startsWith("test-sheet-") &&
+      !loading &&
+      !intakeLoading
+    ) {
+      handleLoadExistingSchedule();
+    }
+  }, [
+    coordinatorStage,
+    solverResult,
+    intakeData?.existingScheduleTab?.exists,
+    sheetInput,
+    loading,
+    intakeLoading,
+  ]);
 
 
   // Auto-scroll to selected day in Modal 3 (Member Inspector) if opened from schedule badge
@@ -3985,15 +4122,17 @@ function MainApp() {
   };
 
   // Load Saved Schedule from existing tab
-  const handleLoadExistingSchedule = async () => {
-    if (!sheetInput) return;
+  const handleLoadExistingSchedule = async (targetSheetId?: string, targetTabName?: string) => {
+    const sheetId = targetSheetId || sheetInput;
+    const tabName = targetTabName || intakeData?.existingScheduleTab?.name;
+    if (!sheetId) return;
     setIntakeLoading(true);
     setLoading(true);
     try {
       const res = await callGas<ScheduleOutput>(
         "loadExistingScheduleFromSheet",
-        sheetInput,
-        intakeData?.existingScheduleTab?.name
+        sheetId,
+        tabName
       );
 
       // Recompute member stats using real survey responses (availability & quotas) if available
@@ -4008,7 +4147,7 @@ function MainApp() {
       }
       goToStep(3);
       showToast(
-        `Loaded saved schedule tab "${intakeData?.existingScheduleTab?.name || "Schedule"}"!`
+        `Loaded saved schedule tab "${tabName || "Schedule"}"!`
       );
     } catch (err: any) {
       showToast(`Failed to load saved schedule: ${err.message}`, "error");
@@ -4087,7 +4226,14 @@ function MainApp() {
       setEmailDispatchInfo(res.dispatchInfo);
       setSurveyFormMonthStatus("EMAIL_SENT");
       if (intakeData) {
-        setIntakeData({ ...intakeData, monthStatus: "EMAIL_SENT" });
+        setIntakeData({ ...intakeData, monthStatus: "EMAIL_SENT", emailDispatchInfo: res.dispatchInfo });
+      }
+      if (sheetInput && intakeCacheRef.current[sheetInput]) {
+        intakeCacheRef.current[sheetInput] = {
+          ...intakeCacheRef.current[sheetInput],
+          monthStatus: "EMAIL_SENT",
+          emailDispatchInfo: res.dispatchInfo,
+        };
       }
       setConfiguredMonths((prev) => {
         const exists = prev.find((m) => m.monthKey === currentMonthKey);
@@ -4128,16 +4274,37 @@ function MainApp() {
       });
       if (!sent) {
         setEmailDispatchInfo(null);
+        if (intakeData) {
+          setIntakeData({ ...intakeData, monthStatus: "TEAMS_READY", emailDispatchInfo: undefined });
+        }
+        if (sheetInput && intakeCacheRef.current[sheetInput]) {
+          intakeCacheRef.current[sheetInput] = {
+            ...intakeCacheRef.current[sheetInput],
+            monthStatus: "TEAMS_READY",
+            emailDispatchInfo: undefined,
+          };
+        }
         showToast("Unmarked broadcast sent status.");
       } else {
-        setEmailDispatchInfo({
+        const info: EmailDispatchInfo = {
           alreadySent: true,
           sentAt: new Date().toISOString(),
           to: emailTo,
           subject: emailSubject,
           sentBy: "Brenda (Coordinator)",
           monthKey: currentMonthKey,
-        });
+        };
+        setEmailDispatchInfo(info);
+        if (intakeData) {
+          setIntakeData({ ...intakeData, monthStatus: "EMAIL_SENT", emailDispatchInfo: info });
+        }
+        if (sheetInput && intakeCacheRef.current[sheetInput]) {
+          intakeCacheRef.current[sheetInput] = {
+            ...intakeCacheRef.current[sheetInput],
+            monthStatus: "EMAIL_SENT",
+            emailDispatchInfo: info,
+          };
+        }
         showToast("Marked month as Email Sent!");
       }
     } catch (err: any) {
