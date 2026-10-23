@@ -664,6 +664,7 @@ function MainApp() {
 
   // Synchronize lifecycle stage navigation with browser history (Back / Forward buttons)
   const goToStage = (stage: CoordinatorStage, replace = false) => {
+    const shouldReplace = replace || coordinatorStage === stage;
     setCoordinatorStageState(stage);
     const legacyStep = stage === 1 ? 1 : (((stage - 1) > 4 ? 4 : (stage - 1)) as 1 | 2 | 3 | 4);
     setCurrentStepState(legacyStep);
@@ -676,8 +677,14 @@ function MainApp() {
       }
       url.searchParams.set("view", "coordinator");
       url.hash = hash;
-      const state = { view: "coordinator", stage, step: legacyStep };
-      if (replace) {
+      const state = {
+        view: "coordinator",
+        stage,
+        step: legacyStep,
+        sheetId: stage === 1 ? "" : sheetInput,
+        month: activeCoordinatorMonthKey,
+      };
+      if (shouldReplace) {
         window.history.replaceState(state, "", url.toString());
       } else {
         window.history.pushState(state, "", url.toString());
@@ -685,11 +692,17 @@ function MainApp() {
     }
     if (typeof (window as any).google !== "undefined" && (window as any).google?.script?.history) {
       try {
-        const historyMethod = replace
+        const historyMethod = shouldReplace
           ? (window as any).google.script.history.replace
           : (window as any).google.script.history.push;
         historyMethod(
-          { view: "coordinator", stage, step: legacyStep },
+          {
+            view: "coordinator",
+            stage,
+            step: legacyStep,
+            sheetId: stage === 1 ? "" : sheetInput,
+            month: activeCoordinatorMonthKey,
+          },
           { view: "coordinator" },
           `stage-${stage}`
         );
@@ -818,7 +831,13 @@ function MainApp() {
           setCoordinatorStageState(targetStage);
           setCurrentStepState(targetStep);
           url.hash = `#stage-${targetStage}`;
-          const state = { view: "coordinator", stage: targetStage, step: targetStep };
+          const state = {
+            view: "coordinator",
+            stage: targetStage,
+            step: targetStep,
+            sheetId: targetStage === 1 ? "" : sheetInput,
+            month: options?.month || activeCoordinatorMonthKey,
+          };
           if (replace) {
             window.history.replaceState(state, "", url.toString());
           } else {
@@ -1120,11 +1139,12 @@ function MainApp() {
       defaultMonth = `${nextY}-${String(nextM).padStart(2, "0")}`;
     }
 
+    setSelectedActiveMonthKey(defaultMonth);
     setSurveyFormMonthKey(defaultMonth);
     setSurveyFormResult(null);
     setSurveyFormCopiedLink(false);
     loadSurveyFormDatesPreview(defaultMonth);
-    navigateToView("form-generator", { month: defaultMonth });
+    navigateToView("coordinator", { stage: 1, month: defaultMonth });
   };
 
   const handleClearSurveyFormResult = useCallback(() => {
@@ -1694,12 +1714,12 @@ function MainApp() {
 
   const activeCoordinatorMonthKey = useMemo(() => {
     return (
-      intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7) ||
-      surveyFormMonthKey ||
       selectedActiveMonthKey ||
+      surveyFormMonthKey ||
+      intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7) ||
       "2026-11"
     );
-  }, [intakeData?.mealDates, surveyFormMonthKey, selectedActiveMonthKey]);
+  }, [selectedActiveMonthKey, surveyFormMonthKey, intakeData?.mealDates]);
 
   const activeCoordinatorStatus = useMemo<MonthStatus>(() => {
     const configured = configuredMonths.find((m) => m.monthKey === activeCoordinatorMonthKey);
@@ -1790,8 +1810,10 @@ function MainApp() {
   const handleStartNextMonth = () => {
     setSurveyFormMonthKey(nextUnconfiguredMonthKey);
     setSelectedActiveMonthKey(nextUnconfiguredMonthKey);
+    setSheetSelectMode(nextUnconfiguredMonthKey);
     setSurveyFormResult(null);
     setSurveyFormExistingSurvey(null);
+    setSurveyFormMonthStatus("STAGING_DATES");
     loadSurveyFormDatesPreview(nextUnconfiguredMonthKey);
     goToStage(1);
     showToast(`Staging dates for ${nextUnconfiguredMonthLabel}`);
@@ -2040,6 +2062,16 @@ function MainApp() {
     setLoading(true);
     try {
       const data = await callGas<IntakePayload>("loadMockPreset", presetKey);
+      if (data && data.responses && data.responses.length > 0) {
+        intakeCacheRef.current[presetKey] = data;
+        intakeCacheRef.current[`test-sheet-${presetKey}`] = data;
+        if (presetKey === "standard") intakeCacheRef.current["test-sheet-standard"] = data;
+        if (presetKey === "holiday_shortage") intakeCacheRef.current["test-sheet-holiday"] = data;
+        if (presetKey === "quota_deficit") intakeCacheRef.current["test-sheet-deficit"] = data;
+        if (presetKey === "high_conflict") intakeCacheRef.current["test-sheet-conflict"] = data;
+        if (presetKey === "single_respondent") intakeCacheRef.current["test-sheet-single"] = data;
+        if (presetKey === "saved_schedule") intakeCacheRef.current["test-sheet-saved"] = data;
+      }
       setIntakeData(data);
       setExceptions(data.exceptions || []);
       setMembers(data.members || []);
@@ -2398,19 +2430,56 @@ function MainApp() {
 
       if (targetView === "coordinator") {
         const popState = (e as PopStateEvent).state;
+        let targetStage: CoordinatorStage = 2;
         if (popState && typeof popState.stage === "number" && [1, 2, 3, 4, 5].includes(popState.stage)) {
-          setCoordinatorStageState(popState.stage as CoordinatorStage);
-          const legacyStep = popState.stage === 1 ? 1 : (((popState.stage - 1) > 4 ? 4 : (popState.stage - 1)) as 1 | 2 | 3 | 4);
-          setCurrentStepState(legacyStep);
+          targetStage = popState.stage as CoordinatorStage;
         } else if (popState && typeof popState.step === "number" && [1, 2, 3, 4].includes(popState.step)) {
           const legacyMap: Record<number, CoordinatorStage> = { 1: 2, 2: 3, 3: 4, 4: 5 };
-          setCoordinatorStageState(legacyMap[popState.step] || 2);
-          setCurrentStepState(popState.step as 1 | 2 | 3 | 4);
+          targetStage = legacyMap[popState.step] || 2;
         } else {
-          const stage = parseStageFromHash();
-          setCoordinatorStageState(stage);
-          const step = parseStepFromHash();
-          setCurrentStepState(step);
+          targetStage = parseStageFromHash();
+        }
+
+        setCoordinatorStageState(targetStage);
+        const legacyStep = targetStage === 1 ? 1 : (((targetStage - 1) > 4 ? 4 : (targetStage - 1)) as 1 | 2 | 3 | 4);
+        setCurrentStepState(legacyStep);
+
+        if (popState?.month) {
+          setSelectedActiveMonthKey(popState.month);
+          setSurveyFormMonthKey(popState.month);
+        }
+
+        if (targetStage > 1) {
+          const targetSheet = popState?.sheetId || sheetInput || Object.keys(intakeCacheRef.current)[0];
+          if (targetSheet) {
+            setSheetInput(targetSheet);
+            setSheetSelectMode(targetSheet);
+            if (intakeCacheRef.current[targetSheet]) {
+              const cached = intakeCacheRef.current[targetSheet];
+              setIntakeData(cached);
+              setExceptions(cached.exceptions || []);
+              setMembers(cached.members || []);
+              if (cached.settings) applyLoadedSettings(cached.settings);
+              if (cached.monthStatus) setSurveyFormMonthStatus(cached.monthStatus);
+            } else if (targetSheet.startsWith("test-sheet-")) {
+              const key = targetSheet.replace("test-sheet-", "");
+              const presetKey =
+                key === "holiday"
+                  ? "holiday_shortage"
+                  : key === "deficit"
+                    ? "quota_deficit"
+                    : key === "conflict"
+                      ? "high_conflict"
+                      : key === "single"
+                        ? "single_respondent"
+                        : key === "saved"
+                          ? "saved_schedule"
+                          : "standard";
+              handleSelectPreset(presetKey);
+            } else {
+              fetchIntake(targetSheet);
+            }
+          }
         }
       }
     };
@@ -2471,19 +2540,59 @@ function MainApp() {
           if (targetView === "coordinator") {
             const rawStage = e.state?.stage || (e.location?.hash ? e.location.hash.match(/(?:#|^)stage-([1-5])/)?.[1] : "");
             const parsedStage = parseInt(rawStage, 10);
+            let targetStage: CoordinatorStage = 2;
             if ([1, 2, 3, 4, 5].includes(parsedStage)) {
-              setCoordinatorStageState(parsedStage as CoordinatorStage);
-              const legacyStep = parsedStage === 1 ? 1 : (((parsedStage - 1) > 4 ? 4 : (parsedStage - 1)) as 1 | 2 | 3 | 4);
-              setCurrentStepState(legacyStep);
+              targetStage = parsedStage as CoordinatorStage;
             } else {
               const raw =
                 e.state?.step ||
                 (e.location?.hash ? e.location.hash.replace("#step-", "").replace("step-", "") : "");
               const parsed = parseInt(raw, 10);
               if ([1, 2, 3, 4].includes(parsed)) {
-                setCurrentStepState(parsed as 1 | 2 | 3 | 4);
                 const legacyMap: Record<number, CoordinatorStage> = { 1: 2, 2: 3, 3: 4, 4: 5 };
-                setCoordinatorStageState(legacyMap[parsed] || 2);
+                targetStage = legacyMap[parsed] || 2;
+              }
+            }
+
+            setCoordinatorStageState(targetStage);
+            const legacyStep = targetStage === 1 ? 1 : (((targetStage - 1) > 4 ? 4 : (targetStage - 1)) as 1 | 2 | 3 | 4);
+            setCurrentStepState(legacyStep);
+
+            if (e.state?.month) {
+              setSelectedActiveMonthKey(e.state.month);
+              setSurveyFormMonthKey(e.state.month);
+            }
+
+            if (targetStage > 1) {
+              const targetSheet = e.state?.sheetId || sheetInput || Object.keys(intakeCacheRef.current)[0];
+              if (targetSheet) {
+                setSheetInput(targetSheet);
+                setSheetSelectMode(targetSheet);
+                if (intakeCacheRef.current[targetSheet]) {
+                  const cached = intakeCacheRef.current[targetSheet];
+                  setIntakeData(cached);
+                  setExceptions(cached.exceptions || []);
+                  setMembers(cached.members || []);
+                  if (cached.settings) applyLoadedSettings(cached.settings);
+                  if (cached.monthStatus) setSurveyFormMonthStatus(cached.monthStatus);
+                } else if (targetSheet.startsWith("test-sheet-")) {
+                  const key = targetSheet.replace("test-sheet-", "");
+                  const presetKey =
+                    key === "holiday"
+                      ? "holiday_shortage"
+                      : key === "deficit"
+                        ? "quota_deficit"
+                        : key === "conflict"
+                          ? "high_conflict"
+                          : key === "single"
+                            ? "single_respondent"
+                            : key === "saved"
+                              ? "saved_schedule"
+                              : "standard";
+                  handleSelectPreset(presetKey);
+                } else {
+                  fetchIntake(targetSheet);
+                }
               }
             }
           }
@@ -2906,7 +3015,11 @@ function MainApp() {
         masterSheetInput,
         isDevMode
       );
-      intakeCacheRef.current = {};
+      for (const k of Object.keys(intakeCacheRef.current)) {
+        if (intakeCacheRef.current[k]) {
+          intakeCacheRef.current[k].exceptions = updated;
+        }
+      }
       setExceptions(updated);
       setShowAddRuleModal(false);
       setNewRule({
@@ -2949,7 +3062,11 @@ function MainApp() {
         masterSheetInput,
         isDevMode
       );
-      intakeCacheRef.current = {};
+      for (const k of Object.keys(intakeCacheRef.current)) {
+        if (intakeCacheRef.current[k]) {
+          intakeCacheRef.current[k].exceptions = updated;
+        }
+      }
       setExceptions(updated);
       setShowWhitelistModal(false);
       setEditingWhitelistRule(null);
@@ -3072,7 +3189,11 @@ function MainApp() {
         masterSheetInput,
         isDevMode
       );
-      intakeCacheRef.current = {};
+      for (const k of Object.keys(intakeCacheRef.current)) {
+        if (intakeCacheRef.current[k]) {
+          intakeCacheRef.current[k].exceptions = updated;
+        }
+      }
       setExceptions(updated);
       showToast("Rule removed.");
     } catch (err: any) {
@@ -4463,7 +4584,7 @@ function MainApp() {
         {coordinatorStage === 1 && (
           <SurveyFormGeneratorView
             embedded={true}
-            monthKey={activeCoordinatorMonthKey}
+            monthKey={surveyFormMonthKey || activeCoordinatorMonthKey}
             setMonthKey={(mKey) => handleCoordinatorSelectMonth(mKey)}
             onClearFormResult={handleClearSurveyFormResult}
             loadDatesPreview={loadSurveyFormDatesPreview}

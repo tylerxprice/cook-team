@@ -146,6 +146,17 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
   const [copiedAnnouncement, setCopiedAnnouncement] = useState<boolean>(false);
   const [customSurveySubject, setCustomSurveySubject] = useState<string | null>(null);
   const [customSurveyBody, setCustomSurveyBody] = useState<string | null>(null);
+  const [surveyEmailTo, setSurveyEmailTo] = useState<string>(
+    coordinatorEmail || "vancouver-cohousing@googlegroups.com"
+  );
+  const [surveyEmailCc, setSurveyEmailCc] = useState<string>("");
+  const [isAnnouncementSent, setIsAnnouncementSent] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (coordinatorEmail) {
+      setSurveyEmailTo(coordinatorEmail);
+    }
+  }, [coordinatorEmail]);
 
   const monthDisplayName = React.useMemo(() => {
     try {
@@ -165,37 +176,19 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
       formResult?.formPublishedUrl ||
       existingSurvey?.formUrl ||
       `https://docs.google.com/forms/`;
-    const webSurveyUrl = `${deploymentUrl || getPublicWebAppUrl()}?view=survey&month=${monthKey}`;
-    const activeDates = dates.filter((d) => d.included);
-    const dateList = activeDates
-      .map(
-        (d) =>
-          `  • ${d.dateLabel} (${d.mealType === "BRUNCH" ? "Brunch" : "Dinner"}${
-            d.specialNote ? ` - ${d.specialNote}` : ""
-          })`
-      )
-      .join("\n");
 
     return `Hi precious friends & neighbours,
 
 Sign-ups for our ${monthDisplayName} community meal teams are now officially open!
 
-Please submit your availability and shift preferences using either link below:
-
-Option 1: Web Sign-Up (Fast & Mobile-Friendly):
-${webSurveyUrl}
-
-Option 2: Google Form:
+Please submit your availability and shift preferences using the Google Form below:
 ${liveFormUrl}
-
-We have ${activeDates.length} meals scheduled for ${monthDisplayName}:
-${dateList}
 
 Deadline: Please submit your preferences by Sunday at 8:00 PM so we can generate and publish the roster promptly.
 
 Warmly,
 ${communityName} Meal Team Coordinator`;
-  }, [monthDisplayName, formResult, existingSurvey, deploymentUrl, monthKey, dates, communityName]);
+  }, [monthDisplayName, formResult, existingSurvey, communityName]);
 
   const effectiveSurveySubject = customSurveySubject ?? defaultSurveySubject;
   const effectiveSurveyBody = customSurveyBody ?? defaultSurveyBody;
@@ -212,14 +205,28 @@ ${communityName} Meal Team Coordinator`;
     if (onSetMonthStatus) {
       onSetMonthStatus("SIGN_UPS_OPEN", monthKey);
     }
-    const to = coordinatorEmail || "";
+    setIsAnnouncementSent(true);
+    const to = surveyEmailTo || coordinatorEmail || "";
+    const cc = surveyEmailCc || "";
     const su = effectiveSurveySubject;
     const body = effectiveSurveyBody;
-    const composeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
+    let composeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
       to
     )}&su=${encodeURIComponent(su)}&body=${encodeURIComponent(body)}`;
+    if (cc) {
+      composeUrl += `&cc=${encodeURIComponent(cc)}`;
+    }
     window.open(composeUrl, "_blank");
     if (_onToast) _onToast("Opened Gmail compose & marked month as Sign-Ups Open!");
+  };
+
+  const handleToggleAnnouncementSent = () => {
+    const nextSent = !isAnnouncementSent;
+    setIsAnnouncementSent(nextSent);
+    if (nextSent && onSetMonthStatus) {
+      onSetMonthStatus("SIGN_UPS_OPEN", monthKey);
+      if (_onToast) _onToast("Marked sign-ups as open and announcement sent!", "success");
+    }
   };
 
   const handleAddDateFromModal = (newDate: SurveyFormDateConfig) => {
@@ -421,17 +428,35 @@ ${communityName} Meal Team Coordinator`;
   const mainContent = (
     <>
       {/* Page Title & Subtitle */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            {embedded ? "Stage 1: Staging Dates & Survey Generator" : "Survey Form Generator"}
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            Prepare meal dates, create Google Forms, or manage beta sign-ups for community meals
-          </p>
+      {embedded ? (
+        <div className="flex items-center justify-between pb-1 border-b border-slate-200 dark:border-slate-800">
+          <div>
+            <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <span>Stage 1: Staging Dates &amp; Survey Form Generator</span>
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 font-normal">
+                &bull; {monthDisplayName}
+              </span>
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Review and configure meal dates, generate Google Form, and announce survey sign-ups
+            </p>
+          </div>
         </div>
-      </div>
-        {/* Top Control Bar: Target Month & Status (ALWAYS VISIBLE) */}
+      ) : (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-slate-800">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              Survey Form Generator
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+              Prepare meal dates, create Google Forms, or manage beta sign-ups for community meals
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Top Control Bar: Target Month & Status (only shown when standalone) */}
+      {!embedded && (
         <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -540,6 +565,7 @@ ${communityName} Meal Team Coordinator`;
             </div>
           </div>
         </div>
+      )}
 
         {/* LOADING SPINNERS: Replace entire content below month bar while loading */}
         {loadingDates ? (
@@ -796,7 +822,13 @@ ${communityName} Meal Team Coordinator`;
                   )}
 
                 {/* Survey Launch Announcement Email Card */}
-                {(hasGeneratedForm || (isCurrentMonthFormResult && formResult?.success)) && (
+                {(hasGeneratedForm ||
+                  (isCurrentMonthFormResult && formResult?.success) ||
+                  monthStatus === "OPEN" ||
+                  monthStatus === "SIGN_UPS_OPEN" ||
+                  monthStatus === "RESPONSES_RECEIVED" ||
+                  Boolean(existingSurvey?.exists) ||
+                  dates.filter((d) => d.included).length > 0) && (
                   <div className="bg-white dark:bg-slate-900 rounded-2xl border-2 border-blue-200 dark:border-blue-800 shadow-sm p-5 sm:p-6 space-y-4 animate-in fade-in duration-150">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3.5">
                       <div className="flex items-center gap-3">
@@ -806,12 +838,20 @@ ${communityName} Meal Team Coordinator`;
                         <div>
                           <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                             <span>Community Survey Announcement</span>
-                            <span className="text-[11px] font-black uppercase tracking-wider bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
-                              Ready to Send
+                            <span
+                              className={`text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                                isAnnouncementSent || monthStatus === "SIGN_UPS_OPEN"
+                                  ? "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800"
+                                  : "bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                              }`}
+                            >
+                              {isAnnouncementSent || monthStatus === "SIGN_UPS_OPEN"
+                                ? "Announcement Sent ✓"
+                                : "Ready to Send"}
                             </span>
                           </h3>
                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                            Launch sign-ups by emailing the community with direct links to the Google Form and Web Survey
+                            Launch sign-ups by emailing the community with the link to the Google Form
                           </p>
                         </div>
                       </div>
@@ -838,6 +878,60 @@ ${communityName} Meal Team Coordinator`;
                           <ExternalLink className="w-4 h-4" />
                           <span>Compose Survey Announcement in Gmail Web</span>
                         </button>
+
+                        <button
+                          type="button"
+                          onClick={handleToggleAnnouncementSent}
+                          className={`min-h-[40px] px-3.5 py-1.5 text-xs font-bold rounded-xl border transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                            isAnnouncementSent || monthStatus === "SIGN_UPS_OPEN"
+                              ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800"
+                              : "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700"
+                          }`}
+                          title="Toggle broadcast sent status if sent via external email client"
+                        >
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span>
+                            {isAnnouncementSent || monthStatus === "SIGN_UPS_OPEN"
+                              ? "Sent ✓"
+                              : "Mark as Sent"}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Recipients Row: To & CC */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="survey-announcement-to"
+                          className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200"
+                        >
+                          To (Community Mailing List)
+                        </label>
+                        <input
+                          id="survey-announcement-to"
+                          type="email"
+                          value={surveyEmailTo}
+                          onChange={(e) => setSurveyEmailTo(e.target.value)}
+                          placeholder="e.g. vancouver-cohousing@googlegroups.com"
+                          className="w-full min-h-[38px] px-3.5 py-1.5 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white dark:bg-slate-800 font-medium text-slate-900 dark:text-white"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="survey-announcement-cc"
+                          className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200"
+                        >
+                          Cc (Optional)
+                        </label>
+                        <input
+                          id="survey-announcement-cc"
+                          type="text"
+                          value={surveyEmailCc}
+                          onChange={(e) => setSurveyEmailCc(e.target.value)}
+                          placeholder="Optional CC recipients"
+                          className="w-full min-h-[38px] px-3.5 py-1.5 text-xs sm:text-sm border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white dark:bg-slate-800 font-medium text-slate-900 dark:text-white"
+                        />
                       </div>
                     </div>
 

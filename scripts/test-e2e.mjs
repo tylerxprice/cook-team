@@ -577,12 +577,10 @@ async function runE2ETest() {
     await page.waitForSelector("text=Configure Meal Dates for Survey Grid");
     console.log("✓ Meal Date table and preview verified!");
 
-    // Step forward to December 2026 (a fresh draft cycle without an existing survey form)
-    console.log("Switching to December 2026 to test fresh form generator staging flow...");
-    const nextMonthBtn = page.locator("button[aria-label='Next month']").first();
-    await nextMonthBtn.click(); // step from 2026-10 to 2026-11
-    await page.waitForTimeout(300);
-    await nextMonthBtn.click(); // step from 2026-11 to 2026-12
+    // Step forward to December 2026 via Plan Next Month button
+    console.log("Switching to December 2026 via Plan Next Month button...");
+    const planNextMonthBtn = page.locator("button:has-text('Plan Next Month')").first();
+    await planNextMonthBtn.click();
     await page.waitForSelector("text=Configure Meal Dates for Survey Grid");
     await page.waitForTimeout(300);
 
@@ -592,7 +590,7 @@ async function runE2ETest() {
     await addCustomDateBtn.click();
     await page.waitForSelector("text=Add Custom Meal Date");
     console.log("✓ Add Custom Date Modal opened!");
-    const currentMonthVal = await page.locator("input[type='month']").inputValue();
+    const currentMonthVal = "2026-12";
     const testDateKey = `${currentMonthVal}-25`;
     await page.locator("#custom-meal-date-input").fill(testDateKey);
     await page.locator(".fixed button:has-text('Brunch')").click();
