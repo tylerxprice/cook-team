@@ -13,8 +13,11 @@ import {
   ChevronDown,
   ChevronRight,
   SlidersHorizontal,
+  AlertTriangle,
+  CheckCircle2,
+  ExternalLink,
 } from "lucide-react";
-import { ExceptionRule } from "../../../server/types";
+import { ExceptionRule, IntakePayload } from "../../../server/types";
 
 export interface MemberAttentionItem {
   name: string;
@@ -34,6 +37,9 @@ interface Step2NotesRulesProps {
   goToStep: (step: 1 | 2 | 3 | 4) => void;
   handleRunSolver: () => void;
   loading: boolean;
+  intakeData?: IntakePayload | null;
+  handleLoadExistingSchedule?: () => void;
+  sheetInput?: string;
 }
 
 function hasValidSpecialNote(note?: string): boolean {
@@ -54,11 +60,30 @@ export const Step2NotesRules: React.FC<Step2NotesRulesProps> = ({
   goToStep,
   handleRunSolver,
   loading,
+  intakeData,
+  handleLoadExistingSchedule,
+  sheetInput = "",
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isNotesExpanded, setIsNotesExpanded] = useState(true);
   const [isRulesExpanded, setIsRulesExpanded] = useState(true);
   const [isNoRulesExpanded, setIsNoRulesExpanded] = useState(false);
+  const [showOverwriteModal, setShowOverwriteModal] = useState(false);
+
+  const sheetUrl = useMemo(() => {
+    if (!sheetInput) return "";
+    return sheetInput.startsWith("http")
+      ? sheetInput
+      : `https://docs.google.com/spreadsheets/d/${sheetInput}/edit`;
+  }, [sheetInput]);
+
+  const requestRunSolver = () => {
+    if (intakeData?.existingScheduleTab?.exists) {
+      setShowOverwriteModal(true);
+    } else {
+      handleRunSolver();
+    }
+  };
 
   // Group members into the 3 distinct categories
   const specialNotesMembers = useMemo(() => {
@@ -592,6 +617,83 @@ export const Step2NotesRules: React.FC<Step2NotesRulesProps> = ({
         )}
       </section>
 
+      {/* Overwrite Guard Confirmation Modal */}
+      {showOverwriteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-7 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                  Finalized Schedule Exists
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
+                  <span>Tab:</span>
+                  {sheetUrl ? (
+                    <a
+                      href={sheetUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Open schedule tab in Google Sheets"
+                      className="font-mono text-orange-600 dark:text-orange-400 hover:underline inline-flex items-center gap-1 font-bold"
+                    >
+                      <span>{intakeData?.existingScheduleTab?.name || "Schedule"}</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  ) : (
+                    <span className="font-mono font-bold text-slate-700 dark:text-slate-300">
+                      {intakeData?.existingScheduleTab?.name || "Schedule"}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              A saved schedule already exists for this month in your spreadsheet. You can view the
+              existing schedule to inspect and make manual adjustments, or re-run the matchmaker
+              solver to generate a fresh roster from scratch.
+            </p>
+
+            <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowOverwriteModal(false)}
+                className="w-full sm:w-auto min-h-[42px] px-4 py-2 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              {handleLoadExistingSchedule && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowOverwriteModal(false);
+                    handleLoadExistingSchedule();
+                  }}
+                  className="w-full sm:w-auto min-h-[42px] px-4 py-2 text-xs sm:text-sm font-bold text-emerald-800 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-950/60 hover:bg-emerald-200 dark:hover:bg-emerald-900 border border-emerald-300 dark:border-emerald-800 rounded-xl transition-colors cursor-pointer inline-flex items-center justify-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>View Existing Schedule</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOverwriteModal(false);
+                  handleRunSolver();
+                }}
+                className="w-full sm:w-auto min-h-[42px] px-5 py-2 text-xs sm:text-sm font-bold text-white bg-orange-600 hover:bg-orange-700 rounded-xl shadow-xs transition-colors cursor-pointer inline-flex items-center justify-center gap-1.5"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Proceed &amp; Re-run Solver</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Navigation Buttons */}
       <div className="flex justify-between items-center pt-2">
         <button
@@ -601,7 +703,7 @@ export const Step2NotesRules: React.FC<Step2NotesRulesProps> = ({
           ← Back to Intake
         </button>
         <button
-          onClick={() => handleRunSolver()}
+          onClick={() => requestRunSolver()}
           disabled={loading}
           className={`min-h-[48px] inline-flex items-center gap-2.5 px-6 py-3 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all cursor-pointer ${
             loading

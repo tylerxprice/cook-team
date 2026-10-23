@@ -51,6 +51,21 @@ export function matchesSurveySheetForMonth(sheetName: string, monthKey: string):
   const cleanMonth = (monthKey || "").trim();
   if (!cleanMonth || !/^\d{4}[-_]\d{2}$/.test(cleanMonth)) return false;
 
+  const n = (sheetName || "").toLowerCase();
+  if (n.includes("master") || n.includes("template")) return false;
+
+  const isSurveySheet =
+    n.includes("meal team sign-up") ||
+    n.includes("cook team survey") ||
+    n.includes("responses") ||
+    n.includes("survey") ||
+    n.includes("sign-up") ||
+    n.includes("sign up") ||
+    n.includes("availability") ||
+    n.includes("cook team") ||
+    n.includes("meal team");
+  if (!isSurveySheet) return false;
+
   const [yearStr, monthStr] = cleanMonth.split(/[-_]/);
   const yy = yearStr.slice(2);
   const mm = monthStr;
@@ -58,11 +73,6 @@ export function matchesSurveySheetForMonth(sheetName: string, monthKey: string):
   const yyyyMm = `${yearStr}-${monthStr}`;
   const monthIdx = parseInt(mm, 10) - 1;
   const shortName = (MONTH_NAMES[monthIdx] || "").toLowerCase();
-
-  const n = (sheetName || "").toLowerCase();
-  const isSurveySheet =
-    n.includes("meal team sign-up") || n.includes("cook team survey") || n.includes("responses");
-  if (!isSurveySheet) return false;
 
   const hasExactYyMm = n.includes(yyMm) || n.includes(yyMm.replace("-", "_"));
   const hasExactYyyyMm = n.includes(yyyyMm) || n.includes(yyyyMm.replace("-", "_"));

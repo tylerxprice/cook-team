@@ -730,6 +730,11 @@ function MainApp() {
         console.warn("GAS history push failed:", err);
       }
     }
+    if (stage === 1 && activeCoordinatorMonthKey) {
+      if (surveyFormDates.length === 0 || !surveyFormExistingSurvey) {
+        loadSurveyFormDatesPreview(activeCoordinatorMonthKey);
+      }
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -2010,6 +2015,18 @@ function MainApp() {
     if (matchedSheet) {
       setSheetInput(matchedSheet.id);
       setSheetSelectMode(matchedSheet.id);
+      setSurveyFormExistingSurvey((prev) =>
+        prev?.spreadsheetId === matchedSheet.id
+          ? prev
+          : {
+              exists: true,
+              spreadsheetId: matchedSheet.id,
+              spreadsheetName: matchedSheet.name,
+              responseCount: intakeData?.responses?.length || 0,
+              canOverwrite: (intakeData?.responses?.length || 0) <= 1,
+            }
+      );
+      loadSurveyFormDatesPreview(targetMonth);
       try {
         if (matchedSheet.id.startsWith("test-sheet-")) {
           const key = matchedSheet.id.replace("test-sheet-", "");
@@ -2144,6 +2161,20 @@ function MainApp() {
     if (matchedSheet) {
       setSheetInput(matchedSheet.id);
       setSheetSelectMode(matchedSheet.id);
+      setSurveyFormExistingSurvey((prev) =>
+        prev?.spreadsheetId === matchedSheet.id
+          ? prev
+          : {
+              exists: true,
+              spreadsheetId: matchedSheet.id,
+              spreadsheetName: matchedSheet.name,
+              responseCount: intakeData?.responses?.length || 0,
+              canOverwrite: (intakeData?.responses?.length || 0) <= 1,
+            }
+      );
+      if (stage === 1) {
+        loadSurveyFormDatesPreview(month);
+      }
     } else {
       setSheetInput("");
       setSheetSelectMode(month);
@@ -5114,6 +5145,9 @@ function MainApp() {
               goToStep={goToStep}
               handleRunSolver={handleRunSolver}
               loading={loading}
+              intakeData={intakeData}
+              handleLoadExistingSchedule={handleLoadExistingSchedule}
+              sheetInput={sheetInput}
             />
           ) : (
             <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm max-w-xl mx-auto my-8">
@@ -5154,6 +5188,7 @@ function MainApp() {
             setSelectedQuotaFocusDateKey={setSelectedQuotaFocusDateKey}
             setSelectedSlotToFill={setSelectedSlotToFill}
             goToStep={goToStep}
+            sheetInput={sheetInput}
           />
         )}
 

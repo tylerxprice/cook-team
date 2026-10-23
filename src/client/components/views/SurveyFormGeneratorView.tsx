@@ -105,7 +105,7 @@ export const SurveyFormGeneratorView: React.FC<SurveyFormGeneratorViewProps> = (
   onExecuteCreateForm,
   members = [],
   coordinatorEmail = "",
-  spreadsheetId: _spreadsheetId = "",
+  spreadsheetId = "",
   driveSheets = [],
   monthStatus = "NOT_OPEN",
   existingSurvey = null,
@@ -253,7 +253,9 @@ ${communityName} Meal Team Coordinator`;
   const isExistingSurveyForCurrentMonth = Boolean(
     existingSurvey?.exists &&
     (!existingSurvey.spreadsheetName ||
-      matchesSurveySheetForMonth(existingSurvey.spreadsheetName, monthKey))
+      matchesSurveySheetForMonth(existingSurvey.spreadsheetName, monthKey) ||
+      existingSurvey.spreadsheetName.includes(monthKey) ||
+      existingSurvey.spreadsheetName.includes(`${monthKey.slice(2, 4)}-${monthKey.slice(5, 7)}`))
   );
 
   const [dismissedFormResultMonthKey, setDismissedFormResultMonthKey] = useState<string | null>(
@@ -282,8 +284,24 @@ ${communityName} Meal Team Coordinator`;
     if (isExistingSurveyForCurrentMonth && existingSurvey?.spreadsheetId) {
       return existingSurvey.spreadsheetId;
     }
+    if (existingSurvey?.spreadsheetId) {
+      return existingSurvey.spreadsheetId;
+    }
+    if (spreadsheetId && spreadsheetId.trim()) {
+      return spreadsheetId.trim();
+    }
     if (driveSheets && driveSheets.length > 0 && /^\d{4}[-_]\d{2}$/.test(monthKey)) {
-      const match = driveSheets.find((s) => matchesSurveySheetForMonth(s.name, monthKey));
+      const match =
+        driveSheets.find((s) => matchesSurveySheetForMonth(s.name, monthKey)) ||
+        driveSheets.find((s) => {
+          const n = (s.name || "").toLowerCase();
+          const [y, m] = monthKey.split(/[-_]/);
+          return (
+            n.includes(`${y.slice(-2)}-${m}`) ||
+            n.includes(`${y}-${m}`) ||
+            n.includes(monthDisplayName.toLowerCase())
+          );
+        });
       if (match) return match.id;
     }
     return "";
@@ -292,15 +310,46 @@ ${communityName} Meal Team Coordinator`;
     formResult,
     isExistingSurveyForCurrentMonth,
     existingSurvey,
+    spreadsheetId,
     driveSheets,
     monthKey,
+    monthDisplayName,
   ]);
 
   // Determine if a Google Form & linked response sheet have been created for THIS month
   const hasGeneratedForm = Boolean(
     isExistingSurveyForCurrentMonth ||
+    Boolean(existingSurvey?.exists) ||
+    Boolean(existingSurvey?.formUrl || existingSurvey?.formId) ||
     (isCurrentMonthFormResult &&
       Boolean(formResult?.formPublishedUrl || formResult?.spreadsheetUrl))
+  );
+
+  // Determine if Beta Web Sign-Ups (Phase 2) is unlocked:
+  // Available whenever a Google Form is generated, an existing survey or response sheet exists,
+  // responses have been submitted, or the month status is open/active
+  const isPastStagingStatus = Boolean(
+    monthStatus &&
+    monthStatus !== "NOT_OPEN" &&
+    monthStatus !== "STAGING_DATES"
+  );
+
+  const hasLinkedSpreadsheet = Boolean(
+    activeSpreadsheetId || (spreadsheetId && spreadsheetId.trim())
+  );
+
+  const hasExistingResponses = Boolean(
+    existingSurvey &&
+    typeof existingSurvey.responseCount === "number" &&
+    existingSurvey.responseCount > 0
+  );
+
+  const isBetaUnlocked = Boolean(
+    hasGeneratedForm ||
+    Boolean(existingSurvey?.exists) ||
+    hasLinkedSpreadsheet ||
+    hasExistingResponses ||
+    isPastStagingStatus
   );
 
   // Staged flow: when form creation completes, automatically advance to and focus the Beta Web Sign-Ups tab
@@ -309,19 +358,19 @@ ${communityName} Meal Team Coordinator`;
     if (
       prevLoadingCreateRef.current &&
       !loadingCreate &&
-      (isCurrentMonthFormResult || isExistingSurveyForCurrentMonth)
+      (isCurrentMonthFormResult || isExistingSurveyForCurrentMonth || isBetaUnlocked)
     ) {
       setActiveTab("beta");
     }
     prevLoadingCreateRef.current = loadingCreate;
-  }, [loadingCreate, isCurrentMonthFormResult, isExistingSurveyForCurrentMonth]);
+  }, [loadingCreate, isCurrentMonthFormResult, isExistingSurveyForCurrentMonth, isBetaUnlocked]);
 
-  // If activeTab is on beta but no form exists yet (e.g. user stepped to an unconfigured month), reset to form tab
+  // If activeTab is on beta but no form/sheet exists yet (e.g. user stepped to an unconfigured month), reset to form tab
   useEffect(() => {
-    if (!hasGeneratedForm && activeTab === "beta") {
+    if (!isBetaUnlocked && activeTab === "beta") {
       setActiveTab("form");
     }
-  }, [hasGeneratedForm, activeTab]);
+  }, [isBetaUnlocked, activeTab]);
 
   // Step forward or backward by one month
   const stepMonth = (delta: number) => {
@@ -629,16 +678,16 @@ ${communityName} Meal Team Coordinator`;
               <button
                 type="button"
                 onClick={() => {
-                  if (hasGeneratedForm) setActiveTab("beta");
+                  if (isBetaUnlocked) setActiveTab("beta");
                 }}
-                disabled={!hasGeneratedForm}
+                disabled={!isBetaUnlocked}
                 title={
-                  hasGeneratedForm
+                  isBetaUnlocked
                     ? "Switch to Phase 2 Beta Web Sign-Ups"
                     : "Stage 2: Available after generating the Google Form & linked sheet"
                 }
                 className={`min-h-[42px] px-5 py-2.5 font-bold text-xs sm:text-sm rounded-t-xl border-t border-x transition-all flex items-center gap-2 ${
-                  !hasGeneratedForm
+                  !isBetaUnlocked
                     ? "border-transparent text-slate-400 dark:text-slate-600 bg-slate-100/50 dark:bg-slate-900/50 cursor-not-allowed opacity-60"
                     : activeTab === "beta"
                       ? "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-orange-950 dark:text-white shadow-xs -mb-[1px] cursor-pointer"
@@ -646,10 +695,10 @@ ${communityName} Meal Team Coordinator`;
                 }`}
               >
                 <Mail
-                  className={`w-4 h-4 ${hasGeneratedForm ? "text-orange-600 dark:text-orange-400" : "text-slate-400 dark:text-slate-600"}`}
+                  className={`w-4 h-4 ${isBetaUnlocked ? "text-orange-600 dark:text-orange-400" : "text-slate-400 dark:text-slate-600"}`}
                 />
                 <span>Beta Web Sign-Ups (Phase 2)</span>
-                {!hasGeneratedForm ? (
+                {!isBetaUnlocked ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full">
                     <Lock className="w-3 h-3 text-slate-500" />
                     <span>Locked</span>
@@ -823,6 +872,7 @@ ${communityName} Meal Team Coordinator`;
 
                 {/* Survey Launch Announcement Email Card */}
                 {(hasGeneratedForm ||
+                  isBetaUnlocked ||
                   (isCurrentMonthFormResult && formResult?.success) ||
                   monthStatus === "OPEN" ||
                   monthStatus === "SIGN_UPS_OPEN" ||

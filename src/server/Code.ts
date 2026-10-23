@@ -4110,6 +4110,21 @@ function checkExistingSurveyForMonth(monthKey: string): ExistingSurveyInfo {
   }
 
   if (!matchedSheet) {
+    const savedCfg = getMonthConfig(cleanMonth);
+    if (
+      savedCfg &&
+      (savedCfg.formId ||
+        savedCfg.formUrl ||
+        (savedCfg.status && savedCfg.status !== "NOT_OPEN" && savedCfg.status !== "STAGING_DATES"))
+    ) {
+      return {
+        exists: true,
+        formId: savedCfg.formId,
+        formUrl: savedCfg.formUrl,
+        responseCount: 0,
+        canOverwrite: true,
+      };
+    }
     return {
       exists: false,
       responseCount: 0,

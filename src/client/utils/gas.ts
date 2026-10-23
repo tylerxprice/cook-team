@@ -1315,7 +1315,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
             "A survey spreadsheet already exists with 26 responses ('26-10 Oct Meal Team Sign-Up (Responses)'). Creating a new form is blocked to prevent losing responses.",
         } as unknown as T;
       }
-      if (cfg && cfg.isConfigured) {
+      if (cfg && (cfg.isConfigured || cfg.status !== "NOT_OPEN" || (cfg.dates && cfg.dates.length > 0))) {
         return {
           exists: true,
           spreadsheetId: "mock-response-ss-id-67890",
@@ -1354,7 +1354,7 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
               warningMessage:
                 "A survey spreadsheet already exists with 26 responses ('26-10 Oct Meal Team Sign-Up (Responses)'). Creating a new form is blocked to prevent losing responses.",
             }
-          : cfg && cfg.isConfigured
+          : cfg && (cfg.isConfigured || cfg.status !== "NOT_OPEN" || (cfg.dates && cfg.dates.length > 0))
             ? {
                 exists: true,
                 spreadsheetId: "mock-response-ss-id-67890",

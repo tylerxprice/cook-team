@@ -45,7 +45,7 @@ export interface Step1IntakeAuditProps {
 }
 
 export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
-  sheetInput: _sheetInput,
+  sheetInput,
   setSheetInput: _setSheetInput,
   sheetSelectMode: _sheetSelectMode,
   handleSelectSheetOption: _handleSelectSheetOption,
@@ -132,9 +132,26 @@ export const Step1IntakeAudit: React.FC<Step1IntakeAuditProps> = ({
                 <div className="min-w-0">
                   <h4 className="text-xs sm:text-sm font-bold text-amber-950 dark:text-amber-200 flex items-center gap-2 flex-wrap">
                     <span>Finalized Schedule Tab Found:</span>
-                    <code className="bg-amber-100/90 dark:bg-amber-900/60 border border-amber-300/70 dark:border-amber-700 px-2 py-0.5 rounded-lg font-mono text-xs text-amber-950 dark:text-amber-200 font-bold">
-                      {intakeData.existingScheduleTab.name}
-                    </code>
+                    {sheetInput ? (
+                      <a
+                        href={
+                          sheetInput.startsWith("http")
+                            ? sheetInput
+                            : `https://docs.google.com/spreadsheets/d/${sheetInput}/edit`
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Open schedule tab in Google Sheets"
+                        className="inline-flex items-center gap-1 bg-amber-100/90 dark:bg-amber-900/60 hover:bg-amber-200/90 dark:hover:bg-amber-800/80 border border-amber-300/70 dark:border-amber-700 px-2 py-0.5 rounded-lg font-mono text-xs text-amber-950 dark:text-amber-200 font-bold transition-colors cursor-pointer"
+                      >
+                        <span>{intakeData.existingScheduleTab.name}</span>
+                        <ExternalLink className="w-3 h-3 text-amber-700 dark:text-amber-400" />
+                      </a>
+                    ) : (
+                      <code className="bg-amber-100/90 dark:bg-amber-900/60 border border-amber-300/70 dark:border-amber-700 px-2 py-0.5 rounded-lg font-mono text-xs text-amber-950 dark:text-amber-200 font-bold">
+                        {intakeData.existingScheduleTab.name}
+                      </code>
+                    )}
                   </h4>
                   <p className="text-xs text-amber-900 dark:text-amber-300 mt-0.5">
                     A completed schedule already exists for this survey in your Google Sheet. You

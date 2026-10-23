@@ -8,6 +8,7 @@ import {
   Plus,
   Search,
   ChevronRight,
+  ExternalLink,
 } from "lucide-react";
 import {
   ScheduleOutput,
@@ -44,6 +45,7 @@ interface Step3SolveReviewProps {
     } | null
   ) => void;
   goToStep: (step: 1 | 2 | 3 | 4) => void;
+  sheetInput?: string;
 }
 
 export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
@@ -64,8 +66,16 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
   setSelectedQuotaFocusDateKey,
   setSelectedSlotToFill,
   goToStep,
+  sheetInput = "",
 }) => {
   const [showOverwriteModal, setShowOverwriteModal] = React.useState<boolean>(false);
+
+  const sheetUrl = React.useMemo(() => {
+    if (!sheetInput) return "";
+    return sheetInput.startsWith("http")
+      ? sheetInput
+      : `https://docs.google.com/spreadsheets/d/${sheetInput}/edit`;
+  }, [sheetInput]);
 
   const requestRunSolver = () => {
     if (intakeData?.existingScheduleTab?.exists) {
@@ -201,8 +211,23 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 text-xs font-bold mb-2">
               Finalized Schedule Tab Found
             </div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-              Schedule &quot;{intakeData.existingScheduleTab.name}&quot; Detected
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center justify-center gap-2 flex-wrap">
+              <span>Schedule</span>
+              {sheetUrl ? (
+                <a
+                  href={sheetUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Open schedule tab in Google Sheets"
+                  className="font-mono text-emerald-800 dark:text-emerald-300 hover:underline inline-flex items-center gap-1"
+                >
+                  <span>&quot;{intakeData.existingScheduleTab.name}&quot;</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                </a>
+              ) : (
+                <span>&quot;{intakeData.existingScheduleTab.name}&quot;</span>
+              )}
+              <span>Detected</span>
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto mt-1">
               A published or previously generated schedule roster exists in this spreadsheet.
@@ -912,8 +937,24 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
                 <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
                   Finalized Schedule Exists
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Tab: {intakeData?.existingScheduleTab?.name || "Schedule"}
+                <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
+                  <span>Tab:</span>
+                  {sheetUrl ? (
+                    <a
+                      href={sheetUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Open schedule tab in Google Sheets"
+                      className="font-mono text-orange-600 dark:text-orange-400 hover:underline inline-flex items-center gap-1 font-bold"
+                    >
+                      <span>{intakeData?.existingScheduleTab?.name || "Schedule"}</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  ) : (
+                    <span className="font-mono font-bold text-slate-700 dark:text-slate-300">
+                      {intakeData?.existingScheduleTab?.name || "Schedule"}
+                    </span>
+                  )}
                 </p>
               </div>
             </div>

@@ -147,6 +147,13 @@ test("Survey Form Generator - matchesSurveySheetForMonth strictly matches target
   // Non-survey sheets must never match
   assert.equal(matchesSurveySheetForMonth(masterSheet, "2026-12"), false);
   assert.equal(matchesSurveySheetForMonth(masterSheet, "2026-01"), false);
+
+  // Flexible survey sheet naming variants
+  assert.equal(matchesSurveySheetForMonth("26-11 Nov Meal Team Availability", "2026-11"), true);
+  assert.equal(matchesSurveySheetForMonth("2026-11 Cook Team Availability", "2026-11"), true);
+  assert.equal(matchesSurveySheetForMonth("26-11 Meal Survey (Responses)", "2026-11"), true);
+  assert.equal(matchesSurveySheetForMonth("26-11 Meal Team Sign-up", "2026-11"), true);
+  assert.equal(matchesSurveySheetForMonth("Template Meal Team Sheet", "2026-11"), false);
 });
 
 test("Survey Form Generator - formatSurveyDateLabel accurately formats custom dates and days of week", () => {
