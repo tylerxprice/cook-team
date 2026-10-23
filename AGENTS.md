@@ -127,3 +127,16 @@ npm run open       # Opens project in Google Apps Script editor
 ### 5. Git Version Control
 * Remote repository is hosted on **GitHub**.
 * Always ensure `npm run build` and `npm run test:e2e` succeed before creating commits.
+
+---
+
+## Agent skills
+
+### Issue tracker
+
+Local markdown files under `.scratch/<feature-slug>/`. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context (`GLOSSARY.md` and `docs/adr/` at the repo root). See `docs/agents/domain.md`.
+
