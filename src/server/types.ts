@@ -204,6 +204,10 @@ export interface AppSettings {
   communityName?: string;
   signupWorkbookId?: string;
   betaWebSignupEnabled?: boolean;
+  available_months?: string;
+  availableMonths?: string;
+  all_months?: string;
+  open_months?: string;
   [key: string]: any;
 }
 

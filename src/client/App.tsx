@@ -204,6 +204,16 @@ export function formatMonthKey(monthKey: string): string {
 export type CoordinatorStage = 1 | 2 | 3 | 4 | 5;
 
 export function parseStageFromHash(hash?: string): CoordinatorStage {
+  const urlParams = getAppUrlParams();
+  const viewParam = (urlParams.get("view") || urlParams.get("mode") || "").toLowerCase();
+  if (
+    viewParam === "form-generator" ||
+    viewParam === "generator" ||
+    viewParam === "survey-generator" ||
+    viewParam === "launch"
+  ) {
+    return 1;
+  }
   const targetHash =
     hash !== undefined ? hash : typeof window !== "undefined" ? window.location.hash : "";
   if (!targetHash) return 2;
@@ -222,6 +232,16 @@ export function parseStageFromHash(hash?: string): CoordinatorStage {
 }
 
 export function parseStepFromHash(hash?: string): 1 | 2 | 3 | 4 {
+  const urlParams = getAppUrlParams();
+  const viewParam = (urlParams.get("view") || urlParams.get("mode") || "").toLowerCase();
+  if (
+    viewParam === "form-generator" ||
+    viewParam === "generator" ||
+    viewParam === "survey-generator" ||
+    viewParam === "launch"
+  ) {
+    return 1;
+  }
   const targetHash =
     hash !== undefined ? hash : typeof window !== "undefined" ? window.location.hash : "";
   if (!targetHash) return 1;
@@ -264,7 +284,7 @@ export function getAppViewFromUrl(params?: URLSearchParams, hash?: string): AppV
     viewParam === "survey-generator" ||
     viewParam === "launch"
   ) {
-    return "form-generator";
+    return "coordinator";
   }
   if (viewParam === "portal" || viewParam === "home") {
     return "portal";
@@ -884,30 +904,12 @@ function MainApp() {
             }
           }
         } else if (targetView === "form-generator") {
-          url.searchParams.set("view", "form-generator");
-          const targetMonth = options?.month || surveyFormMonthKey || "2026-11";
-          url.searchParams.set("month", targetMonth);
-          url.searchParams.delete("name");
-          url.searchParams.delete("m");
-          url.searchParams.delete("user");
-          url.hash = "";
-          const state = { view: "form-generator", month: targetMonth };
-          if (replace) {
-            window.history.replaceState(state, "", url.toString());
-          } else {
-            window.history.pushState(state, "", url.toString());
-          }
-          if (historyAction) {
-            try {
-              const gasParams: Record<string, string> = {
-                view: "form-generator",
-                month: targetMonth,
-              };
-              historyAction.call(gasHistory, state, gasParams, "");
-            } catch (err) {
-              console.warn("GAS history navigation failed:", err);
-            }
-          }
+          navigateToView("coordinator", {
+            stage: 1,
+            month: options?.month,
+            replace: options?.replace,
+          });
+          return;
         }
       }
     },
@@ -1139,8 +1141,22 @@ function MainApp() {
       defaultMonth = `${nextY}-${String(nextM).padStart(2, "0")}`;
     }
 
+    const matchedSheet = driveSheets.find((s) => {
+      const n = s.name.toLowerCase();
+      const [y, m] = defaultMonth.split(/[-_]/);
+      const yy = y.slice(-2);
+      return (
+        n.includes(`${yy}-${m}`) ||
+        n.includes(`${y}-${m}`) ||
+        n.includes(`${yy}_${m}`) ||
+        n.includes(`${y}_${m}`)
+      );
+    });
+
     setSelectedActiveMonthKey(defaultMonth);
     setSurveyFormMonthKey(defaultMonth);
+    setSheetSelectMode(matchedSheet?.id || defaultMonth);
+    setSheetInput(matchedSheet?.id || "");
     setSurveyFormResult(null);
     setSurveyFormCopiedLink(false);
     loadSurveyFormDatesPreview(defaultMonth);
@@ -1647,6 +1663,48 @@ function MainApp() {
       }
     }
 
+    // Check extra available months from settings (available_months / availableMonths / all_months / open_months)
+    const extraMonthsRaw =
+      (settings as any).available_months ||
+      (settings as any).availableMonths ||
+      (settings as any).all_months ||
+      settings.open_months;
+    if (extraMonthsRaw) {
+      const tokens = String(extraMonthsRaw)
+        .split(/[,\s]+/)
+        .map((s) => s.trim())
+        .filter((s) => /^\d{4}[-_]\d{2}$/.test(s))
+        .map((s) => s.replace("_", "-"));
+
+      tokens.forEach((mKey) => {
+        if (!discovered.some((d) => d.monthKey === mKey)) {
+          const [y, m] = mKey.split("-");
+          const datesKey = `month_dates_${mKey}`;
+          const altDatesKey = `month_dates_${y}_${m}`;
+          const datesVal = (settings as any)[datesKey] || (settings as any)[altDatesKey];
+          let datesCount: number | undefined = undefined;
+          let parsedDates: SurveyFormDateConfig[] | undefined = undefined;
+          if (datesVal) {
+            try {
+              const parsed = typeof datesVal === "string" ? JSON.parse(datesVal) : datesVal;
+              if (Array.isArray(parsed)) {
+                parsedDates = parsed;
+                datesCount = parsed.filter((d: any) => d.included !== false).length;
+              }
+            } catch (e) {
+              console.warn("Could not parse dates for month:", mKey, e);
+            }
+          }
+          discovered.push({
+            monthKey: mKey,
+            status: "STAGING_DATES",
+            datesCount,
+            dates: parsedDates,
+          });
+        }
+      });
+    }
+
     if (discovered.length > 0) {
       const STATUS_PRIORITY: Record<string, number> = {
         TEAMS_READY: 1,
@@ -1751,6 +1809,8 @@ function MainApp() {
       }
     });
     if (surveyFormMonthKey) keys.add(surveyFormMonthKey);
+    if (selectedActiveMonthKey) keys.add(selectedActiveMonthKey);
+    if (activeCoordinatorMonthKey) keys.add(activeCoordinatorMonthKey);
     if (intakeData?.mealDates?.[0]?.dateKey) {
       keys.add(intakeData.mealDates[0].dateKey.slice(0, 7));
     }
@@ -1759,7 +1819,15 @@ function MainApp() {
       keys.add("2026-10");
     }
     return Array.from(keys).sort((a, b) => b.localeCompare(a));
-  }, [configuredMonths, availableReportMonths, driveSheets, surveyFormMonthKey, intakeData?.mealDates]);
+  }, [
+    configuredMonths,
+    availableReportMonths,
+    driveSheets,
+    surveyFormMonthKey,
+    selectedActiveMonthKey,
+    activeCoordinatorMonthKey,
+    intakeData?.mealDates,
+  ]);
 
   const currentSheetUrl = useMemo(() => {
     if (!sheetInput) {
@@ -1779,9 +1847,42 @@ function MainApp() {
   }, [sheetInput, driveSheets]);
 
   const nextUnconfiguredMonthKey = useMemo(() => {
-    const configuredKeys = new Set(configuredMonths.map((m) => m.monthKey));
-    let candidate = activeCoordinatorMonthKey || "2026-11";
-    for (let i = 0; i < 24; i++) {
+    const monthsWithWork = new Set<string>();
+
+    driveSheets.forEach((s) => {
+      const match = s.name.match(/\b(20\d\d)[-_](0[1-9]|1[0-2])\b/);
+      if (match) {
+        monthsWithWork.add(`${match[1]}-${match[2]}`);
+      }
+    });
+
+    configuredMonths.forEach((m) => {
+      const hasDates = (m.datesCount && m.datesCount > 0) || (m.dates && m.dates.length > 0);
+      const isPastStaging = m.status && m.status !== "STAGING_DATES" && m.status !== "NOT_OPEN";
+      if (hasDates || isPastStaging) {
+        monthsWithWork.add(m.monthKey);
+      }
+    });
+
+    if (availableReportMonths && availableReportMonths.length > 0) {
+      availableReportMonths.forEach((m) => monthsWithWork.add(m));
+    }
+
+    const sortedWorkMonths = Array.from(monthsWithWork).sort();
+    let anchor = sortedWorkMonths.length > 0 ? sortedWorkMonths[sortedWorkMonths.length - 1] : "";
+
+    if (!anchor) {
+      const now = new Date();
+      anchor = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    }
+
+    let startMonth = sortedWorkMonths.length > 0 ? sortedWorkMonths[0] : anchor;
+    let candidate = startMonth;
+
+    for (let i = 0; i < 36; i++) {
+      if (!monthsWithWork.has(candidate)) {
+        return candidate;
+      }
       const [yStr, mStr] = candidate.split("-");
       let y = parseInt(yStr, 10);
       let m = parseInt(mStr, 10) + 1;
@@ -1790,12 +1891,10 @@ function MainApp() {
         y += 1;
       }
       candidate = `${y}-${String(m).padStart(2, "0")}`;
-      if (!configuredKeys.has(candidate)) {
-        return candidate;
-      }
     }
+
     return candidate;
-  }, [configuredMonths, activeCoordinatorMonthKey]);
+  }, [driveSheets, configuredMonths, availableReportMonths]);
 
   const nextUnconfiguredMonthLabel = useMemo(() => {
     try {
@@ -1811,6 +1910,7 @@ function MainApp() {
     setSurveyFormMonthKey(nextUnconfiguredMonthKey);
     setSelectedActiveMonthKey(nextUnconfiguredMonthKey);
     setSheetSelectMode(nextUnconfiguredMonthKey);
+    setSheetInput("");
     setSurveyFormResult(null);
     setSurveyFormExistingSurvey(null);
     setSurveyFormMonthStatus("STAGING_DATES");
@@ -1820,7 +1920,6 @@ function MainApp() {
   };
 
   const handleCoordinatorSelectMonth = async (targetMonth: string) => {
-    if (targetMonth === activeCoordinatorMonthKey) return;
     setSelectedActiveMonthKey(targetMonth);
     setSurveyFormMonthKey(targetMonth);
 
@@ -1853,6 +1952,10 @@ function MainApp() {
       } catch (e) {
         console.warn("Could not fetch intake for month:", targetMonth, e);
       }
+    } else {
+      setSheetInput("");
+      setSheetSelectMode(targetMonth);
+      loadSurveyFormDatesPreview(targetMonth);
     }
 
     // Direct to stage matching status
@@ -1868,11 +1971,22 @@ function MainApp() {
   };
 
   const handleSelectCoordinatorFromPortal = async (
-    step: 1 | 2 | 3 | 4 = 1,
+    targetStage: CoordinatorStage = 2,
     targetMonth?: string
   ) => {
     const month =
       targetMonth || activeMonthItem?.monthKey || surveyFormMonthKey || "2026-11";
+
+    setSelectedActiveMonthKey(month);
+    setSurveyFormMonthKey(month);
+
+    const item = configuredMonths.find((m) => m.monthKey === month);
+    if (item) {
+      setSurveyFormMonthStatus(item.status);
+      if (item.dates && item.dates.length > 0) {
+        setSurveyFormDates(item.dates);
+      }
+    }
 
     let matchedSheet = driveSheets.find((s) => {
       const n = s.name.toLowerCase();
@@ -1886,12 +2000,20 @@ function MainApp() {
       );
     });
 
+    const stage: CoordinatorStage = targetStage;
+
     if (matchedSheet) {
       setSheetInput(matchedSheet.id);
       setSheetSelectMode(matchedSheet.id);
+    } else {
+      setSheetInput("");
+      setSheetSelectMode(month);
+      if (stage === 1) {
+        loadSurveyFormDatesPreview(month);
+      }
     }
 
-    navigateToView("coordinator", { step });
+    navigateToView("coordinator", { stage, month });
 
     // Fetch intake data for this sheet if not yet loaded or if loaded sheet is for a different month
     if (matchedSheet && (!intakeData || intakeData.mealDates?.[0]?.dateKey?.slice(0, 7) !== month)) {
@@ -1902,8 +2024,8 @@ function MainApp() {
       }
     }
 
-    // If navigating to step 3 or 4 and schedule is not yet loaded, load existing schedule from sheet tab
-    if (step >= 3 && matchedSheet && !solverResult) {
+    // If navigating to stage 4 or 5 and schedule is not yet loaded, load existing schedule from sheet tab
+    if (stage >= 4 && matchedSheet && !solverResult) {
       try {
         setLoading(true);
         const res = await callGas<ScheduleOutput>("loadExistingScheduleFromSheet", matchedSheet.id);
@@ -1914,7 +2036,7 @@ function MainApp() {
           setSolverResult(res);
         }
       } catch (e) {
-        console.warn("Could not auto-load existing schedule for step:", step, e);
+        console.warn("Could not auto-load existing schedule for stage:", stage, e);
       } finally {
         setLoading(false);
       }
@@ -4065,9 +4187,13 @@ function MainApp() {
         <PortalLandingView
           communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
           monthTitle={publicMonthTitle}
-          onSelectCoordinator={(step, month) => handleSelectCoordinatorFromPortal(step, month)}
+          onSelectCoordinator={(stage, month) =>
+            handleSelectCoordinatorFromPortal(
+              stage ? (stage as CoordinatorStage) : undefined,
+              month
+            )
+          }
           onSelectResident={(month) => navigateToView("resident", { month })}
-          onSelectFormGenerator={(month) => handleOpenSurveyFormGenerator(month)}
           activeMonthKey={
             activeMonthItem?.monthKey ||
             surveyFormMonthKey ||
@@ -4076,7 +4202,7 @@ function MainApp() {
           }
           activeMonthStatus={
             activeMonthItem?.status ||
-            surveyFormMonthStatus ||
+            (surveyFormMonthKey === activeCoordinatorMonthKey ? surveyFormMonthStatus : undefined) ||
             intakeData?.monthStatus ||
             "SIGN_UPS_OPEN"
           }
@@ -4130,64 +4256,8 @@ function MainApp() {
   }
 
   if (appView === "form-generator") {
-    return (
-      <>
-        <SurveyFormGeneratorView
-          monthKey={surveyFormMonthKey}
-          setMonthKey={(mKey) => {
-            setSurveyFormMonthKey(mKey);
-            setSurveyFormResult(null);
-            setSurveyFormExistingSurvey(null);
-            navigateToView("form-generator", { month: mKey, replace: true });
-          }}
-          onClearFormResult={handleClearSurveyFormResult}
-          loadDatesPreview={loadSurveyFormDatesPreview}
-          formTitle={surveyFormTitle}
-          setFormTitle={setSurveyFormTitle}
-          folderId={surveyFormFolderId}
-          setFolderId={setSurveyFormFolderId}
-          dates={surveyFormDates}
-          setDates={setSurveyFormDates}
-          loadingDates={surveyFormLoadingDates}
-          loadingCreate={surveyFormLoadingCreate}
-          formResult={surveyFormResult}
-          copiedLink={surveyFormCopiedLink}
-          onCopyLink={handleCopySurveyLink}
-          onAddCustomDate={handleAddCustomSurveyDate}
-          onExecuteCreateForm={(targetMonth) => handleExecuteCreateSurveyForm(false, targetMonth)}
-          members={members}
-          coordinatorEmail={emailTo}
-          spreadsheetId={sheetInput}
-          driveSheets={driveSheets}
-          monthStatus={surveyFormMonthStatus}
-          existingSurvey={surveyFormExistingSurvey}
-          onSaveDraftDates={(targetMonth) => handleSaveDraftDates(targetMonth)}
-          onSaveDatesAndOpen={(targetMonth) => handleSaveMonthDatesAndOpen(targetMonth)}
-          savingDates={surveyFormSavingDates}
-          onSetMonthStatus={handleSetMonthStatus}
-          deploymentUrl={deploymentUrl}
-          onBackToHome={() => navigateToView("portal")}
-          onOpenCoordinator={() => navigateToView("coordinator", { step: currentStep })}
-          onOpenSchedule={() => navigateToView("resident", { month: surveyFormMonthKey })}
-          onToast={showToast}
-          communityName={intakeData?.settings?.communityName || "Vancouver Cohousing"}
-        />
-        {showOverwriteSurveyModal && surveyFormExistingSurvey && (
-          <OverwriteSurveyConfirmModal
-            show={showOverwriteSurveyModal}
-            onClose={() => setShowOverwriteSurveyModal(false)}
-            onConfirm={() => {
-              setShowOverwriteSurveyModal(false);
-              handleExecuteCreateSurveyForm(true, surveyFormMonthKey);
-            }}
-            monthKey={surveyFormMonthKey}
-            existingSurvey={surveyFormExistingSurvey}
-            loading={surveyFormLoadingCreate}
-          />
-        )}
-        {renderToast()}
-      </>
-    );
+    navigateToView("coordinator", { stage: 1, replace: true });
+    return null;
   }
 
   if (appView === "survey") {
@@ -4482,12 +4552,28 @@ function MainApp() {
               <button
                 type="button"
                 onClick={handleStartNextMonth}
-                disabled={loading || intakeLoading}
-                className="min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-xl transition-colors border border-slate-300 dark:border-slate-700 cursor-pointer shadow-2xs shrink-0 disabled:opacity-50"
-                title={`Start staging dates for ${nextUnconfiguredMonthLabel}`}
+                disabled={
+                  loading ||
+                  intakeLoading ||
+                  (activeCoordinatorMonthKey === nextUnconfiguredMonthKey && coordinatorStage === 1)
+                }
+                className={`min-h-[38px] inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-bold rounded-xl transition-colors border shadow-2xs shrink-0 ${
+                  activeCoordinatorMonthKey === nextUnconfiguredMonthKey && coordinatorStage === 1
+                    ? "text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-800 cursor-default opacity-80"
+                    : "text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border-slate-300 dark:border-slate-700 cursor-pointer disabled:opacity-50"
+                }`}
+                title={
+                  activeCoordinatorMonthKey === nextUnconfiguredMonthKey && coordinatorStage === 1
+                    ? `Currently staging dates for ${nextUnconfiguredMonthLabel}`
+                    : `Start staging dates for ${nextUnconfiguredMonthLabel}`
+                }
               >
                 <CalendarPlus className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400 shrink-0" />
-                <span>Plan Next Month</span>
+                <span>
+                  {activeCoordinatorMonthKey === nextUnconfiguredMonthKey && coordinatorStage === 1
+                    ? `Staging ${nextUnconfiguredMonthLabel}`
+                    : "Plan Next Month"}
+                </span>
               </button>
 
               <button

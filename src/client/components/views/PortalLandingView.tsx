@@ -1,13 +1,12 @@
 import React from "react";
-import { Calendar, Sparkles, ArrowRight, Shield, FileText, Utensils } from "lucide-react";
+import { Calendar, Sparkles, ArrowRight, Shield, Utensils } from "lucide-react";
 import { TopHeader } from "../common/TopHeader";
 import { MonthStatus, ConfiguredMonthSummary } from "../../../server/types";
 
 export interface PortalLandingViewProps {
   communityName?: string;
-  onSelectCoordinator: (step?: 1 | 2 | 3 | 4, month?: string) => void;
+  onSelectCoordinator: (stage?: number, month?: string) => void;
   onSelectResident: (month?: string) => void;
-  onSelectFormGenerator?: (month?: string) => void;
   monthTitle?: string;
   activeMonthKey?: string;
   activeMonthStatus?: MonthStatus;
@@ -21,7 +20,6 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
   communityName = "Vancouver Cohousing",
   onSelectCoordinator,
   onSelectResident,
-  onSelectFormGenerator,
   monthTitle: _monthTitle = "Community Meals",
   activeMonthKey,
   activeMonthStatus = "SIGN_UPS_OPEN",
@@ -55,7 +53,7 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
                 ? `${activeMonthDatesCount} meal dates drafted. Form not yet launched.`
                 : "Meal dates drafted in generator.",
             resumeButtonLabel: "Resume Staging Dates",
-            handleQuickResume: () => onSelectFormGenerator?.(activeMonthKey),
+            handleQuickResume: () => onSelectCoordinator(1, activeMonthKey),
           };
         case "SIGN_UPS_OPEN":
         case "OPEN":
@@ -68,7 +66,7 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
                 ? `${activeMonthResponseCount} responses received so far. Accepting submissions.`
                 : "Form is live and accepting submissions from residents.",
             resumeButtonLabel: "View Survey & Responses",
-            handleQuickResume: () => onSelectCoordinator(1, activeMonthKey),
+            handleQuickResume: () => onSelectCoordinator(2, activeMonthKey),
           };
         case "RESPONSES_RECEIVED":
           return {
@@ -80,7 +78,7 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
                 ? `${activeMonthResponseCount} submissions locked. Ready to solve teams.`
                 : "Sign-ups closed. Ready for matchmaker solver.",
             resumeButtonLabel: "Solve & Review Teams",
-            handleQuickResume: () => onSelectCoordinator(2, activeMonthKey),
+            handleQuickResume: () => onSelectCoordinator(4, activeMonthKey),
           };
         case "TEAMS_READY":
           return {
@@ -90,7 +88,7 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
             statusDescription:
               "Schedule solved and saved to Google Sheet tab. Ready for final email announcement.",
             resumeButtonLabel: "Resume Teams & Send Email",
-            handleQuickResume: () => onSelectCoordinator(4, activeMonthKey),
+            handleQuickResume: () => onSelectCoordinator(5, activeMonthKey),
           };
         case "EMAIL_SENT":
         case "CLOSED":
@@ -109,7 +107,7 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
             statusBadgeClass: "bg-slate-100 text-slate-800 border-slate-300",
             statusDescription: "Meal planning in progress.",
             resumeButtonLabel: "Open Planning Wizard",
-            handleQuickResume: () => onSelectCoordinator(1, activeMonthKey),
+            handleQuickResume: () => onSelectCoordinator(2, activeMonthKey),
           };
       }
     }, [
@@ -118,7 +116,6 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
       activeMonthResponseCount,
       activeMonthKey,
       onSelectCoordinator,
-      onSelectFormGenerator,
       onSelectResident,
     ]);
 
@@ -235,9 +232,7 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
           </div>
         )}
 
-        <div
-          className={`grid grid-cols-1 ${onSelectFormGenerator ? "md:grid-cols-3" : "md:grid-cols-2"} gap-5 sm:gap-6`}
-        >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 mt-8">
           {/* Card 1: Resident Shift View & Calendar */}
           <button
             type="button"
@@ -299,36 +294,6 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
           </button>
-
-          {/* Card 3: Survey Form Generator */}
-          {onSelectFormGenerator && (
-            <button
-              type="button"
-              onClick={() => onSelectFormGenerator()}
-              className="group text-left p-6 sm:p-7 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 hover:shadow-xl transition-all duration-200 flex flex-col justify-between cursor-pointer focus:outline-none focus:ring-4 focus:ring-emerald-500/20"
-            >
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center mb-5 group-hover:scale-105 transition-transform duration-200">
-                  <FileText className="w-6 h-6" />
-                </div>
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
-                  For Coordinators
-                </span>
-                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                  Survey Form Generator
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
-                  Configure meal dates, create next month&apos;s Google Form &amp; response sheets,
-                  or manage beta availability sign-ups.
-                </p>
-              </div>
-
-              <div className="pt-5 mt-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                <span>Open Form Generator</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </button>
-          )}
         </div>
 
         {/* Quick Tips footer */}

@@ -1057,11 +1057,20 @@ function saveMasterSettings(
       sheetKey: "beta_web_signup_enabled",
       desc: "Enable web sign-up view and beta invitation workflow",
     },
+    availableMonths: {
+      key: "availableMonths",
+      sheetKey: "available_months",
+      desc: "Comma-separated list of all available or upcoming planning months (e.g. 2026-10,2026-11,2026-12)",
+    },
   };
 
   for (const [prop, meta] of Object.entries(settingMeta)) {
-    if (updatedSettings[prop as keyof AppSettings] !== undefined) {
-      const val = String(updatedSettings[prop as keyof AppSettings]);
+    const rawSettingVal =
+      updatedSettings[prop as keyof AppSettings] !== undefined
+        ? updatedSettings[prop as keyof AppSettings]
+        : (updatedSettings as any)[meta.sheetKey];
+    if (rawSettingVal !== undefined && rawSettingVal !== null) {
+      const val = String(rawSettingVal);
       const rowNum = keyRowMap[meta.sheetKey];
       if (rowNum) {
         settingsSheet.getRange(rowNum, 2).setValue(val);
