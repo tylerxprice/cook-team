@@ -28,6 +28,7 @@ interface Step3SolveReviewProps {
   showNonParticipatingQuota: boolean;
   setShowNonParticipatingQuota: React.Dispatch<React.SetStateAction<boolean>>;
   handleRunSolver: () => void;
+  handleLoadExistingSchedule?: () => void;
   handleSaveTeamsAndProceed?: () => Promise<void>;
   savingTeams?: boolean;
   handleCancelMeal: (dateKey: string) => void;
@@ -53,6 +54,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
   showNonParticipatingQuota,
   setShowNonParticipatingQuota,
   handleRunSolver,
+  handleLoadExistingSchedule,
   handleSaveTeamsAndProceed,
   savingTeams = false,
   handleCancelMeal,
@@ -166,19 +168,71 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {intakeData?.existingScheduleTab?.exists && !solverResult && handleLoadExistingSchedule && (
+            <button
+              type="button"
+              onClick={() => handleLoadExistingSchedule()}
+              disabled={loading}
+              className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Load Saved Schedule</span>
+            </button>
+          )}
           <button
+            type="button"
             onClick={() => requestRunSolver()}
             disabled={loading}
             className="min-h-[44px] inline-flex items-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            <span>Re-Run Solver</span>
+            <span>{solverResult ? "Re-Run Solver" : "Run Solver"}</span>
           </button>
         </div>
       </div>
 
       {/* Empty State when solverResult has not run yet */}
-      {!solverResult && !loading && (
+      {!solverResult && !loading && intakeData?.existingScheduleTab?.exists && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/30 p-8 sm:p-10 rounded-2xl border border-emerald-300 dark:border-emerald-800 text-center space-y-4 shadow-sm">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center mx-auto shadow-inner">
+            <CheckCircle2 className="w-7 h-7" />
+          </div>
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 text-xs font-bold mb-2">
+              Finalized Schedule Tab Found
+            </div>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+              Schedule &quot;{intakeData.existingScheduleTab.name}&quot; Detected
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto mt-1">
+              A published or previously generated schedule roster exists in this spreadsheet.
+              You can load this existing schedule to inspect and make manual adjustments, or run the matchmaker solver to generate a fresh roster.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            {handleLoadExistingSchedule && (
+              <button
+                type="button"
+                onClick={() => handleLoadExistingSchedule()}
+                disabled={loading}
+                className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" /> Load Finalized Schedule Tab
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => requestRunSolver()}
+              disabled={loading}
+              className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-orange-600 dark:text-orange-400" /> Run Matchmaker Solver
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!solverResult && !loading && !intakeData?.existingScheduleTab?.exists && (
         <div className="bg-white dark:bg-slate-900 p-12 rounded-2xl border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-sm">
           <div className="w-14 h-14 rounded-2xl bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-400 flex items-center justify-center mx-auto shadow-inner">
             <Sparkles className="w-7 h-7" />
@@ -193,6 +247,7 @@ export const Step3SolveReview: React.FC<Step3SolveReviewProps> = ({
             </p>
           </div>
           <button
+            type="button"
             onClick={() => requestRunSolver()}
             disabled={loading}
             className="min-h-[48px] inline-flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-orange-600/20 transition-all cursor-pointer"

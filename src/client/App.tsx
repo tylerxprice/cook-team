@@ -49,7 +49,7 @@ import {
 } from "../server/scheduleParser";
 import { deriveMonthTabName } from "../server/signupWorkbook";
 import { extractEmails, extractAliases } from "../server/parser";
-import { formatSurveyDateLabel } from "../server/surveyFormGenerator";
+import { formatSurveyDateLabel, matchesSurveySheetForMonth } from "../server/surveyFormGenerator";
 
 import { ErrorBoundary } from "./components/common/ErrorBoundary";
 
@@ -1284,6 +1284,13 @@ function MainApp() {
       if (intakeData && targetMonth === intakeData?.mealDates?.[0]?.dateKey?.slice(0, 7)) {
         setIntakeData({ ...intakeData, monthStatus: status });
       }
+      setConfiguredMonths((prev) => {
+        const exists = prev.find((m) => m.monthKey === targetMonth);
+        if (exists) {
+          return prev.map((m) => (m.monthKey === targetMonth ? { ...m, status } : m));
+        }
+        return [...prev, { monthKey: targetMonth, status }];
+      });
       showToast(res.message || `Sign-up status set to ${status}.`);
     } catch (err: any) {
       showToast("Failed to update status: " + err.message, "error");
@@ -1542,7 +1549,7 @@ function MainApp() {
     message: string;
   } | null>(null);
 
-  const [_selectedPreset, setSelectedPreset] = useState<string>("standard");
+  const [selectedPreset, setSelectedPreset] = useState<string>("standard");
 
   const DEFAULT_ANNOUNCEMENT_TO =
     "Vancouver Cohousing Residents <vancoho-residents@googlegroups.com>";
@@ -1780,17 +1787,25 @@ function MainApp() {
   }, [selectedActiveMonthKey, surveyFormMonthKey, intakeData?.mealDates]);
 
   const activeCoordinatorStatus = useMemo<MonthStatus>(() => {
-    const configured = configuredMonths.find((m) => m.monthKey === activeCoordinatorMonthKey);
-    if (configured) return configured.status;
-    if (
-      intakeData?.monthStatus &&
-      intakeData.mealDates?.[0]?.dateKey?.startsWith(activeCoordinatorMonthKey)
-    ) {
-      return intakeData.monthStatus as MonthStatus;
+    // 1. Authoritative: if intakeData matches active month, prioritize its monthStatus or existing schedule tab
+    if (intakeData && intakeData.mealDates?.[0]?.dateKey?.startsWith(activeCoordinatorMonthKey)) {
+      if (intakeData.monthStatus) {
+        return intakeData.monthStatus as MonthStatus;
+      }
+      if (intakeData.existingScheduleTab?.exists) {
+        return "TEAMS_READY";
+      }
     }
+
+    // 2. Active in-memory surveyFormMonthStatus if month matches
     if (surveyFormMonthKey === activeCoordinatorMonthKey && surveyFormMonthStatus) {
       return surveyFormMonthStatus;
     }
+
+    // 3. Configured months from Master Sheet
+    const configured = configuredMonths.find((m) => m.monthKey === activeCoordinatorMonthKey);
+    if (configured) return configured.status;
+
     return "SIGN_UPS_OPEN";
   }, [configuredMonths, activeCoordinatorMonthKey, intakeData, surveyFormMonthKey, surveyFormMonthStatus]);
 
@@ -1919,9 +1934,65 @@ function MainApp() {
     showToast(`Staging dates for ${nextUnconfiguredMonthLabel}`);
   };
 
+  const findSheetForMonth = (
+    sheets: { id: string; name: string }[],
+    monthKey: string
+  ): { id: string; name: string } | undefined => {
+    if (!monthKey || !/^\d{4}[-_]\d{2}$/.test(monthKey)) return undefined;
+
+    const [y, m] = monthKey.split(/[-_]/);
+    const yy = y.slice(-2);
+    const mm = m;
+    const monthIdx = parseInt(mm, 10) - 1;
+    const monthNames = [
+      "january",
+      "february",
+      "march",
+      "april",
+      "may",
+      "june",
+      "july",
+      "august",
+      "september",
+      "october",
+      "november",
+      "december",
+    ];
+    const fullMonth = monthNames[monthIdx] || "";
+    const shortMonth = fullMonth.slice(0, 3);
+
+    // 1. Matches survey sheet matcher (checks response/survey keywords + month patterns)
+    const byMatcher = sheets.find((s) => matchesSurveySheetForMonth(s.name, monthKey));
+    if (byMatcher) return byMatcher;
+
+    // 2. Matches exact month-year or month name patterns in sheet name
+    const byPattern = sheets.find((s) => {
+      const n = s.name.toLowerCase();
+      const hasYyMm = n.includes(`${yy}-${mm}`) || n.includes(`${yy}_${mm}`);
+      const hasYyyyMm = n.includes(`${y}-${mm}`) || n.includes(`${y}_${mm}`);
+      const hasMonthWordAndYear =
+        (Boolean(fullMonth) && n.includes(fullMonth) && (n.includes(y) || n.includes(yy))) ||
+        (Boolean(shortMonth) && n.includes(shortMonth) && (n.includes(y) || n.includes(yy)));
+      return hasYyMm || hasYyyyMm || hasMonthWordAndYear;
+    });
+    if (byPattern) return byPattern;
+
+    // 3. In dev mode, if month is 2026-10, match the active dev test sheet
+    if (isDevMode && monthKey === "2026-10") {
+      const devMatch =
+        sheets.find((s) => s.id === `test-sheet-${selectedPreset}`) ||
+        sheets.find((s) => s.id === "test-sheet-standard");
+      if (devMatch) return devMatch;
+    }
+
+    return undefined;
+  };
+
   const handleCoordinatorSelectMonth = async (targetMonth: string) => {
     setSelectedActiveMonthKey(targetMonth);
     setSurveyFormMonthKey(targetMonth);
+    setSolverResult(null);
+    setExportedResult(null);
 
     const item = configuredMonths.find((m) => m.monthKey === targetMonth);
     if (item) {
@@ -1932,23 +2003,31 @@ function MainApp() {
     }
 
     // Match sheet for this month
-    const matchedSheet = driveSheets.find((s) => {
-      const n = s.name.toLowerCase();
-      const [y, m] = targetMonth.split(/[-_]/);
-      const yy = y.slice(-2);
-      return (
-        n.includes(`${yy}-${m}`) ||
-        n.includes(`${y}-${m}`) ||
-        n.includes(`${yy}_${m}`) ||
-        n.includes(`${y}_${m}`)
-      );
-    });
+    const matchedSheet = findSheetForMonth(driveSheets, targetMonth);
 
+    let intake: IntakePayload | null = null;
     if (matchedSheet) {
       setSheetInput(matchedSheet.id);
       setSheetSelectMode(matchedSheet.id);
       try {
-        await fetchIntake(matchedSheet.id);
+        if (matchedSheet.id.startsWith("test-sheet-")) {
+          const key = matchedSheet.id.replace("test-sheet-", "");
+          const presetKey =
+            key === "holiday"
+              ? "holiday_shortage"
+              : key === "deficit"
+                ? "quota_deficit"
+                : key === "conflict"
+                  ? "high_conflict"
+                  : key === "single"
+                    ? "single_respondent"
+                    : key === "saved"
+                      ? "saved_schedule"
+                      : "standard";
+          intake = await handleSelectPreset(presetKey);
+        } else {
+          intake = await fetchIntake(matchedSheet.id);
+        }
       } catch (e) {
         console.warn("Could not fetch intake for month:", targetMonth, e);
       }
@@ -1958,15 +2037,57 @@ function MainApp() {
       loadSurveyFormDatesPreview(targetMonth);
     }
 
-    // Direct to stage matching status
-    if (item?.status === "STAGING_DATES" || item?.status === "NOT_OPEN" || !matchedSheet) {
-      goToStage(1);
-    } else if (item?.status === "TEAMS_READY") {
-      goToStage(4);
-    } else if (item?.status === "EMAIL_SENT" || item?.status === "CLOSED") {
-      goToStage(5);
+    // Determine effective status from fresh data
+    let effectiveStatus: MonthStatus;
+    if (!matchedSheet && (!intake || !intake.mealDates || intake.mealDates.length === 0)) {
+      effectiveStatus = "STAGING_DATES";
+    } else if (intake?.monthStatus) {
+      effectiveStatus = intake.monthStatus as MonthStatus;
+    } else if (intake?.existingScheduleTab?.exists) {
+      effectiveStatus = "TEAMS_READY";
+    } else if (item?.status) {
+      effectiveStatus = item.status;
+    } else if (surveyFormMonthStatus && surveyFormMonthKey === targetMonth) {
+      effectiveStatus = surveyFormMonthStatus;
+    } else if (intake?.responses && intake.responses.length > 0) {
+      effectiveStatus = "RESPONSES_RECEIVED";
     } else {
-      goToStage(2);
+      effectiveStatus = "SIGN_UPS_OPEN";
+    }
+
+    // Immediately keep in-memory status in sync so UI and lifecycle tracker update on first click
+    setSurveyFormMonthStatus(effectiveStatus);
+    setConfiguredMonths((prev) => {
+      const exists = prev.find((m) => m.monthKey === targetMonth);
+      if (exists) {
+        return prev.map((m) => (m.monthKey === targetMonth ? { ...m, status: effectiveStatus } : m));
+      }
+      return [...prev, { monthKey: targetMonth, status: effectiveStatus }];
+    });
+
+    // Direct to stage matching status immediately on first click
+    switch (effectiveStatus) {
+      case "STAGING_DATES":
+      case "NOT_OPEN":
+        goToStage(1);
+        break;
+      case "SIGN_UPS_OPEN":
+      case "OPEN":
+        goToStage(2);
+        break;
+      case "RESPONSES_RECEIVED":
+        goToStage(3);
+        break;
+      case "TEAMS_READY":
+        goToStage(4);
+        break;
+      case "EMAIL_SENT":
+      case "CLOSED":
+        goToStage(5);
+        break;
+      default:
+        goToStage(2);
+        break;
     }
   };
 
@@ -1979,6 +2100,8 @@ function MainApp() {
 
     setSelectedActiveMonthKey(month);
     setSurveyFormMonthKey(month);
+    setSolverResult(null);
+    setExportedResult(null);
 
     const item = configuredMonths.find((m) => m.monthKey === month);
     if (item) {
@@ -1988,17 +2111,7 @@ function MainApp() {
       }
     }
 
-    let matchedSheet = driveSheets.find((s) => {
-      const n = s.name.toLowerCase();
-      const [y, m] = month.split(/[-_]/);
-      const yy = y.slice(-2);
-      return (
-        n.includes(`${yy}-${m}`) ||
-        n.includes(`${y}-${m}`) ||
-        n.includes(`${yy}_${m}`) ||
-        n.includes(`${y}_${m}`)
-      );
-    });
+    const matchedSheet = findSheetForMonth(driveSheets, month);
 
     const stage: CoordinatorStage = targetStage;
 
@@ -2153,7 +2266,11 @@ function MainApp() {
       return;
     }
     setSheetInput(optionValue);
+    setSolverResult(null);
+    setExportedResult(null);
+
     const matched = driveSheets.find((s) => s.id === optionValue);
+    let loadedIntake: IntakePayload | null = null;
     if (matched && matched.id.startsWith("test-sheet-")) {
       setEmailTo(DEV_TEST_EMAIL);
       const key = matched.id.replace("test-sheet-", "");
@@ -2169,15 +2286,39 @@ function MainApp() {
                 : key === "saved"
                   ? "saved_schedule"
                   : "standard";
-      await handleSelectPreset(presetKey);
+      loadedIntake = await handleSelectPreset(presetKey);
     } else {
       delete intakeCacheRef.current[optionValue];
       setEmailTo(announcementTo || DEFAULT_ANNOUNCEMENT_TO);
-      await fetchIntake(optionValue, undefined, true);
+      loadedIntake = await fetchIntake(optionValue, undefined, true);
+    }
+
+    if (loadedIntake) {
+      const intakeMonth =
+        loadedIntake.mealDates?.[0]?.dateKey?.slice(0, 7) ||
+        (matched?.name.match(/\b(20\d\d)[-_](0[1-9]|1[0-2])\b/) ? `${RegExp.$1}-${RegExp.$2}` : undefined);
+      if (intakeMonth) {
+        setSelectedActiveMonthKey(intakeMonth);
+        setSurveyFormMonthKey(intakeMonth);
+      }
+      const effectiveStatus: MonthStatus =
+        (loadedIntake.monthStatus as MonthStatus) ||
+        (loadedIntake.existingScheduleTab?.exists ? "TEAMS_READY" : undefined) ||
+        (loadedIntake.responses && loadedIntake.responses.length > 0 ? "RESPONSES_RECEIVED" : "SIGN_UPS_OPEN");
+      setSurveyFormMonthStatus(effectiveStatus);
+      if (intakeMonth) {
+        setConfiguredMonths((prev) => {
+          const exists = prev.find((m) => m.monthKey === intakeMonth);
+          if (exists) {
+            return prev.map((m) => (m.monthKey === intakeMonth ? { ...m, status: effectiveStatus } : m));
+          }
+          return [...prev, { monthKey: intakeMonth, status: effectiveStatus }];
+        });
+      }
     }
   };
 
-  const handleSelectPreset = async (presetKey: string) => {
+  const handleSelectPreset = async (presetKey: string): Promise<IntakePayload | null> => {
     setSelectedPreset(presetKey);
     setEmailTo(DEV_TEST_EMAIL);
     setIntakeLoading(true);
@@ -2200,23 +2341,32 @@ function MainApp() {
       if (data.settings) {
         applyLoadedSettings(data.settings);
       }
+      const intakeMonth = data.mealDates?.[0]?.dateKey?.slice(0, 7);
+      if (intakeMonth) {
+        setSelectedActiveMonthKey(intakeMonth);
+        setSurveyFormMonthKey(intakeMonth);
+      }
+      if (data.monthStatus) {
+        setSurveyFormMonthStatus(data.monthStatus);
+        if (intakeMonth) {
+          setConfiguredMonths((prev) => {
+            const exists = prev.find((m) => m.monthKey === intakeMonth);
+            if (exists) {
+              return prev.map((m) => (m.monthKey === intakeMonth ? { ...m, status: data.monthStatus! } : m));
+            }
+            return [...prev, { monthKey: intakeMonth, status: data.monthStatus! }];
+          });
+        }
+      }
       setEmailDispatchInfo(data.emailDispatchInfo || null);
       isEmailSubjectDirty.current = false;
       setEmailSubject(formatDefaultSubject(data.mealDates));
       setSolverResult(null);
       showToast(`Loaded test scenario: ${presetKey}`);
-      if (currentStep === 3) {
-        const res = await callGas<ScheduleOutput>(
-          "solveSchedule",
-          data.mealDates,
-          data.responses,
-          data.exceptions || [],
-          { cookPolicy, maxCleanPerMember: defaultCleanQuota, autoCancelDeficitDates }
-        );
-        setSolverResult(res);
-      }
+      return data;
     } catch (err: any) {
       showToast(`Error: ${err.message}`, "error");
+      return null;
     } finally {
       setIntakeLoading(false);
       setLoading(false);
@@ -2224,10 +2374,14 @@ function MainApp() {
   };
 
   // Initial Load & URL Hash / Browser History Synchronization
-  const fetchIntake = async (sheetId?: string, masterId?: string, forceRefresh = false) => {
+  const fetchIntake = async (
+    sheetId?: string,
+    masterId?: string,
+    forceRefresh = false
+  ): Promise<IntakePayload | null> => {
     const targetSheet = sheetId || sheetInput;
     if (!targetSheet || targetSheet.trim() === "") {
-      return;
+      return null;
     }
 
     // Fast-path: Check in-memory cache for instant 0ms survey switching (only if responses exist)
@@ -2247,6 +2401,20 @@ function MainApp() {
       if (cached.monthStatus) {
         setSurveyFormMonthStatus(cached.monthStatus);
       }
+      const intakeMonth = cached.mealDates?.[0]?.dateKey?.slice(0, 7);
+      if (intakeMonth) {
+        setSelectedActiveMonthKey(intakeMonth);
+        setSurveyFormMonthKey(intakeMonth);
+        if (cached.monthStatus) {
+          setConfiguredMonths((prev) => {
+            const exists = prev.find((m) => m.monthKey === intakeMonth);
+            if (exists) {
+              return prev.map((m) => (m.monthKey === intakeMonth ? { ...m, status: cached.monthStatus! } : m));
+            }
+            return [...prev, { monthKey: intakeMonth, status: cached.monthStatus! }];
+          });
+        }
+      }
       setEmailDispatchInfo(cached.emailDispatchInfo || null);
       isEmailSubjectDirty.current = false;
       setEmailSubject(formatDefaultSubject(cached.mealDates));
@@ -2259,7 +2427,7 @@ function MainApp() {
       showToast(
         `Loaded ${cached.responses.length} survey responses across ${cached.mealDates.length} meals.`
       );
-      return;
+      return cached;
     }
 
     if (forceRefresh) {
@@ -2289,6 +2457,20 @@ function MainApp() {
       if (data.monthStatus) {
         setSurveyFormMonthStatus(data.monthStatus);
       }
+      const intakeMonth = data?.mealDates?.[0]?.dateKey?.slice(0, 7);
+      if (intakeMonth) {
+        setSelectedActiveMonthKey(intakeMonth);
+        setSurveyFormMonthKey(intakeMonth);
+        if (data.monthStatus) {
+          setConfiguredMonths((prev) => {
+            const exists = prev.find((m) => m.monthKey === intakeMonth);
+            if (exists) {
+              return prev.map((m) => (m.monthKey === intakeMonth ? { ...m, status: data.monthStatus! } : m));
+            }
+            return [...prev, { monthKey: intakeMonth, status: data.monthStatus! }];
+          });
+        }
+      }
       setEmailDispatchInfo(data.emailDispatchInfo || null);
       isEmailSubjectDirty.current = false;
       setEmailSubject(formatDefaultSubject(data.mealDates));
@@ -2301,9 +2483,11 @@ function MainApp() {
       showToast(
         `Loaded ${data.responses.length} survey responses across ${data.mealDates.length} meals.`
       );
+      return data;
     } catch (err: any) {
       console.error(err);
       showToast(`Failed to load survey: ${err.message}`, "error");
+      return null;
     } finally {
       setIntakeLoading(false);
       setLoading(false);
@@ -2735,12 +2919,6 @@ function MainApp() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [currentStep]);
 
-  // Auto-solve when entering Step 3 if no result exists yet
-  useEffect(() => {
-    if (currentStep === 3 && !solverResult && intakeData && !loading) {
-      handleRunSolver();
-    }
-  }, [currentStep, solverResult, intakeData]);
 
   // Auto-scroll to selected day in Modal 3 (Member Inspector) if opened from schedule badge
   useEffect(() => {
@@ -4778,6 +4956,7 @@ function MainApp() {
             showNonParticipatingQuota={showNonParticipatingQuota}
             setShowNonParticipatingQuota={setShowNonParticipatingQuota}
             handleRunSolver={handleRunSolver}
+            handleLoadExistingSchedule={handleLoadExistingSchedule}
             handleSaveTeamsAndProceed={handleSaveTeamsAndProceed}
             savingTeams={savingTeams}
             handleCancelMeal={handleCancelMeal}
