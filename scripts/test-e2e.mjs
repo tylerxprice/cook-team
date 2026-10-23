@@ -198,6 +198,23 @@ async function runE2ETest() {
     await page.waitForSelector("text=Rose");
     console.log("✓ Successfully loaded Resident View directly with Rose pre-selected!");
 
+    // 1e-ii. Direct navigation with ?view=schedule&month=2026-11
+    console.log("1e-ii. Testing direct URL navigation with ?view=schedule&month=2026-11 ...");
+    await page.goto("http://localhost:5174/?view=schedule&month=2026-11", { waitUntil: "networkidle" });
+    await page.waitForSelector("select[aria-label='Select meal month']");
+    const novMonthSelect = page.locator("select[aria-label='Select meal month']").first();
+    const novVal = await novMonthSelect.inputValue();
+    if (novVal !== "2026-11") {
+      throw new Error(`Expected direct navigation to 2026-11 to have select value 2026-11, got: ${novVal}`);
+    }
+    const novFullSchedTab = page.locator("button:has-text('Full Schedule')").first();
+    await novFullSchedTab.click();
+    await page.waitForSelector("text=Showing all");
+    const novListBtn = page.locator("button:has-text('List')").first();
+    await novListBtn.click();
+    await page.waitForSelector("text=Nov 1");
+    console.log("✓ Successfully loaded Resident View with November 2026 schedule and dates!");
+
     // Test responsive viewport at 500px and 555px
     console.log("1f. Verifying responsive mobile/tablet layout (500px & 555px) ...");
     await page.setViewportSize({ width: 500, height: 800 });

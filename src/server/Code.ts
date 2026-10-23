@@ -4292,9 +4292,10 @@ function recordScheduleBroadcastSent(payload: {
 
   if (cleanMonth) {
     try {
+      recordPublishedMonthInMaster(cleanMonth);
       setMonthStatus(cleanMonth, "EMAIL_SENT");
     } catch (e) {
-      console.warn("Could not mark month status EMAIL_SENT:", e);
+      console.warn("Could not mark month status EMAIL_SENT or record published month:", e);
     }
   }
 

@@ -241,7 +241,13 @@ export const PortalLandingView: React.FC<PortalLandingViewProps> = ({
           {/* Card 1: Resident Shift View & Calendar */}
           <button
             type="button"
-            onClick={() => onSelectResident()}
+            onClick={() =>
+              onSelectResident(
+                activeMonthStatus === "EMAIL_SENT" || activeMonthStatus === "CLOSED"
+                  ? activeMonthKey
+                  : undefined
+              )
+            }
             className="group text-left p-6 sm:p-7 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 hover:border-orange-500 dark:hover:border-orange-500 hover:shadow-xl transition-all duration-200 flex flex-col justify-between cursor-pointer focus:outline-none focus:ring-4 focus:ring-orange-500/20"
           >
             <div>

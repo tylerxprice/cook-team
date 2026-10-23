@@ -175,6 +175,32 @@ export function getAppUrlParams(): URLSearchParams {
   return filterCleanUrlParams(rawParams);
 }
 
+export function formatMonthKey(monthKey: string): string {
+  const parts = (monthKey || "").split("-");
+  if (parts.length >= 2) {
+    const yr = parts[0];
+    const mo = parseInt(parts[1], 10);
+    const months = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    if (mo >= 1 && mo <= 12) {
+      return `${months[mo - 1]} ${yr}`;
+    }
+  }
+  return monthKey;
+}
+
 export type CoordinatorStage = 1 | 2 | 3 | 4 | 5;
 
 export function parseStageFromHash(hash?: string): CoordinatorStage {
@@ -292,7 +318,11 @@ function MainApp() {
   const [publicMonthTitle, setPublicMonthTitle] = useState<string>(() => {
     const boot = getBootstrapData();
     if (boot?.publicMonthTitle) return boot.publicMonthTitle;
-    return "Community Meals";
+    const params = getAppUrlParams();
+    const m = params.get("month") || boot?.publicMonthKey;
+    if (m && /^\d{4}-\d{2}$/.test(m)) return formatMonthKey(m);
+    const now = new Date();
+    return formatMonthKey(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   });
   const [publicAvailableMonths, setPublicAvailableMonths] = useState<string[]>(() => {
     const boot = getBootstrapData();
@@ -479,10 +509,7 @@ function MainApp() {
         setLoadingPublicSchedule(true);
         const params = getAppUrlParams();
         const monthParam = targetMonth || params.get("month") || publicMonthKey;
-        const sheetParam =
-          appView === "resident"
-            ? params.get("sheet") || undefined
-            : params.get("sheet") || sheetInput || undefined;
+        const sheetParam = params.get("sheet") || undefined;
         const res = await callGas<PublicScheduleResult>(
           "getPublicSchedule",
           monthParam,
@@ -508,20 +535,25 @@ function MainApp() {
         setLoadingPublicSchedule(false);
       }
     },
-    [sheetInput, publicMonthKey]
+    [publicMonthKey]
   );
 
   useEffect(() => {
     if (appView !== "resident" && appView !== "portal") return;
 
-    if (solverResult?.schedule && solverResult.schedule.length > 0 && publicSchedule.length === 0) {
+    const isSolverResultForMonth = Boolean(
+      solverResult?.schedule?.length &&
+      solverResult.schedule[0].dateKey?.slice(0, 7) === publicMonthKey
+    );
+
+    if (isSolverResultForMonth && solverResult?.schedule && publicSchedule.length === 0) {
       setPublicSchedule(solverResult.schedule);
     }
 
     if (publicSchedule.length === 0) {
       fetchPublicSchedule();
     }
-  }, [appView, solverResult?.schedule, publicSchedule.length, fetchPublicSchedule]);
+  }, [appView, solverResult?.schedule, publicSchedule.length, fetchPublicSchedule, publicMonthKey]);
 
   // Listen for Google Apps Script outer window URL location (fallback / dynamic navigation)
   useEffect(() => {
@@ -575,6 +607,10 @@ function MainApp() {
   }, []);
 
   const handleSelectPublicMonth = (newMonthKey: string, memberName?: string) => {
+    if (newMonthKey !== publicMonthKey) {
+      setPublicSchedule([]);
+      setPublicMonthTitle(formatMonthKey(newMonthKey));
+    }
     setPublicMonthKey(newMonthKey);
     const effectiveMember =
       memberName ||
@@ -729,16 +765,29 @@ function MainApp() {
           const targetMonth = options?.month || publicMonthKey;
           if (targetMonth) {
             url.searchParams.set("month", targetMonth);
+            if (targetMonth !== publicMonthKey) {
+              setPublicSchedule([]);
+              setPublicMonthTitle(formatMonthKey(targetMonth));
+            }
+            setPublicMonthKey(targetMonth);
+            fetchPublicSchedule(targetMonth);
           }
-          if (options?.member) {
-            url.searchParams.set("name", options.member);
+          const effectiveMember =
+            options?.member ||
+            urlMemberName ||
+            (typeof window !== "undefined"
+              ? localStorage.getItem("cookteam_resident_name") || ""
+              : "");
+          if (effectiveMember) {
+            url.searchParams.set("name", effectiveMember);
+            setUrlMemberName(effectiveMember);
           } else {
             url.searchParams.delete("name");
             url.searchParams.delete("m");
             url.searchParams.delete("user");
           }
           url.hash = "";
-          const state = { view: "resident", month: targetMonth, name: options?.member };
+          const state = { view: "resident", month: targetMonth, name: effectiveMember };
           if (replace) {
             window.history.replaceState(state, "", url.toString());
           } else {
@@ -749,7 +798,7 @@ function MainApp() {
               const gasParams: Record<string, string> = {
                 view: "schedule",
                 ...(targetMonth ? { month: targetMonth } : {}),
-                ...(options?.member ? { name: options.member } : {}),
+                ...(effectiveMember ? { name: effectiveMember } : {}),
               };
               historyAction.call(gasHistory, state, gasParams, "");
             } catch (err) {
@@ -3928,10 +3977,20 @@ function MainApp() {
   if (appView === "resident") {
     const params = getAppUrlParams();
     const initialName = urlMemberName || params.get("name") || params.get("user") || undefined;
+    const isSolverResultForMonth = Boolean(
+      solverResult?.schedule?.length &&
+      solverResult.schedule[0].dateKey?.slice(0, 7) === publicMonthKey
+    );
+    const effectiveSchedule =
+      publicSchedule.length > 0
+        ? publicSchedule
+        : isSolverResultForMonth
+          ? (solverResult?.schedule || [])
+          : [];
     return (
       <>
         <ResidentScheduleView
-          schedule={publicSchedule.length > 0 ? publicSchedule : solverResult?.schedule || []}
+          schedule={effectiveSchedule}
           members={members}
           monthTitle={publicMonthTitle}
           monthKey={publicMonthKey}

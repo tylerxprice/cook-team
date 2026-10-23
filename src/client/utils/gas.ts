@@ -32,6 +32,7 @@ import {
   MOCK_PRESETS,
   MOCK_SETTINGS,
   MOCK_MONTH_CONFIGS,
+  MOCK_NOVEMBER_DATES,
 } from "../../server/mockData";
 import { solveCookAndCleanSchedule } from "../../server/matchmaker";
 import { parseScheduleGridData, parseDateFromLabelOrKey } from "../../server/scheduleParser";
@@ -133,6 +134,50 @@ let localExceptions = [...MOCK_EXCEPTIONS];
 let mockMasterSettings: AppSettings = { ...MOCK_SETTINGS };
 const mockEmailDispatchLog: Record<string, EmailDispatchInfo> = {};
 const mockMonthConfigs: Record<string, MonthConfig> = { ...MOCK_MONTH_CONFIGS };
+const mockSavedSchedules: Record<string, DaySchedule[]> = {};
+
+function getMockNovemberSchedule(): DaySchedule[] {
+  const membersList = [
+    "Tyler",
+    "Brenda",
+    "Sam",
+    "Michael",
+    "David",
+    "Sarah",
+    "Jessica",
+    "Lisa",
+    "Alex",
+    "Rose",
+  ];
+  return MOCK_NOVEMBER_DATES.map((d, idx) => {
+    const isDinner = d.mealType === "DINNER";
+    const targetCookCount = isDinner ? 3 : 2;
+    const targetCleanCount = isDinner ? 3 : 2;
+    const cooks = [
+      membersList[(idx * 2) % membersList.length],
+      membersList[(idx * 2 + 1) % membersList.length],
+      ...(isDinner ? [membersList[(idx * 2 + 2) % membersList.length]] : []),
+    ];
+    const cleaners = [
+      membersList[(idx * 2 + 3) % membersList.length],
+      membersList[(idx * 2 + 4) % membersList.length],
+      ...(isDinner ? [membersList[(idx * 2 + 5) % membersList.length]] : []),
+    ];
+    return {
+      dateKey: d.dateKey,
+      dateLabel: d.dateLabel,
+      dayOfWeek: d.dayOfWeek,
+      mealType: d.mealType,
+      specialNote: d.specialNote,
+      cooks,
+      cleaners,
+      targetCookCount,
+      targetCleanCount,
+      unfilledCooks: Math.max(0, targetCookCount - cooks.length),
+      unfilledCleaners: Math.max(0, targetCleanCount - cleaners.length),
+    };
+  });
+}
 let localIntake: IntakePayload = {
   ...MOCK_INTAKE_PAYLOAD,
   members: localMembers,
@@ -818,7 +863,11 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         (availableMonths.includes(currentMonthKey) ? currentMonthKey : availableMonths[0]);
 
       let schedule: DaySchedule[] = [];
-      if (targetMonthKey === "2026-10") {
+      if (mockSavedSchedules[targetMonthKey] && mockSavedSchedules[targetMonthKey].length > 0) {
+        schedule = mockSavedSchedules[targetMonthKey];
+      } else if (targetMonthKey === "2026-11") {
+        schedule = getMockNovemberSchedule();
+      } else if (targetMonthKey === "2026-10") {
         const sched = (await callGas<ScheduleOutput>(
           "loadExistingScheduleFromSheet",
           customSheetId || "mock-sheet"
@@ -937,6 +986,9 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
         };
         localIntake.monthStatus = "TEAMS_READY";
       }
+      if (scheduleOutput?.schedule?.length > 0) {
+        mockSavedSchedules[monthSuffix] = scheduleOutput.schedule;
+      }
       const sheetTabName = `Schedule_${monthSuffix}`;
       return {
         success: true,
@@ -970,6 +1022,18 @@ export async function callGas<T = any>(functionName: string, ...args: any[]): Pr
       if (mockMonthConfigs[monthKey]) {
         mockMonthConfigs[monthKey].status = "EMAIL_SENT";
         mockMonthConfigs[monthKey].broadcastSentAt = now;
+      }
+      if (mockMasterSettings.published_months) {
+        const pubSet = new Set<string>(
+          mockMasterSettings.published_months
+            .split(",")
+            .map((m: string) => m.trim())
+            .filter(Boolean)
+        );
+        pubSet.add(monthKey);
+        mockMasterSettings.published_months = Array.from(pubSet)
+          .sort((a: string, b: string) => b.localeCompare(a))
+          .join(",");
       }
       if (localIntake) {
         localIntake.monthStatus = "EMAIL_SENT";
