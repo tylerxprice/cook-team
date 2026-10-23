@@ -1587,6 +1587,7 @@ function MainApp() {
   const isEmailSubjectDirty = useRef(false);
   const [customEmailBody, setCustomEmailBody] = useState<string | null>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [recordingBroadcast, setRecordingBroadcast] = useState(false);
   const [emailDispatchInfo, setEmailDispatchInfo] = useState<EmailDispatchInfo | null>(null);
   const [showResendConfirmModal, setShowResendConfirmModal] = useState<boolean>(false);
   const [emailDeliveryResult, setEmailDeliveryResult] = useState<{
@@ -4064,6 +4065,7 @@ function MainApp() {
   };
 
   const handleRecordBroadcastSent = async (info?: Partial<EmailDispatchInfo>) => {
+    setRecordingBroadcast(true);
     const currentMonthKey =
       info?.monthKey ||
       surveyFormMonthKey ||
@@ -4087,14 +4089,24 @@ function MainApp() {
       if (intakeData) {
         setIntakeData({ ...intakeData, monthStatus: "EMAIL_SENT" });
       }
+      setConfiguredMonths((prev) => {
+        const exists = prev.find((m) => m.monthKey === currentMonthKey);
+        if (exists) {
+          return prev.map((m) => (m.monthKey === currentMonthKey ? { ...m, status: "EMAIL_SENT" } : m));
+        }
+        return [...prev, { monthKey: currentMonthKey, status: "EMAIL_SENT" }];
+      });
       showToast("Broadcast logged and month marked as Email Sent!");
     } catch (err: any) {
       console.warn("Could not record broadcast:", err);
       showToast("Failed to record broadcast: " + err.message, "error");
+    } finally {
+      setRecordingBroadcast(false);
     }
   };
 
   const handleToggleBroadcastSent = async (sent: boolean) => {
+    setRecordingBroadcast(true);
     const currentMonthKey =
       surveyFormMonthKey ||
       (solverResult?.schedule?.[0]?.dateKey
@@ -4107,6 +4119,13 @@ function MainApp() {
       if (intakeData) {
         setIntakeData({ ...intakeData, monthStatus: newStatus });
       }
+      setConfiguredMonths((prev) => {
+        const exists = prev.find((m) => m.monthKey === currentMonthKey);
+        if (exists) {
+          return prev.map((m) => (m.monthKey === currentMonthKey ? { ...m, status: newStatus } : m));
+        }
+        return [...prev, { monthKey: currentMonthKey, status: newStatus }];
+      });
       if (!sent) {
         setEmailDispatchInfo(null);
         showToast("Unmarked broadcast sent status.");
@@ -4123,6 +4142,8 @@ function MainApp() {
       }
     } catch (err: any) {
       showToast("Failed to update status: " + err.message, "error");
+    } finally {
+      setRecordingBroadcast(false);
     }
   };
 
@@ -4999,6 +5020,7 @@ function MainApp() {
               parseDateFromLabelOrKey={parseDateFromLabelOrKey}
               monthKey={activeCoordinatorMonthKey}
               monthStatus={activeCoordinatorStatus}
+              recordingBroadcast={recordingBroadcast}
               onRecordBroadcastSent={handleRecordBroadcastSent}
               onToggleBroadcastSent={handleToggleBroadcastSent}
             />

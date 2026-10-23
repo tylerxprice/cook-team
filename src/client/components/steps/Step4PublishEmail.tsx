@@ -52,6 +52,7 @@ interface Step4PublishEmailProps {
   parseDateFromLabelOrKey: (label: string, key?: string) => Date | null;
   monthKey?: string;
   monthStatus?: MonthStatus;
+  recordingBroadcast?: boolean;
   onRecordBroadcastSent?: (info?: Partial<EmailDispatchInfo>) => Promise<void>;
   onToggleBroadcastSent?: (sent: boolean) => Promise<void>;
 }
@@ -84,10 +85,13 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
   parseDateFromLabelOrKey,
   monthKey,
   monthStatus,
+  recordingBroadcast = false,
   onRecordBroadcastSent,
   onToggleBroadcastSent,
 }) => {
   const [emailTab, setEmailTab] = useState<"edit" | "preview">("edit");
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const recording = isRecording || recordingBroadcast;
   const isBroadcastSent = Boolean(
     emailDispatchInfo?.alreadySent || monthStatus === "EMAIL_SENT" || monthStatus === "CLOSED"
   );
@@ -197,7 +201,8 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
 
             <button
               type="button"
-              onClick={() => {
+              disabled={recording || loading}
+              onClick={async () => {
                 handleCopyEmail();
                 const bodyText = customEmailBody ?? generateEmailText();
                 const composeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
@@ -207,14 +212,19 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
                 }&body=${encodeURIComponent(bodyText)}`;
                 window.open(composeUrl, "_blank");
                 if (onRecordBroadcastSent) {
-                  onRecordBroadcastSent({
-                    to: emailTo,
-                    subject: emailSubject,
-                    monthKey,
-                  });
+                  setIsRecording(true);
+                  try {
+                    await onRecordBroadcastSent({
+                      to: emailTo,
+                      subject: emailSubject,
+                      monthKey,
+                    });
+                  } finally {
+                    setIsRecording(false);
+                  }
                 }
               }}
-              className="min-h-[44px] inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-colors cursor-pointer"
+              className="min-h-[44px] inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-colors cursor-pointer"
               title="Open Gmail compose tab in browser with recipient, subject, and email body pre-filled"
             >
               <ExternalLink className="w-4 h-4" />
@@ -223,25 +233,37 @@ export const Step4PublishEmail: React.FC<Step4PublishEmailProps> = ({
 
             <button
               type="button"
-              onClick={() => {
-                if (isBroadcastSent && onToggleBroadcastSent) {
-                  onToggleBroadcastSent(false);
-                } else if (onRecordBroadcastSent) {
-                  onRecordBroadcastSent({
-                    to: emailTo,
-                    subject: emailSubject,
-                    monthKey,
-                  });
+              disabled={recording || loading}
+              onClick={async () => {
+                if (recording) return;
+                setIsRecording(true);
+                try {
+                  if (isBroadcastSent && onToggleBroadcastSent) {
+                    await onToggleBroadcastSent(false);
+                  } else if (onRecordBroadcastSent) {
+                    await onRecordBroadcastSent({
+                      to: emailTo,
+                      subject: emailSubject,
+                      monthKey,
+                    });
+                  }
+                } finally {
+                  setIsRecording(false);
                 }
               }}
-              className={`min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl border transition-colors cursor-pointer shadow-2xs ${
+              className={`min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl border transition-colors cursor-pointer shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed ${
                 isBroadcastSent
                   ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800"
                   : "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700"
               }`}
               title="Manually toggle broadcast sent status if sent via external client or desktop app"
             >
-              {isBroadcastSent ? (
+              {recording ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-slate-500" />
+                  <span>{isBroadcastSent ? "Updating..." : "Marking as Sent..."}</span>
+                </>
+              ) : isBroadcastSent ? (
                 <>
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>Broadcast Sent ✓</span>
