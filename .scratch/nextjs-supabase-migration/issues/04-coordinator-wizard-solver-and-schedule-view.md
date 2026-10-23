@@ -1,0 +1,14 @@
+# 04: Coordinator Scheduling Wizard (Steps 1–3), Matchmaker Solver & Authenticated Schedule View
+
+**What to build:** **Meal Coordinators** can run Steps 1–3 of the scheduling wizard backed by Supabase Postgres: auditing survey completeness in Step 1 (viewing missing **Active Members**, auto-reactivated **Members**, marking dormant members as **Inactive Members**, or entering/editing a survey on a **Member's** behalf), reviewing **Special Instructions**, custom survey answers (`custom_answers`), and `willing_to_mentor` badges while configuring **Exception Rules** and **Mentor Whitelists** in Step 2, and running the shared **Matchmaker Solver**, manually filling **Unfilled Slots** (with candidate pickers showing **Quotas**, rule conflicts, `willing_to_mentor`, and `custom_answers`), reviewing **Near-Complete Meals**, and saving finalized **Cook Teams** and **Clean Teams** to the `shifts` table (`TEAMS_READY`) in Step 3. Once saved, signed-in **Members** can view the monthly schedule with their own **Shifts** highlighted and download `.ics` calendar events.
+
+**Blocked by:** 02: Member Self-Service Profile & Master Registry Directory, 03: Planning Month Staging, Custom Survey Questions & Member Availability Survey
+
+**Status:** ready-for-agent
+
+- [ ] Database migration adds the `shifts` table (`meal_date_id`, `member_id`, `role`, `is_extra_helper`, `slot_index`) with RLS allowing **Members** to read **Shifts** and **Meal Coordinators** to write them.
+- [ ] Step 1 (Intake & **Completeness Audit**) computes missing **Active Members** and reactivated **Members** from relational `members` and `availability_surveys`, allowing the **Meal Coordinator** to mark missing members inactive or submit/edit a **Member's** survey.
+- [ ] Step 2 (Notes & Rules) displays each respondent's **Special Instructions**, `willing_to_mentor` status, and `custom_answers`, and badges willing **Mentors** (`willing_to_mentor = true`) when configuring a **Mentor Whitelist** (`REQUIRE_ONE_OF_TEAM`).
+- [ ] Step 3 (Solve & Review) maps relational `meal_dates`, `availability_surveys`, and UUID-keyed `exception_rules` into the shared **Matchmaker Solver**, displays `willing_to_mentor` and `custom_answers` inside candidate pickers, supports manual **Shift** assignments and **Oversubscription**, and persists solved **Cook Teams** and **Clean Teams** to `shifts` (setting month status to `TEAMS_READY`).
+- [ ] Signed-in **Members** can view the schedule for a **Planning Month**, see their own **Cook** and **Cleaner** **Shifts** highlighted, and export `.ics` calendar files for their shifts.
+- [ ] Integration tests against local Supabase Postgres verify the **Completeness Audit**, solver execution with UUID-keyed **Exception Rules** and **Mentor Whitelists**, saving/reloading relational **Shifts**, and schedule retrieval for signed-in **Members**.

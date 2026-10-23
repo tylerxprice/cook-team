@@ -1,0 +1,15 @@
+# 03: Planning Month Staging, Custom Survey Questions & Member Availability Survey
+
+**What to build:** **Meal Coordinators** can create and stage a **Planning Month** (`YYYY-MM`), generate and customize its **Meal Dates** (Dinners, Brunches, **No-Meal Dates**, and special notes), configure custom survey questions (`boolean`, `single_select`, `multi_select`, `text`, and `number` types snapshotted onto the **Planning Month** from defaults), and open sign-ups (`SIGN_UPS_OPEN`). Signed-in **Members** can open the **Availability Survey** for any open **Planning Month** to submit or edit in place their per-date availability (`Available`, `Cook Only`, `Clean Only`, `Unavailable`), **Cook Quota**, **Clean Quota**, optional **Max Total Shifts**, **Cook Team Sizing Policy** preference, **Same-Day Preference**, willingness to mentor **Teens** (`willing_to_mentor`), **Special Instructions**, and answers to custom survey questions (`custom_answers`). Submitting a survey automatically reactivates an **Inactive Member**, and advancing the **Planning Month** status past `SIGN_UPS_OPEN` locks the survey to read-only for regular **Members**.
+
+**Blocked by:** 01: Next.js + Local Supabase Tracer Bullet: Google OAuth Sign-In, Member Matching & Access Requests, 02: Member Self-Service Profile & Master Registry Directory
+
+**Status:** ready-for-agent
+
+- [ ] Database migration adds `planning_months` (including `custom_questions jsonb`), `meal_dates`, `availability_surveys` (including `willing_to_mentor boolean` and `custom_answers jsonb`, unique on `(planning_month_id, member_id)`), and `availability_entries` with RLS policies.
+- [ ] A **Meal Coordinator** can stage a **Planning Month**, configure **Meal Dates**, add/edit/reorder custom survey questions (both global defaults in `community_settings` and per-month overrides on `planning_months.custom_questions`), and transition status between `STAGING_DATES`, `SIGN_UPS_OPEN`, and downstream statuses.
+- [ ] Editing custom survey questions on a new **Planning Month** does not alter the snapshotted questions or `custom_answers` on previous **Planning Months**.
+- [ ] A signed-in **Member** can submit an **Availability Survey** for an open **Planning Month** (`SIGN_UPS_OPEN` / `OPEN`), including `willing_to_mentor` and dynamic custom questions, and reopening the survey pre-populates and updates their single record in place without creating duplicate rows.
+- [ ] When an **Inactive Member** (`active = false`) submits an **Availability Survey** for an open **Planning Month**, their **Member** record automatically flips to `active = true` and updates `last_active_survey`.
+- [ ] Once a **Planning Month** moves to `RESPONSES_RECEIVED`, `TEAMS_READY`, `EMAIL_SENT`, or `CLOSED`, the survey UI becomes read-only for regular **Members** (with a prompt to contact the **Meal Coordinator**) and RLS rejects direct `INSERT`/`UPDATE` attempts by non-coordinators.
+- [ ] Integration tests against local Supabase Postgres verify month staging, custom question snapshotting, single-row survey upsert, auto-reactivation of **Inactive Members**, and RLS cutoff enforcement when a month closes.

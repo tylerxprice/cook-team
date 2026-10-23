@@ -44,8 +44,12 @@ _Avoid_: Supervisor, chaperone, partner, co-worker
 
 ### Meals, Teams & Scheduling
 
+**Planning Month**:
+A single monthly scheduling cycle (identified by `YYYY-MM`) with its own lifecycle status, configured Meal Dates, submitted Availability Surveys, and solved Shifts.
+_Avoid_: Month data, month config, survey month
+
 **Meal Date**:
-A specific calendar date and meal type (**Dinner** or **Brunch**) scheduled for a community meal within a planning month.
+A specific calendar date and meal type (**Dinner** or **Brunch**) scheduled for a community meal within a Planning Month.
 _Avoid_: Event, meal slot, shift day
 
 **No-Meal Date**:
@@ -117,7 +121,7 @@ The constraint-satisfaction scheduling engine that assigns Members to Cook Teams
 _Avoid_: Auto-scheduler, algorithm, optimizer, generator
 
 **Master Registry**:
-The persistent spreadsheet that stores the canonical directory of Members, standing Exception Rules, and global settings across months.
+The canonical directory of Members, standing Exception Rules, and community-wide settings across Planning Months.
 _Avoid_: Master sheet, member database, config workbook
 
 **Monthly Survey Sheet**:
